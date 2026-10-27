@@ -1,4 +1,6 @@
 import { addDays, diffDays } from "./calendar";
+import { cityName } from "./cities";
+import { UF_BY_CODE } from "./geo";
 import { ideologyAffinity } from "./ideology";
 import type { Ctx } from "./state";
 import type { AffiliationRequestRow, PartyRow, PersonRow } from "./types";
@@ -155,7 +157,7 @@ export function processAffiliationRequests(ctx: Ctx): void {
       joinParty(ctx, person, party);
       ctx.notify(person.id, `Filiação aprovada: ${party.acronym}`, `O diretório do ${party.acronym} em ${person.uf} aprovou sua filiação. ${req.reason}`, "/jogo/carreira");
       ctx.publish("AFFILIATION_ACCEPTED", {
-        facts: { party: party.acronym, name: person.name, uf: person.uf, municipality: person.municipality || person.uf, reasonText: req.reason ?? "afinidade com o programa" },
+        facts: { party: party.acronym, name: person.name, uf: person.uf, municipality: cityName(ctx.s, person.municipality) ?? UF_BY_CODE[person.uf]?.capital ?? person.uf, reasonText: req.reason ?? "afinidade com o programa" },
         personIds: [person.id],
         geography: person.uf,
       });
@@ -214,7 +216,7 @@ export function partyInvitations(ctx: Ctx): void {
         reason: inviter ? `Convite feito por ${inviter.name}${inviter.role_label ? ` (${inviter.role_label})` : ""}.` : `Convite da direção estadual do ${party.acronym}.`,
       });
       ctx.notify(person.id, `Convite de filiação: ${party.acronym}`, `${inviter ? inviter.name : `A direção do ${party.acronym}`} convidou você para se filiar. O convite vale por 30 dias.`, "/jogo/partidos");
-      ctx.publish("PARTY_INVITATION", { facts: { party: party.acronym, uf: person.uf, municipality: person.municipality || person.uf }, geography: person.uf });
+      ctx.publish("PARTY_INVITATION", { facts: { party: party.acronym, uf: person.uf, municipality: cityName(ctx.s, person.municipality) ?? UF_BY_CODE[person.uf]?.capital ?? person.uf }, geography: person.uf });
       break;
     }
   }

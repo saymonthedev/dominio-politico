@@ -199,7 +199,7 @@ export function dailyPolicies(ctx: Ctx): void {
       pol.status = "ATRASADA";
       pol.completes_on = addDays(ctx.date, rng.int(60, 180));
       ctx.save("policies", pol);
-      ctx.publish("POLICY_DONE", { facts: { title: pol.title, status: "obra atrasa", body: `${OFFICES[pol.office_code].name} em ${geoName(pol.geo)}: o cronograma foi revisto por problemas de execução.` }, geography: ufOfGeo(pol.geo) });
+      ctx.publish("POLICY_DONE", { facts: { title: pol.title, status: "obra atrasa", body: `${OFFICES[pol.office_code].name} em ${geoName(pol.geo, ctx.s)}: o cronograma foi revisto por problemas de execução.` }, geography: ufOfGeo(pol.geo) });
       ctx.notify(pol.owner_person_id, "Política atrasada", `${pol.title} sofreu atraso.`, "/jogo/governo");
       continue;
     }
@@ -230,7 +230,7 @@ export function dailyPolicies(ctx: Ctx): void {
         ctx.save("parties", party);
       }
     }
-    ctx.publish("POLICY_DONE", { facts: { title: pol.title, status: "concluído", body: `${OFFICES[pol.office_code].name} em ${geoName(pol.geo)} entrega a política anunciada em ${pol.started_on}.` }, geography: ufOfGeo(pol.geo) });
+    ctx.publish("POLICY_DONE", { facts: { title: pol.title, status: "concluído", body: `${OFFICES[pol.office_code].name} em ${geoName(pol.geo, ctx.s)} entrega a política anunciada em ${pol.started_on}.` }, geography: ufOfGeo(pol.geo) });
     ctx.notify(pol.owner_person_id, "Política concluída", `${pol.title} foi concluída.`, "/jogo/governo");
   }
 }

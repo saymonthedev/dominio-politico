@@ -1,12 +1,13 @@
 import { addDays, type ISODate } from "./calendar";
-import { UFS, UF_BY_CODE, municipalityId, type Region } from "./geo";
+import { capitalId, UFS, UF_BY_CODE, type CityBase, type Region } from "./geo";
+import { snapshotTerritory } from "./cities";
 import { clampAxis, jitter, makeIdeology, spectrumLabel, type Ideology } from "./ideology";
 import { buildPerson, neutralRealTraits, spawnProceduralCadre } from "./npc";
 import { FACTION_TEMPLATES, profileFor, resolveAcronym } from "./parties";
 import { Rng } from "./rng";
 import { DEFAULT_RULESET, electionCalendar, inaugurationDate, senateSeatsForYear, termEnd, type OfficeCode } from "./ruleset";
 import { generateSegments } from "./segments";
-import { findRace, type Snapshot, type SnapshotCandidate, type SnapshotRace } from "./snapshot";
+import { findRace, type Snapshot, type SnapshotCandidate, type SnapshotPerson, type SnapshotRace } from "./snapshot";
 import { Changes, Ctx, emptyTables, STATEFUL_TABLES, type WorldState } from "./state";
 import { ufShares, type Contender } from "./support";
 import type {
@@ -32,6 +33,8 @@ export interface BootstrapOptions {
   name?: string;
   startRealAt: string;
   gameDaysPerRealHour?: number;
+  /** dados reais dos municípios no ponto de partida (data/municipios-<ano>.json) */
+  cities?: CityBase[];
 }
 
 export function partyIdFor(number: number): string {
@@ -72,7 +75,12 @@ export function createInitialWorld(snap: Snapshot, opts: BootstrapOptions): { st
     stats: {},
   };
   const economy = initialEconomy(snap, world.id);
-  const state: WorldState = { world, economy, ruleset: DEFAULT_RULESET, t: emptyTables() };
+  const state: WorldState = { world, economy, ruleset: DEFAULT_RULESET, t: emptyTables(), cities: new Map((opts.cities ?? []).map((c) => [c.id, c])) };
+  // Prefeito de capital: os dados municipais já trazem o vice que assumiu e as correções documentadas
+  const capitalMayor = (uf: string, fallback: SnapshotPerson | null): SnapshotPerson | null => {
+    const c = state.cities?.get(capitalId(uf))?.mayor;
+    return c ? { sq: c.sq ?? `${Y}-${uf}-prefeito`, name: c.name, party: c.party, party_number: c.party_number, birth_year: c.birth_year } : fallback;
+  };
   const ctx = new Ctx(state, "bootstrap");
   const rng = new Rng(`${opts.seed}|bootstrap`);
 
@@ -105,7 +113,8 @@ export function createInitialWorld(snap: Snapshot, opts: BootstrapOptions): { st
   for (const s of snap.senatorsContinuing) addSeat(s.party, "senado");
   for (const [uf, m] of Object.entries(snap.municipalCapitals)) {
     for (const [acr, n] of Object.entries(m.council)) addSeat(acr, `camara_mun_${uf}`, n);
-    if (m.mayor) addSeat(m.mayor.party, "prefeituras_capitais");
+    const mayor = capitalMayor(uf, m.mayor);
+    if (mayor) addSeat(mayor.party, "prefeituras_capitais");
   }
 
   const partyByAcronym = new Map<string, PartyRow>();
@@ -296,12 +305,13 @@ export function createInitialWorld(snap: Snapshot, opts: BootstrapOptions): { st
     snap.races.filter((r) => r.office === "GOVERNADOR" || r.office === "SENADOR" || r.round === 1).flatMap((r) => r.candidates.map((c) => keyOf(c.name, r.geo))),
   );
   for (const [uf, m] of Object.entries(snap.municipalCapitals)) {
-    if (!m.mayor) continue;
-    const key = keyOf(m.mayor.name, uf);
+    const mayor = capitalMayor(uf, m.mayor);
+    if (!mayor) continue;
+    const key = keyOf(mayor.name, uf);
     const leftToRun = ran2026.has(key);
-    const p = upsertReal(m.mayor, uf, 2, { [uf]: 0.6 }, 55, snap.meta.candidates_source_id);
-    p.municipality = m.capital;
-    addMandate(ctx, p, "PREFEITO", municipalityId(uf), `${Y - 1}-01-01`, leftToRun ? `${Y}-04-04` : `${Y + 3}-01-01`, leftToRun ? "ENCERRADO" : "ATIVO", null);
+    const p = upsertReal(mayor, uf, 2, { [uf]: 0.6 }, 55, snap.meta.candidates_source_id);
+    p.municipality = capitalId(uf);
+    addMandate(ctx, p, "PREFEITO", capitalId(uf), `${Y - 1}-01-01`, leftToRun ? `${Y}-04-04` : `${Y + 3}-01-01`, leftToRun ? "ENCERRADO" : "ATIVO", null);
   }
   // Cargo atual no registro da pessoa
   for (const m of state.t.mandates.values()) {
@@ -366,6 +376,9 @@ export function createInitialWorld(snap: Snapshot, opts: BootstrapOptions): { st
 
   // ------------------------------------------------------- eleições
   createSnapshotElection(ctx, snap, people, partyByAcronym);
+  // força estadual inicial dos partidos: referência para as eleições municipais calculadas
+  const startElection = state.t.elections.get(`e${Y}`)!;
+  startElection.summary = { ...startElection.summary, territoryStart: snapshotTerritory(state.t.parties.values()) };
   for (const y of [Y + 2, Y + 4]) ctx.save("elections", scheduledElection(world.id, y));
 
   // ------------------------------------------------------- notícias de abertura

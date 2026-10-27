@@ -1,12 +1,13 @@
 import { addDays, ageAt, diffDays, formatDatePt, year, type ISODate } from "./calendar";
-import { getUF, hasMunicipalElections, municipalityId, stateSeats, cityCouncilSeats, UFS, UF_BY_CODE } from "./geo";
+import { canonicalGeo, type CityBase, cityCouncilSeats, getUF, hasMunicipalElections, isCapital, isMunicipality, stateSeats, ufOfMunicipality, UFS, UF_BY_CODE } from "./geo";
+import { activeCities, cityName, snapshotTerritory } from "./cities";
 import { ideologyAffinity } from "./ideology";
 import { isReal } from "./news/policy";
 import { POLL_INSTITUTES } from "./news/outlets";
 import { spawnProceduralCadre } from "./npc";
 import { rngFor, Rng } from "./rng";
 import { eraRules, inaugurationDate, OFFICES, officesForElection, senateSeatsForYear, termEnd, type OfficeCode } from "./ruleset";
-import type { Ctx } from "./state";
+import type { Ctx, WorldState } from "./state";
 import { ufShares, type Contender } from "./support";
 import type { CampaignState, CandidacyRow, CandidateResult, ElectionRow, PartyListResult, PartyRow, PersonRow, RaceRow, VoterSegmentRow } from "./types";
 
@@ -14,23 +15,33 @@ export const emptyCampaign = (): CampaignState => ({
   budget: 0, spent: 0, fefc: 0, donations: 0, volunteers: 0, team: {}, momentum: 0, debate_score: 0, proposals: [], rumor_damage: 0,
 });
 
-export function geoName(geo: string): string {
+export function geoName(geo: string, s?: { cities?: Map<string, CityBase> }): string {
   if (geo === "BR") return "todo o Brasil";
-  if (geo.endsWith("-CAP")) return UF_BY_CODE[geo.slice(0, 2)]?.capital ?? geo;
+  const g = canonicalGeo(geo);
+  if (isMunicipality(g)) {
+    const name = s ? cityName(s, g) : null;
+    const uf = ufOfMunicipality(g);
+    return name ? `${name} (${uf})` : UF_BY_CODE[uf]?.capital ?? g;
+  }
   return UF_BY_CODE[geo]?.name ?? geo;
 }
 
 export function ufOfGeo(geo: string): string {
-  return geo.endsWith("-CAP") ? geo.slice(0, 2) : geo;
+  const g = canonicalGeo(geo);
+  return isMunicipality(g) ? ufOfMunicipality(g) : g;
 }
 
-function raceElectorate(geo: string): number {
+function raceElectorate(ctx: Ctx, geo: string): number {
   if (geo === "BR") return UFS.reduce((s, u) => s + u.electorate, 0);
-  if (geo.endsWith("-CAP")) return getUF(geo.slice(0, 2)).capitalElectorate;
+  const g = canonicalGeo(geo);
+  if (isMunicipality(g)) {
+    const uf = getUF(ufOfMunicipality(g));
+    return ctx.s.cities?.get(g)?.electorate || (isCapital(g) ? uf.capitalElectorate : Math.round(uf.electorate / 200));
+  }
   return getUF(geo).electorate;
 }
 
-function raceSeats(office: OfficeCode, geo: string, y: number): number {
+function raceSeats(ctx: Ctx, office: OfficeCode, geo: string, y: number): number {
   switch (office) {
     case "SENADOR":
       return senateSeatsForYear(y);
@@ -39,33 +50,43 @@ function raceSeats(office: OfficeCode, geo: string, y: number): number {
     case "DEP_ESTADUAL":
       return stateSeats(geo);
     case "VEREADOR":
-      return cityCouncilSeats(raceElectorate(geo));
+      return cityCouncilSeats(raceElectorate(ctx, geo));
     default:
       return 1;
   }
 }
 
-/** Cria as disputas de uma eleição (início da pré-campanha). */
+/** Cria uma disputa se ainda não existir (ex.: cidade de um jogador que chegou depois). */
+export function ensureRace(ctx: Ctx, e: ElectionRow, office: OfficeCode, geo: string): RaceRow {
+  const id = `${e.id}:${office}:${geo}`;
+  const existing = ctx.t.races.get(id);
+  if (existing) return existing;
+  const race: RaceRow = {
+    id,
+    world_id: ctx.world.id,
+    election_id: e.id,
+    office_code: office,
+    geo,
+    seats: raceSeats(ctx, office, geo, e.year),
+    electorate: raceElectorate(ctx, geo),
+    status: "ABERTA",
+    results: {},
+    latest_poll: null,
+  };
+  ctx.save("races", race);
+  return race;
+}
+
+/**
+ * Cria as disputas de uma eleição (início da pré-campanha). Nas municipais,
+ * só capitais e cidades com jogadores têm disputa completa; as demais têm o
+ * resultado calculado em cities.ts.
+ */
 export function createRaces(ctx: Ctx, e: ElectionRow): void {
   for (const office of officesForElection(e.kind)) {
     const rule = OFFICES[office];
-    const geos =
-      rule.scope === "BR" ? ["BR"] : rule.scope === "UF" ? UFS.map((u) => u.code) : UFS.filter((u) => hasMunicipalElections(u.code)).map((u) => municipalityId(u.code));
-    for (const geo of geos) {
-      const race: RaceRow = {
-        id: `${e.id}:${office}:${geo}`,
-        world_id: ctx.world.id,
-        election_id: e.id,
-        office_code: office,
-        geo,
-        seats: raceSeats(office, geo, e.year),
-        electorate: raceElectorate(geo),
-        status: "ABERTA",
-        results: {},
-        latest_poll: null,
-      };
-      ctx.save("races", race);
-    }
+    const geos = rule.scope === "BR" ? ["BR"] : rule.scope === "UF" ? UFS.map((u) => u.code) : activeCities(ctx);
+    for (const geo of geos) ensureRace(ctx, e, office, geo);
   }
 }
 
@@ -120,6 +141,7 @@ export function checkEligibility(ctx: Ctx, person: PersonRow, office: OfficeCode
   if (rule.consecutiveLimit !== null && consecutiveTerms(ctx, person.id, office, geo) > rule.consecutiveLimit) reasons.push("Limite de mandatos consecutivos atingido.");
   if (office === "PREFEITO" || office === "VEREADOR") {
     if (!hasMunicipalElections(person.uf)) reasons.push("O Distrito Federal não tem eleições municipais.");
+    else if (person.kind === "PLAYER" && canonicalGeo(person.municipality) !== canonicalGeo(geo)) reasons.push("Domicílio eleitoral em outro município.");
   }
   return { ok: reasons.length === 0, reasons };
 }
@@ -275,11 +297,18 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
       if (party && !running.includes(party)) running.push(party);
     }
     let ballot = 0;
+    // cidades do interior: candidatos locais (as capitais usam quadros da UF)
+    const localRace = isMunicipality(race.geo) && !isCapital(race.geo);
     for (const party of running) {
       ballot++;
       const uf = ufOfGeo(race.geo);
       const pool = [...ctx.t.persons.values()].filter(
-        (p) => p.party_id === party.id && p.kind !== "PLAYER" && !taken.has(p.id) && (race.geo === "BR" ? p.tier <= 2 : p.uf === uf) && checkEligibility(ctx, p, race.office_code, race.geo, e).ok,
+        (p) =>
+          p.party_id === party.id &&
+          p.kind !== "PLAYER" &&
+          !taken.has(p.id) &&
+          (race.geo === "BR" ? p.tier <= 2 : localRace ? canonicalGeo(p.municipality) === race.geo : p.uf === uf) &&
+          checkEligibility(ctx, p, race.office_code, race.geo, e).ok,
       );
       const scored = pool.map((p) => ({ p, s: candidateScore(ctx, p, race.office_code, race.geo, rng) }));
       const players = (preByRace.get(race.id) ?? []).filter((c) => c.party_id === party.id);
@@ -302,6 +331,7 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
         chosen = spawnProceduralCadre(ctx, {
           partyId: party.id,
           uf: race.geo === "BR" ? "DF" : uf,
+          municipality: isMunicipality(race.geo) ? race.geo : "",
           ideology: party.ideology,
           roleLabel: `quadro do ${party.acronym}`,
           ageRange: [Math.max(OFFICES[race.office_code].minAge + 1, 36), 62],
@@ -351,14 +381,14 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
       ctx.save("candidacies", cand);
       chosen.stage = "CANDIDATO";
       ctx.save("persons", chosen);
-      if (cand.is_player) ctx.notify(chosen.id, "Você é candidato(a)!", `A convenção do ${party.acronym} confirmou seu nome para ${OFFICES[race.office_code].name} em ${geoName(race.geo)}.`, "/jogo/campanha");
+      if (cand.is_player) ctx.notify(chosen.id, "Você é candidato(a)!", `A convenção do ${party.acronym} confirmou seu nome para ${OFFICES[race.office_code].name} em ${geoName(race.geo, ctx.s)}.`, "/jogo/campanha");
       if (race.office_code === "PRESIDENTE" || race.office_code === "GOVERNADOR" || cand.is_player) {
         ctx.publish("CONVENTION_RESULT", {
           facts: {
             party: party.acronym,
             name: chosen.name,
             office: OFFICES[race.office_code].name.toLowerCase(),
-            geoName: geoName(race.geo),
+            geoName: geoName(race.geo, ctx.s),
             extra: isReal(chosen.kind) ? "A candidatura faz parte da linha do tempo simulada." : chosen.kind === "PLAYER" ? "Venceu a disputa interna da legenda." : "É aposta da legenda para renovar seus quadros.",
           },
           personIds: [chosen.id],
@@ -486,7 +516,7 @@ export function runPolls(ctx: Ctx, e: ElectionRow, onlyImportant: boolean): void
           undecided: Math.round(undecided),
           margin: margin.toFixed(1).replace(".", ","),
           office: OFFICES[race.office_code].name.toLowerCase(),
-          geoName: geoName(race.geo),
+          geoName: geoName(race.geo, ctx.s),
         },
         personIds: cands.map((c) => c.person_id),
         geography: ufOfGeo(race.geo),
@@ -574,7 +604,7 @@ export function runDebates(ctx: Ctx): void {
     const loser = ctx.person(ctx.t.candidacies.get(ranked[ranked.length - 1][0])?.person_id);
     if (winner && loser) {
       ctx.publish("DEBATE_RESULT", {
-        facts: { outlet: d.outlet, winner: winner.name, loser: loser.name, office: OFFICES[race.office_code].name.toLowerCase(), geoName: geoName(race.geo), theme },
+        facts: { outlet: d.outlet, winner: winner.name, loser: loser.name, office: OFFICES[race.office_code].name.toLowerCase(), geoName: geoName(race.geo, ctx.s), theme },
         personIds: [winner.id, loser.id],
         geography: ufOfGeo(race.geo),
       });
@@ -601,6 +631,8 @@ function resultsOf(ctx: Ctx, cands: CandidacyRow[], tally: RaceTally): Candidate
 
 export function runFirstRound(ctx: Ctx, e: ElectionRow): void {
   let anyRunoff = false;
+  // força estadual dos partidos no dia: base do resultado nas cidades sem disputa ativa
+  if (e.kind === "MUNICIPAL") e.summary = { ...e.summary, cityTerritory: snapshotTerritory(ctx.t.parties.values()) };
   for (const race of [...ctx.t.races.values()].filter((r) => r.election_id === e.id)) {
     if (OFFICES[race.office_code].system === "PROPORCIONAL") {
       runProportional(ctx, e, race);
@@ -636,7 +668,7 @@ export function runFirstRound(ctx: Ctx, e: ElectionRow): void {
       ctx.publish("RUNOFF_SET", {
         facts: {
           office: rule.name,
-          geoName: geoName(race.geo),
+          geoName: geoName(race.geo, ctx.s),
           first: a.name,
           firstParty: ctx.t.parties.get(a.party_id)?.acronym ?? "",
           firstShare: a.share.toFixed(2).replace(".", ","),
@@ -690,7 +722,7 @@ function finalizeMajoritarian(ctx: Ctx, e: ElectionRow, race: RaceRow, results: 
       createMandate(ctx, p, race.office_code, race.geo, e);
     }
     afterElection(ctx, p, won, race);
-    if (c.is_player) ctx.notify(p.id, won ? "VOCÊ FOI ELEITO(A)!" : "Não foi desta vez", `${OFFICES[race.office_code].name} em ${geoName(race.geo)}: ${r.share.toFixed(2)}% dos votos válidos.`, "/jogo/carreira");
+    if (c.is_player) ctx.notify(p.id, won ? "VOCÊ FOI ELEITO(A)!" : "Não foi desta vez", `${OFFICES[race.office_code].name} em ${geoName(race.geo, ctx.s)}: ${r.share.toFixed(2)}% dos votos válidos.`, "/jogo/carreira");
   }
   const w = results.find((r) => winnerIds.includes(r.candidacy_id))!;
   const ru = results.find((r) => !winnerIds.includes(r.candidacy_id));
@@ -700,7 +732,7 @@ function finalizeMajoritarian(ctx: Ctx, e: ElectionRow, race: RaceRow, results: 
         winner: w.name,
         winnerParty: ctx.t.parties.get(w.party_id)?.acronym ?? "",
         office: OFFICES[race.office_code].name.toLowerCase(),
-        geoName: geoName(race.geo),
+        geoName: geoName(race.geo, ctx.s),
         winnerShare: w.share.toFixed(2).replace(".", ","),
         runnerUp: ru?.name ?? "—",
         runnerUpParty: ru ? ctx.t.parties.get(ru.party_id)?.acronym ?? "" : "",
@@ -857,7 +889,7 @@ export function runProportional(ctx: Ctx, e: ElectionRow, race: RaceRow): void {
         const p = ctx.person(c.person_id)!;
         if (winsSeat) createMandate(ctx, p, race.office_code, race.geo, e);
         afterElection(ctx, p, winsSeat, race);
-        ctx.notify(p.id, winsSeat ? "VOCÊ FOI ELEITO(A)!" : "Suplência", `${OFFICES[race.office_code].name} em ${geoName(race.geo)}: ${Math.round(entry.votes).toLocaleString("pt-BR")} votos. O ${party.acronym} fez ${won} cadeira(s).`, "/jogo/carreira");
+        ctx.notify(p.id, winsSeat ? "VOCÊ FOI ELEITO(A)!" : "Suplência", `${OFFICES[race.office_code].name} em ${geoName(race.geo, ctx.s)}: ${Math.round(entry.votes).toLocaleString("pt-BR")} votos. O ${party.acronym} fez ${won} cadeira(s).`, "/jogo/carreira");
         if (winsSeat) electedIds.push(p.id);
       } else if (winsSeat) {
         if (entry.id.startsWith("abs_")) {
@@ -894,7 +926,7 @@ export function runProportional(ctx: Ctx, e: ElectionRow, race: RaceRow): void {
       ctx.publish("PROPORTIONAL_RESULT", {
         facts: {
           office: OFFICES[race.office_code].name,
-          geoName: geoName(race.geo),
+          geoName: geoName(race.geo, ctx.s),
           topParty: topParty.acronym,
           topSeats: top.seats,
           seats,
@@ -949,7 +981,7 @@ export function processMandates(ctx: Ctx): void {
         ctx.saveWorld();
       }
       if (m.office_code === "PRESIDENTE" || m.office_code === "GOVERNADOR" || p.kind === "PLAYER") {
-        ctx.publish("INAUGURATION", { facts: { name: p.name, office: OFFICES[m.office_code].name.toLowerCase(), geoName: geoName(m.geo), endDate: formatDatePt(m.end_on) }, personIds: [p.id], geography: ufOfGeo(m.geo) });
+        ctx.publish("INAUGURATION", { facts: { name: p.name, office: OFFICES[m.office_code].name.toLowerCase(), geoName: geoName(m.geo, ctx.s), endDate: formatDatePt(m.end_on) }, personIds: [p.id], geography: ufOfGeo(m.geo) });
       }
       if (p.kind === "PLAYER") ctx.notify(p.id, "Posse!", `Você tomou posse como ${OFFICES[m.office_code].name}. Mandato até ${formatDatePt(m.end_on)}.`, "/jogo/governo");
     }
@@ -962,6 +994,7 @@ export function processMandates(ctx: Ctx): void {
     for (const [key, seats] of Object.entries(pending)) {
       const [office, geo] = key.split(":") as [OfficeCode, string];
       if (inaugurationDate(office, e.year) !== ctx.date) continue;
+      if (office === "VEREADOR" && !isCapital(geo)) continue; // câmaras do interior ficam no resultado da disputa
       const seatKey = office === "DEP_FEDERAL" ? "camara" : office === "DEP_ESTADUAL" ? `assembleia_${geo}` : `camara_mun_${ufOfGeo(geo)}`;
       for (const p of ctx.t.parties.values()) {
         if (office === "DEP_FEDERAL") {
@@ -995,6 +1028,7 @@ export function processMandates(ctx: Ctx): void {
 export function updateTerritoryFromResults(ctx: Ctx, e: ElectionRow): void {
   for (const race of ctx.t.races.values()) {
     if (race.election_id !== e.id || race.office_code !== (e.kind === "GERAL" ? "DEP_FEDERAL" : "VEREADOR")) continue;
+    if (race.office_code === "VEREADOR" && !isCapital(race.geo)) continue;
     const uf = ufOfGeo(race.geo);
     for (const r of race.results.first?.parties ?? []) {
       const p = ctx.t.parties.get(r.party_id);

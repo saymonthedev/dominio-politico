@@ -1,8 +1,8 @@
 import { joinParty, leaveParty, relKey, requestAffiliation } from "./affiliation";
 import { addDays, formatDatePt } from "./calendar";
 import { canBeTargeted, createIllicitAct, openInvestigation } from "./crime";
-import { checkEligibility, emptyCampaign, geoName, tallyMajoritarian, ufOfGeo } from "./elections";
-import { municipalityId, UF_BY_CODE, UF_CODES } from "./geo";
+import { checkEligibility, emptyCampaign, ensureRace, geoName, tallyMajoritarian, ufOfGeo } from "./elections";
+import { canonicalGeo, capitalId, isMunicipality, UF_BY_CODE, UF_CODES } from "./geo";
 import { POLICY_CATALOG, startPolicy } from "./government";
 import { AXES, AXIS_INFO, clampAxis, ideologyAffinity, type Axis } from "./ideology";
 import { moderateText } from "./news/moderation";
@@ -466,8 +466,10 @@ export const ACTIONS: ActionDef[] = [
       const office = params.office as OfficeCode;
       const rule = OFFICES[office];
       if (!rule || rule.election !== e.kind) return { ok: false, message: "Este cargo não está em disputa nesta eleição." };
-      const geo = rule.scope === "BR" ? "BR" : rule.scope === "UF" ? p.uf : municipalityId(p.uf);
-      const race = ctx.t.races.get(`${e.id}:${office}:${geo}`);
+      const city = canonicalGeo(p.municipality);
+      const geo = rule.scope === "BR" ? "BR" : rule.scope === "UF" ? p.uf : isMunicipality(city) ? city : capitalId(p.uf);
+      // cidade de jogador que ainda não tinha disputa aberta
+      const race = ctx.t.races.get(`${e.id}:${office}:${geo}`) ?? (rule.scope === "MUNICIPIO" && e.status !== "AGENDADA" ? ensureRace(ctx, e, office, geo) : undefined);
       if (!race) return { ok: false, message: "Disputa inexistente na sua região." };
       const elig = checkEligibility(ctx, p, office, geo, e);
       const party = ctx.t.parties.get(p.party_id!)!;
@@ -492,7 +494,7 @@ export const ACTIONS: ActionDef[] = [
       p.stage = "PRE_CANDIDATO";
       return {
         ok: true,
-        message: `Pré-candidatura a ${rule.name} em ${geoName(geo)} registrada no ${party.acronym}. Convenções: ${formatDatePt(e.calendar.conventionStart)} a ${formatDatePt(e.calendar.conventionEnd)}.${elig.ok ? "" : " " + cand.note}`,
+        message: `Pré-candidatura a ${rule.name} em ${geoName(geo, ctx.s)} registrada no ${party.acronym}. Convenções: ${formatDatePt(e.calendar.conventionStart)} a ${formatDatePt(e.calendar.conventionEnd)}.${elig.ok ? "" : " " + cand.note}`,
       };
     },
   },

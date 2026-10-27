@@ -77,8 +77,47 @@ export function hasMunicipalElections(ufCode: string): boolean {
   return ufCode !== "DF";
 }
 
-export function municipalityId(ufCode: string): string {
-  return `${ufCode}-CAP`;
+/** Código IBGE de duas posições de cada UF. */
+export const UF_IBGE: Record<string, string> = {
+  RO: "11", AC: "12", AM: "13", RR: "14", PA: "15", AP: "16", TO: "17", MA: "21", PI: "22", CE: "23", RN: "24", PB: "25", PE: "26", AL: "27",
+  SE: "28", BA: "29", MG: "31", ES: "32", RJ: "33", SP: "35", PR: "41", SC: "42", RS: "43", MS: "50", MT: "51", GO: "52", DF: "53",
+};
+const IBGE_UF: Record<string, string> = Object.fromEntries(Object.entries(UF_IBGE).map(([uf, code]) => [code, uf]));
+
+/** Código IBGE (7 dígitos) da capital de cada UF. */
+export const CAPITAL_IBGE: Record<string, string> = {
+  RO: "1100205", AC: "1200401", AM: "1302603", RR: "1400100", PA: "1501402", AP: "1600303", TO: "1721000", MA: "2111300", PI: "2211001",
+  CE: "2304400", RN: "2408102", PB: "2507507", PE: "2611606", AL: "2704302", SE: "2800308", BA: "2927408", MG: "3106200", ES: "3205309",
+  RJ: "3304557", SP: "3550308", PR: "4106902", SC: "4205407", RS: "4314902", MS: "5002704", MT: "5103403", GO: "5208707", DF: "5300108",
+};
+const CAPITAL_SET = new Set(Object.values(CAPITAL_IBGE));
+
+/** Municípios são identificados pelo código IBGE de 7 dígitos. */
+export const isMunicipality = (geo: string): boolean => /^\d{7}$/.test(geo);
+export const isCapital = (geo: string): boolean => CAPITAL_SET.has(canonicalGeo(geo));
+export const ufOfMunicipality = (ibge: string): string => IBGE_UF[ibge.slice(0, 2)] ?? "";
+
+/** Capital da UF (código IBGE). */
+export function capitalId(ufCode: string): string {
+  return CAPITAL_IBGE[ufCode];
+}
+
+/** Mundos antigos usavam "SP-CAP" para a capital; converte para o código IBGE. */
+export function canonicalGeo(geo: string): string {
+  return geo.endsWith("-CAP") ? CAPITAL_IBGE[geo.slice(0, 2)] ?? geo : geo;
+}
+
+/** Dados reais de partida de um município (data/municipios-<ano>.json). */
+export interface CityBase {
+  id: string;
+  tse: number;
+  uf: string;
+  name: string;
+  capital: boolean;
+  electorate: number;
+  mayor: { sq: string | null; name: string; party: string; party_number: number; birth_year: number | null } | null;
+  council: Record<string, number>;
+  president: Record<string, number>;
 }
 
 /** Assembleias: art. 27 da Constituição (3x a bancada federal até 12; acima disso, 36 + excedente). */

@@ -3,6 +3,7 @@ export * from "./affiliation";
 export * from "./bootstrap";
 export * from "./calendar";
 export * from "./character";
+export * from "./cities";
 export * from "./crime";
 export * from "./economy";
 export * from "./elections";

@@ -123,9 +123,9 @@ export function buildPerson(input: NewPersonInput): { person: PersonRow; state: 
  */
 export function spawnProceduralCadre(
   ctx: Ctx,
-  opts: { partyId: string; uf: string; ideology: Ideology; roleLabel: string; ageRange?: [number, number]; reputation?: number; tier?: number },
+  opts: { partyId: string; uf: string; municipality?: string; ideology: Ideology; roleLabel: string; ageRange?: [number, number]; reputation?: number; tier?: number },
 ): PersonRow {
-  const rng = ctx.rng("spawn", `${opts.partyId}:${opts.uf}:${opts.roleLabel}`);
+  const rng = ctx.rng("spawn", `${opts.partyId}:${opts.municipality || opts.uf}:${opts.roleLabel}`);
   const [minAge, maxAge] = opts.ageRange ?? [28, 55];
   const age = rng.int(minAge, maxAge);
   const birthYear = Number(ctx.date.slice(0, 4)) - age;
@@ -134,12 +134,12 @@ export function spawnProceduralCadre(
   const taken = new Set([...ctx.t.persons.values()].map((p) => p.name));
   for (let i = 0; i < 5 && taken.has(name); i++) name = generateName(rng);
   const { person, state } = buildPerson({
-    id: ctx.id("per", opts.partyId, opts.uf),
+    id: ctx.id("per", opts.partyId, opts.municipality || opts.uf),
     kind: "FICTIONAL_GENERATED",
     name,
     birthYear,
     uf: opts.uf,
-    municipality: "",
+    municipality: opts.municipality ?? "",
     profession: prof.label,
     origin: "procedural",
     partyId: opts.partyId,

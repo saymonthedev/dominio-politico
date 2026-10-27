@@ -1,3 +1,4 @@
+import type { CityBase } from "./geo";
 import type { ISODate } from "./calendar";
 import { formatDatePt } from "./calendar";
 import { buildNarrativeFacts, evaluatePolicy, isReal, validateRenderedText, type PolicySubject } from "./news/policy";
@@ -47,6 +48,8 @@ export interface WorldState {
   economy: EconomyRow;
   ruleset: Ruleset;
   t: Tables;
+  /** Dados reais de partida dos municípios (estáticos, não persistidos). Indexados pelo código IBGE. */
+  cities?: Map<string, CityBase>;
 }
 
 export function emptyTables(): Tables {

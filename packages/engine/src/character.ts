@@ -2,7 +2,7 @@ import { makeIdeology, type Ideology } from "./ideology";
 import { moderateText } from "./news/moderation";
 import { buildPerson } from "./npc";
 import { origin, profession } from "./names";
-import { municipalityId, UF_BY_CODE } from "./geo";
+import { canonicalGeo, capitalId, isMunicipality, ufOfMunicipality, UF_BY_CODE } from "./geo";
 import type { Ctx } from "./state";
 import type { PersonRow } from "./types";
 
@@ -14,6 +14,8 @@ export interface CharacterInput {
   userId: string;
   name: string;
   uf: string;
+  /** código IBGE da cidade-base; sem ele, a capital */
+  city?: string;
   age: number;
   profession: string;
   origin: string;
@@ -33,6 +35,8 @@ export function createCharacter(ctx: Ctx, input: CharacterInput): CharacterResul
   }
   const uf = UF_BY_CODE[input.uf];
   if (!uf) return { ok: false, error: "UF inválida." };
+  const city = input.city ? canonicalGeo(input.city) : capitalId(uf.code);
+  if (!isMunicipality(city) || ufOfMunicipality(city) !== uf.code || (ctx.s.cities?.size && !ctx.s.cities.has(city))) return { ok: false, error: "Cidade inválida para esta UF." };
   const age = Math.floor(Number(input.age));
   if (!Number.isFinite(age) || age < ctx.s.ruleset.minCharacterAge || age > 80) return { ok: false, error: `Idade do personagem entre ${ctx.s.ruleset.minCharacterAge} e 80 anos.` };
   const realNames = [...ctx.t.persons.values()].filter((p) => p.kind === "REAL_ACTIVE_AT_SNAPSHOT" || p.kind === "REAL_HISTORICAL").map((p) => p.name);
@@ -47,7 +51,7 @@ export function createCharacter(ctx: Ctx, input: CharacterInput): CharacterResul
     name: input.name.trim().replace(/\s+/g, " "),
     birthYear: Number(ctx.date.slice(0, 4)) - age,
     uf: uf.code,
-    municipality: uf.capital,
+    municipality: city,
     profession: prof.id,
     origin: orig.id,
     partyId: null,
@@ -70,12 +74,11 @@ export function createCharacter(ctx: Ctx, input: CharacterInput): CharacterResul
     createdTick: ctx.tick,
     worldId: ctx.world.id,
   });
-  person.municipality = uf.capital;
   state.interests = input.interests.slice(0, 5);
   state.income_last_year = prof.income * 12;
   ctx.save("persons", person);
   ctx.save("person_states", state);
-  ctx.emit("CHARACTER_CREATED", { actors: [person.id], geography: uf.code, payload: { municipality: municipalityId(uf.code) } });
+  ctx.emit("CHARACTER_CREATED", { actors: [person.id], geography: uf.code, payload: { municipality: city } });
   ctx.notify(
     person.id,
     "Bem-vindo(a) à vida pública",

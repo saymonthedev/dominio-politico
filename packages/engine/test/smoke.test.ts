@@ -30,7 +30,7 @@ describe("simulação longa", () => {
     console.log("2030 2º turno:", pres.results.runoff?.candidates.map((c) => `${c.name} ${c.share}%`));
     const president = state.t.persons.get(state.world.gov.president_id!);
     console.log("presidente em 2031:", president?.name, president?.kind);
-    const sp = [...state.t.races.values()].find((x) => x.id === "e2028:PREFEITO:SP-CAP")!;
+    const sp = [...state.t.races.values()].find((x) => x.id === "e2028:PREFEITO:3550308")!;
     console.log("SP 2028:", (sp.results.runoff ?? sp.results.first)?.candidates.map((c) => `${c.name} ${c.share}%`));
     const camara = [...state.t.parties.values()].map((p) => [p.acronym, p.seats.camara ?? 0] as const).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
     console.log("Câmara 2031:", camara.slice(0, 10).map(([a, n]) => `${a}:${n}`).join(" "), "total", camara.reduce((s, [, n]) => s + n, 0));
