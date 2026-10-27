@@ -166,7 +166,7 @@ async function main() {
     return r;
   };
   let n = 0;
-  await eachRow(votZip, "*.csv", (r) => {
+  await eachRow(votZip, "*_BRASIL.csv", (r) => {
     const office = CARGO[Number(r.CD_CARGO)];
     if (!office) return;
     const round = Number(r.NR_TURNO);
@@ -198,7 +198,7 @@ async function main() {
   // ---------------- detalhe (eleitorado, comparecimento, brancos, nulos)
   const detZip = await ensureZip(`detalhe_votacao_munzona_${YEAR}.zip`, "detalhe_votacao_munzona");
   const det = new Map();
-  await eachRow(detZip, "*.csv", (r) => {
+  await eachRow(detZip, "*_BRASIL.csv", (r) => {
     const office = CARGO[Number(r.CD_CARGO)];
     if (!office) return;
     const round = Number(r.NR_TURNO);
