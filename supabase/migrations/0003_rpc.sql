@@ -1,83 +1,6 @@
--- Segurança: RLS em tudo; leitura pública do mundo; dados de jogador só para o dono.
--- Escritas do motor passam por RPCs SECURITY DEFINER protegidas por segredo de servidor
--- (o hash fica em private.app_secrets; o valor só existe nas variáveis de ambiente do servidor).
+-- RPCs do motor. Todas exigem o segredo de servidor (hash em private.app_secrets).
+-- Seeds e vínculos conta ↔ personagem são separados para o schema privado.
 
-create extension if not exists pgcrypto with schema extensions;
-
-do $$
-declare t text;
-begin
-  foreach t in array array[
-    'sources','license_records','player_profiles','worlds','persons','person_states','parties','factions','memberships',
-    'affiliation_requests','relationships','elections','races','candidacies','mandates','bills','policies','illicit_acts',
-    'investigations','rumors','debates','voter_segments','economy_snapshots','world_events','news_articles','notifications',
-    'finance_transactions','polls'
-  ] loop
-    execute format('alter table public.%I enable row level security', t);
-  end loop;
-end $$;
-
--- Leitura pública (mundo compartilhado)
-do $$
-declare t text;
-begin
-  foreach t in array array[
-    'sources','license_records','worlds','persons','parties','factions','memberships','elections','races','candidacies',
-    'mandates','bills','policies','investigations','rumors','debates','voter_segments','economy_snapshots'
-  ] loop
-    execute format('create policy "leitura publica" on public.%I for select to anon, authenticated using (true)', t);
-  end loop;
-end $$;
-
--- A seed do mundo não é pública (permitiria prever eventos)
-revoke select on public.worlds from anon, authenticated;
-grant select (id, name, ruleset_version, tick, game_date, start_game_date, anchor_real_at, anchor_tick, game_days_per_real_hour,
-  election_integrity_mode, gov, stats, start_year, status, created_at) on public.worlds to anon, authenticated;
-
--- Função auxiliar: a pessoa (world_id, person_id) pertence ao usuário logado?
-create or replace function private.owns_person(p_world text, p_person text)
-returns boolean language sql stable security definer set search_path = '' as $$
-  select exists (
-    select 1 from public.persons p
-    where p.world_id = p_world and p.id = p_person and p.user_id = auth.uid()
-  );
-$$;
-grant usage on schema private to anon, authenticated;
-grant execute on function private.owns_person(text, text) to anon, authenticated;
-
-create policy "dono" on public.person_states for select to authenticated using (user_id = (select auth.uid()));
-create policy "dono" on public.affiliation_requests for select to authenticated using (private.owns_person(world_id, person_id));
-create policy "dono" on public.relationships for select to authenticated using (private.owns_person(world_id, a_id));
-create policy "dono" on public.finance_transactions for select to authenticated using (private.owns_person(world_id, person_id));
-create policy "dono ou descoberto" on public.illicit_acts for select to authenticated using (discovered or private.owns_person(world_id, person_id));
-create policy "dono" on public.world_events for select to authenticated using (
-  exists (select 1 from public.persons p where p.world_id = world_events.world_id and p.user_id = (select auth.uid()) and p.id = any(world_events.actors))
-);
-create policy "publica ou do dono" on public.news_articles for select to anon, authenticated using (visibility = 'PUBLIC' or user_id = (select auth.uid()));
-create policy "publica ou do dono" on public.polls for select to anon, authenticated using (private_for is null or private.owns_person(world_id, private_for));
-create policy "dono" on public.notifications for select to authenticated using (user_id = (select auth.uid()));
-create policy "dono marca como lida" on public.notifications for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
-revoke update on public.notifications from anon, authenticated;
-grant update (read_at) on public.notifications to authenticated;
-
-create policy "dono" on public.player_profiles for select to authenticated using (user_id = (select auth.uid()));
-create policy "dono insere" on public.player_profiles for insert to authenticated with check (user_id = (select auth.uid()));
-create policy "dono atualiza" on public.player_profiles for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
-
--- Nenhuma escrita direta do cliente nas tabelas do mundo
-do $$
-declare t text;
-begin
-  foreach t in array array[
-    'sources','license_records','worlds','persons','person_states','parties','factions','memberships','affiliation_requests',
-    'relationships','elections','races','candidacies','mandates','bills','policies','illicit_acts','investigations','rumors',
-    'debates','voter_segments','economy_snapshots','world_events','news_articles','finance_transactions','polls'
-  ] loop
-    execute format('revoke insert, update, delete on public.%I from anon, authenticated', t);
-  end loop;
-end $$;
-
--- ------------------------------------------------------------------ RPCs do motor
 create or replace function private.check_secret(p_secret text)
 returns boolean language sql stable security definer set search_path = '' as $$
   select exists (
@@ -114,17 +37,22 @@ declare
   open_elections text[];
 begin
   if not private.check_secret(p_secret) then raise exception 'forbidden' using errcode = '42501'; end if;
-  select to_jsonb(x) - 'lease_until' - 'lease_holder' - 'created_at' - 'start_year' - 'status' into w from public.worlds x where id = p_world;
+  select (to_jsonb(x) - 'lease_until' - 'lease_holder' - 'created_at' - 'start_year' - 'status')
+         || jsonb_build_object('seed', (select s.seed from private.world_seeds s where s.world_id = x.id))
+    into w from public.worlds x where id = p_world;
   if w is null then return null; end if;
   select coalesce(array_agg(id), '{}') into open_elections from public.elections where world_id = p_world and status <> 'ENCERRADA';
 
   with active_persons as (
-    select * from public.persons where world_id = p_world and (status = 'ACTIVE' or kind = 'PLAYER')
+    select p.*, o.user_id as owner_id
+      from public.persons p
+      left join private.person_owners o on o.world_id = p.world_id and o.person_id = p.id
+     where p.world_id = p_world and (p.status = 'ACTIVE' or p.kind = 'PLAYER')
   )
   select jsonb_build_object(
     'world', w,
     'economy', (select to_jsonb(e) from public.economy_snapshots e where e.world_id = p_world order by e.month desc limit 1),
-    'persons', (select coalesce(jsonb_agg(to_jsonb(p)), '[]') from active_persons p),
+    'persons', (select coalesce(jsonb_agg((to_jsonb(p) - 'owner_id') || jsonb_build_object('user_id', p.owner_id)), '[]') from active_persons p),
     'person_states', (select coalesce(jsonb_agg(to_jsonb(s)), '[]') from public.person_states s join active_persons p on p.id = s.id where s.world_id = p_world),
     'parties', (select coalesce(jsonb_agg(to_jsonb(x)), '[]') from public.parties x where x.world_id = p_world),
     'factions', (select coalesce(jsonb_agg(to_jsonb(x)), '[]') from public.factions x where x.world_id = p_world),
@@ -173,6 +101,21 @@ begin
     if not tbl = any(allowed) then raise exception 'tabela não permitida: %', tbl; end if;
     rows := p_changes -> tbl;
     if rows is null or jsonb_array_length(rows) = 0 then continue; end if;
+
+    if tbl = 'worlds' then
+      insert into private.world_seeds (world_id, seed)
+      select r->>'id', r->>'seed' from jsonb_array_elements(rows) r
+       where r->>'id' = p_world and coalesce(r->>'seed', 'oculta') <> 'oculta'
+      on conflict (world_id) do nothing;
+      select jsonb_agg(r || '{"seed":"oculta"}'::jsonb) into rows from jsonb_array_elements(rows) r;
+    elsif tbl = 'persons' then
+      insert into private.person_owners (world_id, person_id, user_id)
+      select p_world, r->>'id', (r->>'user_id')::uuid from jsonb_array_elements(rows) r
+       where r->>'world_id' = p_world and r->>'user_id' is not null
+      on conflict (world_id, person_id) do update set user_id = excluded.user_id;
+      select jsonb_agg(r - 'user_id') into rows from jsonb_array_elements(rows) r;
+    end if;
+
     select string_agg(quote_ident(c.column_name), ', ' order by c.ordinal_position),
            string_agg(format('%1$I = excluded.%1$I', c.column_name), ', ' order by c.ordinal_position)
              filter (where c.column_name not in ('world_id', 'id', 'lease_until', 'lease_holder', 'created_at', 'seed'))
@@ -194,7 +137,7 @@ begin
   return new_tick;
 end $$;
 
--- Ajuste administrativo do relógio (avançar dias para testes e eventos)
+-- Ajuste administrativo do relógio (avançar dias para testes)
 create or replace function public.sim_set_clock(p_secret text, p_world text, p_anchor_tick int, p_anchor_real_at timestamptz, p_speed double precision)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
@@ -202,39 +145,29 @@ begin
   update public.worlds set anchor_tick = p_anchor_tick, anchor_real_at = p_anchor_real_at, game_days_per_real_hour = p_speed where id = p_world;
 end $$;
 
--- Exclusão de conta (LGPD): remove dados do jogador em todos os mundos
+-- Personagens do usuário logado (em todos os mundos)
+create or replace function public.my_characters()
+returns table (world_id text, person_id text) language sql stable security definer set search_path = '' as $$
+  select o.world_id, o.person_id from private.person_owners o where o.user_id = auth.uid();
+$$;
+
+create or replace function public.mark_notifications_read(p_ids text[] default null)
+returns void language sql security definer set search_path = '' as $$
+  update public.notifications set read_at = now()
+   where user_id = auth.uid() and read_at is null and (p_ids is null or id = any(p_ids));
+$$;
+
+-- Exclusão de dados (LGPD): o personagem sai do mundo de forma neutra e o vínculo é apagado
 create or replace function public.delete_my_data()
 returns void language plpgsql security definer set search_path = '' as $$
 declare uid uuid := auth.uid();
 begin
   if uid is null then raise exception 'not authenticated'; end if;
-  update public.persons set status = 'RETIRED', status_note = 'Conta encerrada pelo jogador.', name = 'Personagem removido', user_id = null where user_id = uid;
+  update public.persons p set status = 'RETIRED', status_note = 'Conta encerrada pelo jogador.', name = 'Personagem removido'
+    from private.person_owners o where o.world_id = p.world_id and o.person_id = p.id and o.user_id = uid;
   update public.person_states set user_id = null, dossiers = '{}', offers = '[]' where user_id = uid;
   delete from public.notifications where user_id = uid;
   delete from public.news_articles where user_id = uid and visibility = 'PRIVATE';
   delete from public.player_profiles where user_id = uid;
-end $$;
-
-revoke all on function public.sim_lease(text, text, text, int) from public;
-revoke all on function public.sim_release(text, text, text) from public;
-revoke all on function public.sim_load(text, text) from public;
-revoke all on function public.sim_apply(text, text, jsonb, int) from public;
-revoke all on function public.sim_set_clock(text, text, int, timestamptz, double precision) from public;
-revoke all on function public.delete_my_data() from public;
-grant execute on function public.sim_lease(text, text, text, int) to anon, authenticated;
-grant execute on function public.sim_release(text, text, text) to anon, authenticated;
-grant execute on function public.sim_load(text, text) to anon, authenticated;
-grant execute on function public.sim_apply(text, text, jsonb, int) to anon, authenticated;
-grant execute on function public.sim_set_clock(text, text, int, timestamptz, double precision) to anon, authenticated;
-grant execute on function public.delete_my_data() to authenticated;
-revoke all on function private.check_secret(text) from public, anon, authenticated;
-
--- O vínculo conta ↔ personagem não é público
-do $$
-declare cols text;
-begin
-  select string_agg(quote_ident(column_name), ', ') into cols
-    from information_schema.columns where table_schema = 'public' and table_name = 'persons' and column_name <> 'user_id';
-  execute 'revoke select on public.persons from anon, authenticated';
-  execute format('grant select (%s) on public.persons to anon, authenticated', cols);
+  delete from private.person_owners where user_id = uid;
 end $$;
