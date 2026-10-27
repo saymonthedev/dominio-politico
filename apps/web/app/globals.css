@@ -256,3 +256,12 @@ td.num, th.num { text-align: right; }
 .kv dt { color: var(--apagado); }
 .kv dd { margin: 0; font-weight: 600; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ===================== Avançar o tempo ===================== */
+.advance { position: relative; }
+.advance-panel {
+  position: absolute; right: 0; top: calc(100% + 10px); width: min(460px, calc(100vw - 32px)); max-height: 70vh; overflow: auto;
+  background: var(--cartao); color: var(--tinta); border: 1px solid var(--linha); border-radius: var(--r-lg); padding: 14px 16px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.28); z-index: 40;
+}
+@media (max-width: 760px) { .advance .label { display: none; } }

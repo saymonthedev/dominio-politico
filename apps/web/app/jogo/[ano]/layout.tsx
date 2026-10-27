@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { AdvanceTime } from "@/components/AdvanceTime";
 import { GameNav } from "@/components/GameNav";
 import { LogoMark } from "@/components/Logo";
 import { DISCLAIMER } from "@/components/SiteChrome";
@@ -40,6 +41,7 @@ export default async function GameLayout({ children, params }: { children: React
             <b>{world ? fmtDateLong(world.game_date) : "Montando o mundo…"}</b>
             linha do tempo simulada
           </div>
+          <AdvanceTime year={year} />
           <a className="bell" href={`/jogo/${year}/notificacoes`} aria-label={`${count ?? 0} notificações não lidas`}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />

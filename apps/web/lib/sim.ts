@@ -166,3 +166,57 @@ export async function advanceWorld(year: number, maxTicks = MAX_CATCHUP): Promis
   const { ticks } = await withWorld(worldIdFor(year), undefined, { maxTicks });
   return ticks;
 }
+
+export interface FastForwardResult {
+  ok: boolean;
+  message: string;
+  days: number;
+  from?: string;
+  to?: string;
+  headlines?: Array<{ headline: string; category: string; date: string; factual: boolean }>;
+  notifications?: Array<{ title: string; body: string }>;
+}
+
+export const FAST_FORWARD_COOLDOWN_MS = 60_000;
+const ALLOWED_DAYS = new Set([1, 7, 15]);
+
+/**
+ * "Avançar o tempo": processa N dias imediatamente e reancora o relógio real
+ * no novo dia (o relógio automático continua dali). Vale para todo o mundo.
+ */
+export async function fastForward(year: number, days: number, userId: string): Promise<FastForwardResult> {
+  if (!ALLOWED_DAYS.has(days)) return { ok: false, message: "Escolha 1, 7 ou 15 dias.", days };
+  const worldId = worldIdFor(year);
+  const holder = crypto.randomUUID();
+  if (!(await acquire(worldId, holder))) return { ok: false, message: "O mundo está processando outro avanço. Tente em instantes.", days };
+  try {
+    const state = await loadState(worldId);
+    const last = Number(state.world.stats.last_fast_forward_at ?? 0);
+    const wait = FAST_FORWARD_COOLDOWN_MS - (Date.now() - last);
+    if (wait > 0) return { ok: false, message: `Aguarde ${Math.ceil(wait / 1000)} s para avançar de novo neste mundo.`, days };
+    const expected = state.world.tick;
+    const from = state.world.game_date;
+    const now = new Date().toISOString();
+    const caughtUp = targetTick(state, now);
+    const target = Math.max(caughtUp, state.world.tick) + days;
+    const { ctx, ticks } = runTicks(state, { target, maxTicks: MAX_CATCHUP + days, budgetMs: 25_000, now: () => Date.now() });
+    state.world.anchor_tick = state.world.tick;
+    state.world.anchor_real_at = now;
+    state.world.stats = { ...state.world.stats, last_fast_forward_at: Date.now() };
+    ctx.saveWorld();
+    await persist(worldId, ctx.changes, expected);
+    cache.set(worldId, { state, at: Date.now() });
+    const news = ctx.changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
+    const headlines = news
+      .sort((a, b) => b.importance - a.importance || b.tick - a.tick)
+      .slice(0, 12)
+      .map((n) => ({ headline: n.headline, category: n.category, date: n.game_date, factual: n.factual }));
+    const notifications = ctx.changes
+      .get("notifications")
+      .filter((n) => n.user_id === userId)
+      .map((n) => ({ title: n.title, body: n.body }));
+    return { ok: true, message: `${ticks} dia(s) processado(s).`, days: ticks, from, to: state.world.game_date, headlines, notifications };
+  } finally {
+    await rpc("sim_release", { p_world: worldId, p_holder: holder }).catch(() => undefined);
+  }
+}

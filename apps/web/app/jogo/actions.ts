@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createCharacter, performAction, type ActionResult } from "@dp/engine";
 import { getSession } from "@/lib/game";
-import { ensureWorld, isStartYear, withWorld, worldIdFor } from "@/lib/sim";
+import { ensureWorld, fastForward, isStartYear, withWorld, worldIdFor, type FastForwardResult } from "@/lib/sim";
 
 export type ActionState = ActionResult & { at?: number };
 
@@ -71,4 +71,19 @@ export async function deleteMyData(): Promise<void> {
   await sb.rpc("delete_my_data");
   await sb.auth.signOut();
   redirect("/?conta=excluida");
+}
+
+export async function advanceTime(_: FastForwardResult | null, form: FormData): Promise<FastForwardResult> {
+  const { user } = await getSession();
+  if (!user) return { ok: false, message: "Sessão expirada.", days: 0 };
+  const year = Number(form.get("__year"));
+  const days = Number(form.get("days"));
+  if (!isStartYear(year)) return { ok: false, message: "Mundo inválido.", days: 0 };
+  try {
+    const res = await fastForward(year, days, user.id);
+    if (res.ok) revalidatePath(`/jogo/${year}`, "layout");
+    return res;
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Erro ao avançar o tempo.", days: 0 };
+  }
 }
