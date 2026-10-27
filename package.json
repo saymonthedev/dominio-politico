@@ -1,0 +1,22 @@
+{
+  "name": "dominio-politico",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @dp/web",
+    "build": "npm run build -w @dp/web",
+    "start": "npm run start -w @dp/web",
+    "worker": "npm run start -w @dp/worker",
+    "test": "npm run test -w @dp/engine",
+    "typecheck": "npm run typecheck -w @dp/engine && npm run typecheck -w @dp/web",
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "sim:advance": "npm run advance -w @dp/worker --"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
