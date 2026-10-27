@@ -1,5 +1,5 @@
--- RPCs do motor. Todas exigem o segredo de servidor (hash em private.app_secrets).
--- Seeds e vínculos conta ↔ personagem são separados para o schema privado.
+-- RPCs do motor: carregar e gravar o estado de um mundo. Exigem o segredo de servidor.
+-- Seeds e vínculos conta ↔ personagem ficam no schema privado.
 
 create or replace function private.check_secret(p_secret text)
 returns boolean language sql stable security definer set search_path = '' as $$
@@ -9,26 +9,6 @@ returns boolean language sql stable security definer set search_path = '' as $$
   );
 $$;
 
-create or replace function public.sim_lease(p_secret text, p_world text, p_holder text, p_seconds int)
-returns boolean language plpgsql security definer set search_path = '' as $$
-declare ok boolean;
-begin
-  if not private.check_secret(p_secret) then raise exception 'forbidden' using errcode = '42501'; end if;
-  update public.worlds
-     set lease_until = now() + make_interval(secs => p_seconds), lease_holder = p_holder
-   where id = p_world and (lease_until is null or lease_until < now() or lease_holder = p_holder)
-  returning true into ok;
-  return coalesce(ok, false);
-end $$;
-
-create or replace function public.sim_release(p_secret text, p_world text, p_holder text)
-returns void language plpgsql security definer set search_path = '' as $$
-begin
-  if not private.check_secret(p_secret) then raise exception 'forbidden' using errcode = '42501'; end if;
-  update public.worlds set lease_until = null, lease_holder = null where id = p_world and lease_holder = p_holder;
-end $$;
-
--- Estado necessário para o motor avançar o mundo
 create or replace function public.sim_load(p_secret text, p_world text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -112,7 +92,7 @@ begin
       insert into private.person_owners (world_id, person_id, user_id)
       select p_world, r->>'id', (r->>'user_id')::uuid from jsonb_array_elements(rows) r
        where r->>'world_id' = p_world and r->>'user_id' is not null
-      on conflict (world_id, person_id) do update set user_id = excluded.user_id;
+      on conflict (world_id, person_id) do nothing;
       select jsonb_agg(r - 'user_id') into rows from jsonb_array_elements(rows) r;
     end if;
 
@@ -137,37 +117,8 @@ begin
   return new_tick;
 end $$;
 
--- Ajuste administrativo do relógio (avançar dias para testes)
-create or replace function public.sim_set_clock(p_secret text, p_world text, p_anchor_tick int, p_anchor_real_at timestamptz, p_speed double precision)
-returns void language plpgsql security definer set search_path = '' as $$
-begin
-  if not private.check_secret(p_secret) then raise exception 'forbidden' using errcode = '42501'; end if;
-  update public.worlds set anchor_tick = p_anchor_tick, anchor_real_at = p_anchor_real_at, game_days_per_real_hour = p_speed where id = p_world;
-end $$;
-
 -- Personagens do usuário logado (em todos os mundos)
 create or replace function public.my_characters()
 returns table (world_id text, person_id text) language sql stable security definer set search_path = '' as $$
   select o.world_id, o.person_id from private.person_owners o where o.user_id = auth.uid();
 $$;
-
-create or replace function public.mark_notifications_read(p_ids text[] default null)
-returns void language sql security definer set search_path = '' as $$
-  update public.notifications set read_at = now()
-   where user_id = auth.uid() and read_at is null and (p_ids is null or id = any(p_ids));
-$$;
-
--- Exclusão de dados (LGPD): o personagem sai do mundo de forma neutra e o vínculo é apagado
-create or replace function public.delete_my_data()
-returns void language plpgsql security definer set search_path = '' as $$
-declare uid uuid := auth.uid();
-begin
-  if uid is null then raise exception 'not authenticated'; end if;
-  update public.persons p set status = 'RETIRED', status_note = 'Conta encerrada pelo jogador.', name = 'Personagem removido'
-    from private.person_owners o where o.world_id = p.world_id and o.person_id = p.id and o.user_id = uid;
-  update public.person_states set user_id = null, dossiers = '{}', offers = '[]' where user_id = uid;
-  delete from public.notifications where user_id = uid;
-  delete from public.news_articles where user_id = uid and visibility = 'PRIVATE';
-  delete from public.player_profiles where user_id = uid;
-  delete from private.person_owners where user_id = uid;
-end $$;

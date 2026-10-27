@@ -1,0 +1,74 @@
+"use server";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createCharacter, performAction, type ActionResult } from "@dp/engine";
+import { getSession } from "@/lib/game";
+import { ensureWorld, isStartYear, withWorld, worldIdFor } from "@/lib/sim";
+
+export type ActionState = ActionResult & { at?: number };
+
+const META = new Set(["__year", "__action"]);
+
+export async function createCharacterAction(_: ActionState, form: FormData): Promise<ActionState> {
+  const { user } = await getSession();
+  if (!user) redirect("/entrar");
+  const year = Number(form.get("year"));
+  if (!isStartYear(year)) return { ok: false, message: "Ponto de partida inválido." };
+  try {
+    await ensureWorld(year);
+    const ideology: Record<string, number> = {};
+    for (const ax of ["economy", "social", "security", "institutions", "environment", "federalism"]) ideology[ax] = Number(form.get(`ax_${ax}`) ?? 0);
+    const { result } = await withWorld(worldIdFor(year), (state, mk) =>
+      createCharacter(mk(`novo-${user.id}`), {
+        userId: user.id,
+        name: String(form.get("name") ?? ""),
+        uf: String(form.get("uf") ?? ""),
+        age: Number(form.get("age") ?? 0),
+        profession: String(form.get("profession") ?? ""),
+        origin: String(form.get("origin") ?? ""),
+        interests: form.getAll("interests").map(String),
+        ideology,
+      }),
+    );
+    if (!result?.ok) return { ok: false, message: result?.error ?? "Não foi possível criar o personagem." };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Erro ao criar o personagem." };
+  }
+  redirect(`/jogo/${year}`);
+}
+
+export async function doAction(_: ActionState, form: FormData): Promise<ActionState> {
+  const { sb, user } = await getSession();
+  if (!user) return { ok: false, message: "Sessão expirada. Entre novamente." };
+  const year = Number(form.get("__year"));
+  const actionId = String(form.get("__action") ?? "");
+  if (!isStartYear(year)) return { ok: false, message: "Mundo inválido." };
+  const worldId = worldIdFor(year);
+  const { data: st } = await sb.from("person_states").select("id").eq("world_id", worldId).eq("user_id", user.id).maybeSingle();
+  if (!st) return { ok: false, message: "Você não tem personagem neste mundo." };
+  const params: Record<string, string> = {};
+  for (const [k, v] of form.entries()) if (!META.has(k) && typeof v === "string" && v !== "") params[k] = v;
+  try {
+    const { result } = await withWorld(worldId, (state, mk) => {
+      if (state.t.persons.get(st.id)?.user_id !== user.id) return { ok: false, message: "Personagem não pertence a esta conta." };
+      return performAction(mk(st.id), st.id, actionId, params);
+    });
+    revalidatePath(`/jogo/${year}`, "layout");
+    return { ...(result ?? { ok: false, message: "Sem resultado." }), at: Date.now() };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Erro ao executar a ação.", at: Date.now() };
+  }
+}
+
+export async function markAllRead(form: FormData): Promise<void> {
+  const { sb } = await getSession();
+  await sb.rpc("mark_notifications_read", { p_ids: null });
+  revalidatePath(`/jogo/${Number(form.get("__year"))}`, "layout");
+}
+
+export async function deleteMyData(): Promise<void> {
+  const { sb } = await getSession();
+  await sb.rpc("delete_my_data");
+  await sb.auth.signOut();
+  redirect("/?conta=excluida");
+}
