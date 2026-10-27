@@ -9,6 +9,21 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Icon } from "./Icon";
 
+/**
+ * Atributos que desligam preenchimento e sugestões do navegador e de
+ * gerenciadores de senha (Google, 1Password, LastPass, Bitwarden).
+ */
+export const NO_FILL = {
+  autoComplete: "off",
+  autoCorrect: "off",
+  autoCapitalize: "off",
+  spellCheck: false,
+  "data-lpignore": "true",
+  "data-1p-ignore": "true",
+  "data-bwignore": "true",
+  "data-form-type": "other",
+} as const;
+
 /* ---------------------------------------------------------------- Botão */
 
 type ButtonTone = "primary" | "gold" | "ghost" | "danger" | "on-dark";
@@ -79,7 +94,7 @@ export function TextField({
     <FieldShell id={id} label={label} hint={hint} error={error} optional={optional}>
       <div className="ui-input">
         {icon && <Icon name={icon} size={18} className="ui-input__icon" />}
-        <input {...input} id={id} aria-describedby={hint || error ? `${id}-hint` : undefined} aria-invalid={!!error || undefined} />
+        <input {...input} {...NO_FILL} id={id} aria-describedby={hint || error ? `${id}-hint` : undefined} aria-invalid={!!error || undefined} />
       </div>
     </FieldShell>
   );
@@ -100,6 +115,10 @@ export function PasswordField({ label, hint, showStrength, ...input }: React.Inp
   const id = input.id ?? auto;
   const [show, setShow] = useState(false);
   const [value, setValue] = useState("");
+  // Com máscara por CSS o campo não é reconhecido como senha e nenhum gerenciador
+  // oferece preenchimento. Sem suporte, cai no type="password".
+  const [cssMask, setCssMask] = useState(false);
+  useEffect(() => setCssMask(typeof CSS !== "undefined" && CSS.supports("-webkit-text-security", "disc")), []);
   const s = strength(value);
   return (
     <FieldShell id={id} label={label} hint={hint}>
@@ -107,8 +126,10 @@ export function PasswordField({ label, hint, showStrength, ...input }: React.Inp
         <Icon name="lock" size={18} className="ui-input__icon" />
         <input
           {...input}
+          {...NO_FILL}
           id={id}
-          type={show ? "text" : "password"}
+          type={show || cssMask ? "text" : "password"}
+          className={cssMask && !show ? "ui-masked" : undefined}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           aria-describedby={hint ? `${id}-hint` : undefined}
@@ -271,6 +292,7 @@ export function Select({
               <div className="ui-select__search">
                 <Icon name="search" size={16} />
                 <input
+                  {...NO_FILL}
                   ref={search}
                   value={query}
                   onChange={(e) => {
@@ -458,6 +480,7 @@ export function Stepper({ name, label, min, max, defaultValue, suffix }: { name:
       <div className="ui-stepper" role="group" aria-labelledby={`${id}-l`}>
         <button type="button" onClick={() => set(value - 1)} disabled={value <= min} aria-label="Diminuir">−</button>
         <input
+          {...NO_FILL}
           type="text"
           inputMode="numeric"
           name={name}

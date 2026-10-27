@@ -804,3 +804,4 @@ td.num, th.num { text-align: right; }
 .map-tip__row .bar span { display: block; height: 100%; border-radius: 999px; }
 .map-tip.below { transform: translate(-50%, 18px); }
 .map-tip.below::after { bottom: auto; top: -6px; }
+.ui-input input.ui-masked { -webkit-text-security: disc; text-security: disc; letter-spacing: .12em; }

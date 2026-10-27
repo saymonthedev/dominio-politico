@@ -31,8 +31,8 @@ export function DeleteAccount() {
             </span>
             <h2 id="del-title">Excluir conta e dados?</h2>
             <p>Seus personagens saem da política de forma neutra, os dados privados são apagados e sua conta de acesso deixa de existir. Não dá para desfazer.</p>
-            <form action={deleteMyData}>
-              <TextField label={`Digite ${WORD} para confirmar`} name="confirm" autoComplete="off" value={typed} onChange={(e) => setTyped(e.target.value.toUpperCase())} />
+            <form action={deleteMyData} autoComplete="off">
+              <TextField label={`Digite ${WORD} para confirmar`} name="confirm" value={typed} onChange={(e) => setTyped(e.target.value.toUpperCase())} />
               <div className="ui-dialog__actions">
                 <Button type="button" tone="ghost" onClick={() => setOpen(false)}>
                   Cancelar

@@ -7,10 +7,10 @@ import { Icon } from "./Icon";
 export function SignInForm({ next }: { next: string }) {
   const [state, action] = useActionState<FormState, FormData>(signIn, {});
   return (
-    <form action={action} noValidate>
+    <form action={action} noValidate autoComplete="off">
       <input type="hidden" name="next" value={next} />
-      <TextField label="E-mail" name="email" type="email" icon="mail" autoComplete="email" placeholder="voce@exemplo.com" />
-      <PasswordField label="Senha" name="password" autoComplete="current-password" placeholder="Sua senha" />
+      <TextField label="E-mail" name="acesso" inputMode="email" icon="mail" placeholder="voce@exemplo.com" />
+      <PasswordField label="Senha" name="chave" placeholder="Sua senha" />
       <SubmitButton tone="primary" size="lg" full icon="arrow" pendingLabel="Entrando…">
         Entrar
       </SubmitButton>
@@ -32,10 +32,10 @@ export function SignUpForm({ next }: { next: string }) {
       </div>
     );
   return (
-    <form action={action} noValidate>
+    <form action={action} noValidate autoComplete="off">
       <input type="hidden" name="next" value={next} />
-      <TextField label="E-mail" name="email" type="email" icon="mail" autoComplete="email" placeholder="voce@exemplo.com" />
-      <PasswordField label="Senha" name="password" autoComplete="new-password" placeholder="Mínimo de 8 caracteres" showStrength />
+      <TextField label="E-mail" name="acesso" inputMode="email" icon="mail" placeholder="voce@exemplo.com" />
+      <PasswordField label="Senha" name="chave" placeholder="Mínimo de 8 caracteres" showStrength />
       <div style={{ margin: "6px 0 18px" }}>
         <Checkbox name="age">Tenho 16 anos ou mais.</Checkbox>
         <Checkbox name="terms">

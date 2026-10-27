@@ -12,14 +12,14 @@ const safeNext = (n: FormDataEntryValue | null) => {
 
 export async function signIn(_: FormState, form: FormData): Promise<FormState> {
   const sb = await supabaseServer();
-  const { error } = await sb.auth.signInWithPassword({ email: String(form.get("email") ?? ""), password: String(form.get("password") ?? "") });
+  const { error } = await sb.auth.signInWithPassword({ email: String(form.get("acesso") ?? ""), password: String(form.get("chave") ?? "") });
   if (error) return { error: error.message === "Email not confirmed" ? "Confirme seu e-mail antes de entrar (veja sua caixa de entrada)." : "E-mail ou senha inválidos." };
   redirect(safeNext(form.get("next")));
 }
 
 export async function signUp(_: FormState, form: FormData): Promise<FormState> {
-  const email = String(form.get("email") ?? "").trim();
-  const password = String(form.get("password") ?? "");
+  const email = String(form.get("acesso") ?? "").trim();
+  const password = String(form.get("chave") ?? "");
   if (!form.get("age")) return { error: "É preciso ter 16 anos ou mais para jogar." };
   if (!form.get("terms")) return { error: "Aceite os Termos de Uso e a Política de Privacidade." };
   if (password.length < 8) return { error: "A senha precisa ter pelo menos 8 caracteres." };

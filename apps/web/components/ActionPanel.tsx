@@ -46,7 +46,7 @@ function ActionItem({ year, a }: { year: number; a: ActionView }) {
           {disabled ? (
             <FormMessage tone="info">{a.reason}</FormMessage>
           ) : (
-            <form action={action} noValidate>
+            <form action={action} noValidate autoComplete="off">
               <input type="hidden" name="__year" value={year} />
               <input type="hidden" name="__action" value={a.id} />
               {a.params.map((p) =>

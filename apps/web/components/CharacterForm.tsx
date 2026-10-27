@@ -25,7 +25,7 @@ export function CharacterForm({ year, ufs, professions, origins, axes }: { year:
   const [state, action] = useActionState<ActionState, FormData>(createCharacterAction, { ok: true, message: "" });
   const [name, setName] = useState("");
   return (
-    <form action={action} noValidate className="cf">
+    <form action={action} noValidate autoComplete="off" className="cf">
       <input type="hidden" name="year" value={year} />
       <Block n={1} title="Identidade" text="Um nome fictício. Nomes de políticos reais são recusados.">
         <div className="cf-row">
