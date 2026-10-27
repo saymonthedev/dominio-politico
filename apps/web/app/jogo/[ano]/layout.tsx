@@ -32,7 +32,7 @@ export default async function GameLayout({ children, params }: { children: React
           <a className="brand" href="/jogo" title="Seus mundos">
             <LogoMark size={36} />
             <span className="word">
-              Domínio Político
+              Domínio <span>Político</span>
               <em>mundo pós-{year}</em>
             </span>
           </a>

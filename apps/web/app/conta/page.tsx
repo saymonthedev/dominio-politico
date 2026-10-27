@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { deleteMyData } from "@/app/jogo/actions";
-import { Footer, PublicHeader } from "@/components/SiteChrome";
+import { DeleteAccount } from "@/components/DeleteAccount";
+import { Icon } from "@/components/Icon";
+import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
 import { getSession, myCharacters } from "@/lib/game";
+import { fmtDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Minha conta" };
 
@@ -10,28 +12,57 @@ export default async function Page() {
   const { user } = await getSession();
   if (!user) redirect("/entrar?next=/conta");
   const chars = await myCharacters();
+  const email = user.email ?? "";
   return (
     <>
-      <PublicHeader loggedIn />
-      <main className="container narrow">
-        <h1>Minha conta</h1>
-        <div className="card">
-          <dl className="kv">
-            <dt>E-mail</dt><dd>{user.email}</dd>
-            <dt>Personagens</dt><dd>{chars.length}</dd>
-          </dl>
-        </div>
-        <div className="card mt">
-          <h2>Seus dados (LGPD)</h2>
-          <p className="muted">Baixe uma cópia em JSON com sua conta, personagens, notificações e histórico.</p>
-          <a className="btn ghost" href="/api/meus-dados">Exportar meus dados</a>
-        </div>
-        <div className="card mt" style={{ borderColor: "var(--urgente)" }}>
-          <h2>Excluir meus dados</h2>
-          <p className="muted">Seus personagens saem do mundo de forma neutra, notificações e notícias privadas são apagadas e o vínculo com a conta é removido.</p>
-          <form action={deleteMyData}>
-            <button className="btn danger">Excluir meus dados e sair</button>
-          </form>
+      <AppHeader />
+      <PageHero kicker="Conta" title="Minha conta" lede="Seus dados de acesso, sua cópia dos dados e a opção de sair do jogo de vez." />
+      <main className="container page-body">
+        <div className="account">
+          <section className="account-card account-id">
+            <span className="account-avatar">{email.slice(0, 1).toUpperCase()}</span>
+            <div>
+              <b>{email}</b>
+              <span>Conta criada em {fmtDate(user.created_at?.slice(0, 10))}</span>
+            </div>
+            <div className="account-stats">
+              <div>
+                <b>{chars.length}</b>
+                <span>{chars.length === 1 ? "personagem" : "personagens"}</span>
+              </div>
+              <div>
+                <b>{user.email_confirmed_at ? "Sim" : "Não"}</b>
+                <span>e-mail confirmado</span>
+              </div>
+            </div>
+            <a className="ui-btn ui-btn--ghost" href="/jogo">
+              <Icon name="flag" size={18} /> <span>Meus mundos</span>
+            </a>
+          </section>
+
+          <section className="account-card">
+            <header>
+              <span className="ico"><Icon name="download" size={20} /></span>
+              <div>
+                <h2>Exportar meus dados</h2>
+                <p>Uma cópia em JSON com sua conta, personagens, notificações e histórico. Direito de acesso e portabilidade da LGPD.</p>
+              </div>
+            </header>
+            <a className="ui-btn ui-btn--primary" href="/api/meus-dados">
+              <Icon name="download" size={18} /> <span>Baixar arquivo</span>
+            </a>
+          </section>
+
+          <section className="account-card danger">
+            <header>
+              <span className="ico"><Icon name="trash" size={20} /></span>
+              <div>
+                <h2>Excluir conta</h2>
+                <p>Personagens aposentados sem evento negativo, dados privados apagados e conta de acesso removida.</p>
+              </div>
+            </header>
+            <DeleteAccount />
+          </section>
         </div>
       </main>
       <Footer />

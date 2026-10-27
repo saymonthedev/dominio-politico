@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AuthShell } from "@/components/AuthShell";
 import { SignInForm } from "@/components/AuthForms";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 
@@ -9,16 +10,18 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
   return (
     <>
       <PublicHeader loggedIn={false} />
-      <main className="container narrow" style={{ maxWidth: 440 }}>
-        <div className="card pad-lg">
-          <h1>Entrar</h1>
-          <p className="muted">Volte para o seu mundo. Ele não parou enquanto você esteve fora.</p>
-          <SignInForm next={next ?? "/jogo"} />
-          <p className="mt muted">
-            Ainda não tem conta? <a href={`/cadastro${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Criar conta</a>
-          </p>
-        </div>
-      </main>
+      <AuthShell
+        title="Entrar"
+        sub="Volte para o seu mundo. Ele não parou enquanto você esteve fora."
+        aside={{ title: <>O país andou <em>enquanto você esteve fora</em>.</>, text: "Pesquisas saíram, o Copom se reuniu e alguém pode ter aberto uma CPI. Entre para ver o que mudou na sua carreira." }}
+        footer={
+          <>
+            Ainda não tem conta? <a href={`/cadastro${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Criar conta grátis</a>
+          </>
+        }
+      >
+        <SignInForm next={next ?? "/jogo"} />
+      </AuthShell>
       <Footer />
     </>
   );

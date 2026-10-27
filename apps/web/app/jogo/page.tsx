@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Footer } from "@/components/SiteChrome";
-import { Brand } from "@/components/Logo";
+import { Icon } from "@/components/Icon";
+import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
+import { StartTrack } from "@/components/StartTrack";
+import { STAGE_LABEL } from "@/components/ui";
 import { getSession, myCharacters } from "@/lib/game";
-import { START_POINTS } from "@/lib/startpoints";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, initials } from "@/lib/format";
 import { yearOfWorld } from "@/lib/sim";
 
 export const metadata: Metadata = { title: "Seus mundos" };
@@ -14,59 +15,80 @@ export default async function Page() {
   const details = await Promise.all(
     chars.map(async (c) => {
       const [{ data: p }, { data: w }] = await Promise.all([
-        sb.from("persons").select("name, stage, uf, status").eq("world_id", c.world_id).eq("id", c.person_id).maybeSingle(),
+        sb.from("persons").select("name, stage, uf, status, party_id, role_label").eq("world_id", c.world_id).eq("id", c.person_id).maybeSingle(),
         sb.from("worlds").select("game_date").eq("id", c.world_id).maybeSingle(),
       ]);
-      return { ...c, year: yearOfWorld(c.world_id), person: p, date: w?.game_date as string | undefined };
+      let party: { acronym: string; color: string } | null = null;
+      if (p?.party_id) {
+        const { data } = await sb.from("parties").select("acronym, color").eq("world_id", c.world_id).eq("id", p.party_id).maybeSingle();
+        party = data;
+      }
+      return { ...c, year: yearOfWorld(c.world_id), person: p, party, date: w?.game_date as string | undefined };
     }),
   );
-  const active = details.filter((d) => d.person?.status === "ACTIVE");
+  const active = details.filter((d) => d.person?.status === "ACTIVE").sort((a, b) => a.year - b.year);
   const taken = new Set(active.map((d) => d.year));
   return (
     <>
-      <header className="masthead">
-        <div className="container inner">
-          <Brand />
-          <span className="spacer" />
-          <a className="link" href="/conta">Minha conta</a>
-          <form action="/sair" method="post">
-            <button className="btn on-dark small">Sair</button>
-          </form>
-        </div>
-      </header>
-      <main className="container">
-        <h1>Seus mundos</h1>
-        {active.length ? (
-          <div className="grid grid-3">
-            {active.map((d) => (
-              <a key={d.world_id} className="startpoint" href={`/jogo/${d.year}`}>
-                <span className="label">Mundo pós-{d.year}</span>
-                <span className="year" style={{ fontSize: "1.4rem" }}>{d.person?.name}</span>
-                <span className="who">
-                  {d.person?.uf} · hoje no mundo: <b className="mono">{fmtDate(d.date)}</b>
-                </span>
-              </a>
-            ))}
+      <AppHeader />
+      <PageHero
+        kicker="Sua carreira"
+        title="Seus mundos"
+        lede={
+          active.length
+            ? "Cada mundo segue o próprio calendário. Escolha onde continuar ou comece uma nova história em outro ano."
+            : "Você ainda não entrou na política. Escolha abaixo o Brasil em que sua história começa."
+        }
+      />
+      <main className="container page-body">
+        {active.length > 0 ? (
+          <div className="worlds">
+            {active.map((d) => {
+              const color = d.party?.color ?? "var(--planalto-2)";
+              return (
+                <a key={d.world_id} className="world-card" href={`/jogo/${d.year}`} style={{ ["--accent" as string]: color }}>
+                  <div className="world-card__top">
+                    <span className="world-card__year">Brasil pós-{d.year}</span>
+                    <span className="world-card__date">
+                      <Icon name="calendar" size={14} /> {fmtDate(d.date)}
+                    </span>
+                  </div>
+                  <div className="world-card__who">
+                    <span className="avatar" style={{ background: color }}>{initials(d.person?.name ?? "?")}</span>
+                    <div>
+                      <b>{d.person?.name}</b>
+                      <span>{d.person?.role_label ?? STAGE_LABEL[d.person?.stage ?? ""] ?? d.person?.stage}</span>
+                    </div>
+                  </div>
+                  <div className="world-card__tags">
+                    <span className="tag">
+                      <Icon name="pin" size={13} /> {d.person?.uf}
+                    </span>
+                    <span className="tag">{d.party ? d.party.acronym : "Sem partido"}</span>
+                  </div>
+                  <span className="world-card__go">
+                    Continuar <Icon name="arrow" size={16} />
+                  </span>
+                </a>
+              );
+            })}
           </div>
         ) : (
-          <div className="empty">Você ainda não tem personagem. Escolha um ponto de partida abaixo.</div>
+          <div className="empty-state">
+            <span className="ico">
+              <Icon name="flag" size={26} />
+            </span>
+            <b>Nenhum personagem ainda</b>
+            <p>Escolha um ponto de partida abaixo. Você pode ter um personagem em cada mundo.</p>
+          </div>
         )}
-        <div className="rule-title">
-          <h2>Começar uma nova história</h2>
-          <span className="muted">Um personagem por mundo</span>
+
+        <div className="section-head" style={{ marginTop: 56 }}>
+          <div className="section-kicker">Nova história</div>
+          <h2>Comece em outro Brasil</h2>
+          <p>Um personagem por mundo. Os anos em que você já joga aparecem marcados.</p>
         </div>
-        <div className="timeline">
-          {START_POINTS.map((s) => (
-            <a key={s.year} className="startpoint" href={taken.has(s.year) ? `/jogo/${s.year}` : `/jogo/novo?ano=${s.year}`} aria-disabled={taken.has(s.year)}>
-              <span className="year">{s.year}</span>
-              <span>
-                <b>{s.winner}</b> eleito(a)
-              </span>
-              <span className="who">Em exercício: {s.incumbent}</span>
-              {taken.has(s.year) && <span className="badge gold plain">Você joga aqui</span>}
-            </a>
-          ))}
-        </div>
+        <StartTrack hrefFor={(y) => (taken.has(y) ? `/jogo/${y}` : `/jogo/novo?ano=${y}`)} taken={taken} />
       </main>
       <Footer />
     </>

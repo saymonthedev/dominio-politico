@@ -1,4 +1,5 @@
 import type { NotificationRow } from "@dp/engine";
+import { SubmitButton } from "@/components/forms";
 import { markAllRead } from "@/app/jogo/actions";
 import { fmtDate } from "@/lib/format";
 import { getSession, requireMe } from "@/lib/game";
@@ -15,7 +16,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         <h1>Notificações</h1>
         <form action={markAllRead}>
           <input type="hidden" name="__year" value={year} />
-          <button className="btn ghost small">Marcar todas como lidas</button>
+          <SubmitButton tone="ghost" size="sm" icon="check" pendingLabel="Marcando…">Marcar todas como lidas</SubmitButton>
         </form>
       </div>
       <div className="card">

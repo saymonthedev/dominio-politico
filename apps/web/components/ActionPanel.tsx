@@ -1,67 +1,77 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useId, useState } from "react";
 import { doAction, type ActionState } from "@/app/jogo/actions";
 import type { ActionView } from "@/lib/actions-view";
+import { FormMessage, Select, SubmitButton, TextField } from "./forms";
+import { Icon } from "./Icon";
 
 const CAT: Record<string, { icon: string; cls: string }> = {
-  BASE: { icon: "◆", cls: "" },
-  PARTIDO: { icon: "▲", cls: "" },
-  CAMPANHA: { icon: "★", cls: "campanha" },
-  MANDATO: { icon: "§", cls: "" },
-  INVESTIGACAO: { icon: "⚖", cls: "crime" },
+  BASE: { icon: "users", cls: "" },
+  PARTIDO: { icon: "landmark", cls: "" },
+  CAMPANHA: { icon: "megaphone", cls: "campanha" },
+  MANDATO: { icon: "scale", cls: "" },
+  INVESTIGACAO: { icon: "search", cls: "crime" },
 };
 
-function ActionForm({ year, a }: { year: number; a: ActionView }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(doAction, { ok: true, message: "" });
+function ActionItem({ year, a }: { year: number; a: ActionView }) {
+  const [state, action] = useActionState<ActionState, FormData>(doAction, { ok: true, message: "" });
+  const [open, setOpen] = useState(false);
+  const id = useId();
   const disabled = !!a.reason;
   return (
-    <details className="action" data-disabled={disabled}>
-      <summary>
-        <span className={`cat-icon ${CAT[a.category]?.cls ?? ""}`} aria-hidden="true">{CAT[a.category]?.icon}</span>
-        <span className="title">{a.label}</span>
-        <span className="cost">
-          {a.energy ? `⚡${a.energy}` : ""}
-          {a.cost ? ` · R$ ${a.cost.toLocaleString("pt-BR")}` : ""}
+    <div className={`action${open ? " is-open" : ""}`} data-disabled={disabled}>
+      <button type="button" className="action__head" aria-expanded={open} aria-controls={`${id}-body`} onClick={() => setOpen((o) => !o)}>
+        <span className={`cat-icon ${CAT[a.category]?.cls ?? ""}`} aria-hidden="true">
+          <Icon name={CAT[a.category]?.icon ?? "flag"} size={16} />
         </span>
-      </summary>
-      <div className="body">
-        <p className="desc">{a.description}</p>
-        {disabled ? (
-          <div className="form-msg err">{a.reason}</div>
-        ) : (
-          <form action={action}>
-            <input type="hidden" name="__year" value={year} />
-            <input type="hidden" name="__action" value={a.id} />
-            {a.params.map((p) => (
-              <div key={p.name}>
-                <label htmlFor={`${a.id}-${p.name}`}>
-                  {p.label}
-                  {p.optional ? " (opcional)" : ""}
-                </label>
-                {p.options ? (
-                  <select id={`${a.id}-${p.name}`} name={p.name} required={!p.optional} defaultValue="">
-                    <option value="" disabled={!p.optional}>
-                      {p.options.length ? "Escolha…" : "Nenhuma opção disponível"}
-                    </option>
-                    {p.options.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+        <span className="title">{a.label}</span>
+        <span className="action__costs">
+          {a.energy > 0 && (
+            <span className="cost-chip">
+              <Icon name="bolt" size={13} /> {a.energy}
+            </span>
+          )}
+          {!!a.cost && <span className="cost-chip">R$ {a.cost.toLocaleString("pt-BR")}</span>}
+          {disabled && (
+            <span className="cost-chip locked">
+              <Icon name="lock" size={13} />
+            </span>
+          )}
+        </span>
+        <Icon name="chevron" size={18} className="action__chev" />
+      </button>
+      {open && (
+        <div className="action__body" id={`${id}-body`}>
+          <p className="desc">{a.description}</p>
+          {disabled ? (
+            <FormMessage tone="info">{a.reason}</FormMessage>
+          ) : (
+            <form action={action} noValidate>
+              <input type="hidden" name="__year" value={year} />
+              <input type="hidden" name="__action" value={a.id} />
+              {a.params.map((p) =>
+                p.options ? (
+                  <Select key={p.name} name={p.name} label={p.label} options={p.options} optional={p.optional} />
                 ) : (
-                  <input id={`${a.id}-${p.name}`} name={p.name} type={p.type === "number" ? "number" : "text"} required={!p.optional} maxLength={90} />
-                )}
-              </div>
-            ))}
-            <button className="btn mt" disabled={pending}>
-              {pending ? "Executando…" : "Executar"}
-            </button>
-            {state.message && <div className={`form-msg ${state.ok ? "ok" : "err"}`}>{state.message}</div>}
-          </form>
-        )}
-      </div>
-    </details>
+                  <TextField
+                    key={p.name}
+                    name={p.name}
+                    label={p.label}
+                    optional={p.optional}
+                    inputMode={p.type === "number" ? "numeric" : undefined}
+                    maxLength={90}
+                  />
+                ),
+              )}
+              <SubmitButton tone="primary" icon="play" pendingLabel="Executando…">
+                Executar
+              </SubmitButton>
+              {state.message && <FormMessage tone={state.ok ? "ok" : "err"}>{state.message}</FormMessage>}
+            </form>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -71,7 +81,7 @@ export function ActionPanel({ year, actions, empty }: { year: number; actions: A
   return (
     <div className="actions">
       {sorted.map((a) => (
-        <ActionForm key={a.id} year={year} a={a} />
+        <ActionItem key={a.id} year={year} a={a} />
       ))}
     </div>
   );

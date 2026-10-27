@@ -1,4 +1,5 @@
 import { OFFICES, UF_BY_CODE, eraRules, municipalityId, type CandidacyRow, type ElectionRow, type PollRow, type RaceRow } from "@dp/engine";
+import { NavSelect } from "@/components/NavSelect";
 import { PartyChip } from "@/components/ui";
 import { fmtDate, fmtNum, fmtPct } from "@/lib/format";
 import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
@@ -62,16 +63,14 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               <h2 style={{ margin: 0 }}>Eleições {selected.kind === "GERAL" ? "gerais" : "municipais"} de {selected.year}</h2>
               {selected.summary?.factual ? <span className="badge real">Resultado oficial (TSE)</span> : <span className="badge sim">Simulação</span>}
             </div>
-            <form className="row mt" method="get">
-              <input type="hidden" name="e" value={selected.id} />
-              <label htmlFor="uf" style={{ margin: 0 }}>UF</label>
-              <select id="uf" name="uf" defaultValue={uf} style={{ width: "auto" }}>
-                {Object.values(UF_BY_CODE).map((u) => (
-                  <option key={u.code} value={u.code}>{u.name}</option>
-                ))}
-              </select>
-              <button className="btn small ghost">Ver</button>
-            </form>
+            <div className="mt" style={{ maxWidth: 320 }}>
+              <NavSelect
+                label="Estado"
+                value={uf}
+                options={Object.values(UF_BY_CODE).map((u) => ({ value: u.code, label: u.name }))}
+                hrefFor={Object.fromEntries(Object.values(UF_BY_CODE).map((u) => [u.code, `?e=${selected.id}&uf=${u.code}`]))}
+              />
+            </div>
             {!races.length && <div className="empty mt">As disputas são abertas no início do ano eleitoral ({fmtDate(selected.calendar.preCampaignStart)}).</div>}
             {races.map((race) => {
               const rule = OFFICES[race.office_code];

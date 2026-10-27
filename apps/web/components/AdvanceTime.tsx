@@ -2,6 +2,8 @@
 import { useActionState, useState } from "react";
 import { advanceTime } from "@/app/jogo/actions";
 import type { FastForwardResult } from "@/lib/sim";
+import { Button, FormMessage } from "./forms";
+import { Icon } from "./Icon";
 
 const fmt = (d: string) => d.split("-").reverse().join("/");
 
@@ -14,18 +16,18 @@ export function AdvanceTime({ year }: { year: number }) {
         <input type="hidden" name="__year" value={year} />
         <span className="label" style={{ color: "#b8c4d8" }}>Avançar</span>
         {[1, 7, 15].map((d) => (
-          <button key={d} name="days" value={d} className={`btn small ${d === 15 ? "gold" : "on-dark"}`} disabled={pending} onClick={() => setOpen(true)}>
+          <Button key={d} type="submit" name="days" value={d} size="sm" tone={d === 15 ? "gold" : "on-dark"} disabled={pending} onClick={() => setOpen(true)}>
             {pending ? "…" : `${d} dia${d > 1 ? "s" : ""}`}
-          </button>
+          </Button>
         ))}
       </form>
       {state && open && (
         <div className="advance-panel" role="status">
           <div className="row between">
             <b>{state.ok ? `De ${fmt(state.from!)} a ${fmt(state.to!)}` : "Não foi possível avançar"}</b>
-            <button className="btn ghost small" onClick={() => setOpen(false)} aria-label="Fechar">✕</button>
+            <button type="button" className="icon-btn" onClick={() => setOpen(false)} aria-label="Fechar"><Icon name="x" size={18} /></button>
           </div>
-          {!state.ok && <p className="form-msg err">{state.message}</p>}
+          {!state.ok && <FormMessage tone="err">{state.message}</FormMessage>}
           {state.ok && (
             <>
               {state.notifications && state.notifications.length > 0 && (

@@ -1,107 +1,167 @@
-import { PublicHeader, Footer } from "@/components/SiteChrome";
-import { currentUser } from "@/lib/supabase/server";
+import { profileFor } from "@dp/engine";
+import { ElectionMap, type MapYear } from "@/components/ElectionMap";
+import { Icon } from "@/components/Icon";
+import { Footer, PublicHeader } from "@/components/SiteChrome";
+import { StartTrack } from "@/components/StartTrack";
+import { brazilUfPaths } from "@/lib/geo-paths";
 import { START_POINTS } from "@/lib/startpoints";
+import { currentUser } from "@/lib/supabase/server";
 
 const pct = (v: number) => v.toFixed(2).replace(".", ",");
+
+const STEPS = [
+  {
+    icon: "flag",
+    title: "Escolha o ponto de partida",
+    text: "O dia seguinte a um 2º turno presidencial real, de 2002 a 2026. Cada ano é um mundo próprio, com os eleitos, partidos e economia daquele momento.",
+  },
+  {
+    icon: "users",
+    title: "Crie seu político",
+    text: "Você começa como cidadão comum, em um estado e uma cidade de verdade. Milite, filie-se, construa base e dispute a primeira eleição.",
+  },
+  {
+    icon: "clock",
+    title: "Deixe o país andar",
+    text: "O tempo passa sozinho ou quando você avança 1, 7 ou 15 dias. Copom, pesquisas, CPIs e janelas partidárias acontecem com ou sem você.",
+  },
+];
+
+const FEATURES = [
+  { icon: "ballot", title: "Eleições completas", text: "Convenções, fundo eleitoral, pesquisas com margem de erro, debates, 2º turno, quociente e sobras na Câmara." },
+  { icon: "landmark", title: "Partidos reais", text: "Os partidos registrados no TSE em cada ano, com bancadas e lideranças reais no ponto de partida e culturas internas distintas." },
+  { icon: "chart", title: "Economia viva", text: "PIB, inflação, Selic, câmbio e desemprego a partir das séries do Banco Central, reagindo às políticas do governo." },
+  { icon: "gavel", title: "Crime deixa rastro", hot: true, text: "Caixa dois e propina rendem dinheiro e testemunhas. Monte dossiês, acione PF ou MP, abra CPI, negocie delação." },
+  { icon: "map", title: "O Brasil de verdade", text: "Mapa real dos 27 estados e 5.570 municípios, com resultados oficiais por estado em cada eleição de partida." },
+  { icon: "shield", title: "Fato e ficção separados", text: "Toda notícia diz se é fato real (com fonte) ou simulação. Pessoas reais nunca recebem crimes ou falas inventadas." },
+];
 
 export default async function Home() {
   const { user } = await currentUser();
   const latest = START_POINTS[START_POINTS.length - 1];
+  const paths = brazilUfPaths(600, 620);
+  const years: MapYear[] = START_POINTS.map((s) => {
+    const parties = new Set([s.winnerParty, s.rivalParty, ...Object.values(s.ufResults).map((r) => r.party)]);
+    return {
+      year: s.year,
+      winner: s.winner,
+      winnerParty: s.winnerParty,
+      rival: s.rival,
+      rivalParty: s.rivalParty,
+      colors: Object.fromEntries([...parties].map((p) => [p, profileFor(p, s.year).color])),
+      ufResults: s.ufResults,
+    };
+  });
+  const startHref = (year?: number) => (user ? (year ? `/jogo/novo?ano=${year}` : "/jogo") : year ? `/cadastro?ano=${year}` : "/cadastro");
+
   return (
     <>
       <PublicHeader loggedIn={!!user} />
-      <section className="hero">
+      <section className="home-hero">
         <div className="container inner">
           <div>
-            <div className="kicker">Simulador persistente · Brasil real · 2002 → 2100</div>
+            <div className="section-kicker">Simulador político persistente · Brasil real</div>
             <h1>
-              Comece como cidadão. <em>Chegue ao Planalto</em> — ou caia no escândalo.
+              Do bairro ao <em>Planalto</em>.
+              <br />
+              Ou ao escândalo.
             </h1>
             <p className="lede">
-              Escolha o dia seguinte a uma eleição presidencial real e entre num país vivo: partidos de verdade, eleitos de verdade, economia de verdade. Daí em
-              diante, a história é sua — e do mundo, que continua andando mesmo quando você sai.
+              Entre no Brasil do dia seguinte a uma eleição presidencial real, com partidos, eleitos e economia de verdade. A partir dali, a história é
+              simulada, e o país continua andando mesmo quando você sai.
             </p>
             <div className="cta">
-              <a className="btn gold" href={user ? "/jogo" : "/cadastro"}>Começar minha carreira</a>
+              <a className="btn gold" href={startHref()}>
+                Começar minha carreira <Icon name="arrow" size={18} />
+              </a>
               <a className="btn on-dark" href="/como-funciona">Como funciona</a>
             </div>
+            <div className="hero-facts">
+              <div>
+                <b>{START_POINTS.length}</b>
+                <span>pontos de partida</span>
+              </div>
+              <div>
+                <b>{latest.parties}</b>
+                <span>partidos em {latest.year}</span>
+              </div>
+              <div>
+                <b>{(latest.electorate / 1e6).toFixed(0)} mi</b>
+                <span>eleitores em {latest.year}</span>
+              </div>
+            </div>
           </div>
-          <div className="frontpage" aria-hidden="true">
-            <div className="flag">
-              Folha do Planalto <small>edição de {latest.date.split("-").reverse().join("/")}</small>
-            </div>
-            <div className="news lead" style={{ borderBottom: "1px solid var(--linha)" }}>
-              <div className="meta">
-                <span className="badge real">Fato real · TSE</span>
+          <ElectionMap paths={paths} years={years} initial={latest.year} />
+        </div>
+      </section>
+
+      <section className="home-section">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">Como funciona</div>
+            <h2>Três passos para entrar na política</h2>
+            <p>Sem tutorial longo: você aprende jogando, e o manual está sempre a um clique.</p>
+          </div>
+          <div className="steps">
+            {STEPS.map((s, i) => (
+              <div key={s.title} className="step">
+                <span className="n">PASSO {String(i + 1).padStart(2, "0")}</span>
+                <div className="ico">
+                  <Icon name={s.icon} size={22} />
+                </div>
+                <h3>{s.title}</h3>
+                <p>{s.text}</p>
               </div>
-              <h3 style={{ fontSize: "1.45rem" }}>
-                {latest.winner} vence o 2º turno com {pct(latest.winnerShare)}% dos válidos
-              </h3>
-              <p style={{ fontSize: ".95rem" }}>A partir daqui, a linha do tempo é simulada. Partidos já recalculam 2028.</p>
-            </div>
-            <div className="news">
-              <div className="meta">
-                <span className="badge sim">Simulação</span>
-              </div>
-              <h3 style={{ fontSize: "1.05rem" }}>Diretório estadual analisa seu pedido de filiação</h3>
-            </div>
-            <div className="news">
-              <div className="meta">
-                <span className="badge bad">Investigação</span>
-              </div>
-              <h3 style={{ fontSize: "1.05rem" }}>Operação da PF mira esquema de caixa dois em capital do Nordeste</h3>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <main className="container">
-        <div className="rule-title">
-          <h2>Escolha seu ponto de partida</h2>
-          <span className="muted">Sempre o dia seguinte a um 2º turno presidencial</span>
+      <section className="home-section alt">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">Pontos de partida</div>
+            <h2>Escolha em que Brasil você começa</h2>
+            <p>Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE. Cada ano é um mundo compartilhado e independente.</p>
+          </div>
+          <StartTrack hrefFor={(y) => startHref(y)} />
         </div>
-        <div className="timeline">
-          {START_POINTS.map((s) => (
-            <a key={s.year} className="startpoint" href={user ? `/jogo/novo?ano=${s.year}` : `/cadastro?ano=${s.year}`}>
-              <span className="year">{s.year}</span>
-              <span>
-                <b>{s.winner}</b> <span className="muted">({s.winnerParty})</span>
-              </span>
-              <span className="who mono">
-                {pct(s.winnerShare)}% × {s.rival} {pct(s.rivalShare)}%
-              </span>
-              <span className="who">Em exercício: {s.incumbent}</span>
-            </a>
-          ))}
-        </div>
+      </section>
 
-        <div className="grid grid-3 mt-lg">
-          <div className="card">
-            <span className="label">Carreira</span>
-            <h3 className="mt">Do bairro ao Planalto</h3>
-            <p className="muted">
-              Cidadão, ativista, filiado, quadro, pré-candidato, candidato, eleito. Cada partido tem sua cultura: alguns abrem a porta, outros só aceitam quem
-              tem padrinho.
-            </p>
+      <section className="home-section">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">O mundo</div>
+            <h2>Um país que reage</h2>
+            <p>O motor decide o que acontece com regras e sorteios reprodutíveis. O texto só narra.</p>
           </div>
-          <div className="card">
-            <span className="label">Mundo vivo</span>
-            <h3 className="mt">O país não espera você</h3>
-            <p className="muted">
-              Copom decide juros, a economia oscila, bancadas trocam de partido na janela, eleições acontecem a cada dois anos — com pesquisas, debates e 2º
-              turno.
-            </p>
-          </div>
-          <div className="card">
-            <span className="label">Risco e evidência</span>
-            <h3 className="mt">Crime tem rastro</h3>
-            <p className="muted">
-              Caixa dois e propina rendem dinheiro — e deixam testemunhas. Monte dossiês, acione a PF ou o MP, abra CPI, faça delação. Partidos ficam sujos
-              pelo que seus membros fazem.
-            </p>
+          <div className="features">
+            {FEATURES.map((f) => (
+              <div key={f.title} className={`feature${f.hot ? " hot" : ""}`}>
+                <div className="ico">
+                  <Icon name={f.icon} size={22} />
+                </div>
+                <div>
+                  <h3>{f.title}</h3>
+                  <p>{f.text}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </main>
+      </section>
+
+      <section className="container" style={{ paddingBottom: 72 }}>
+        <div className="cta-band">
+          <div>
+            <h2>A próxima eleição já está no calendário.</h2>
+            <p>Crie sua conta, escolha o ano e comece como cidadão. Gratuito, 16+.</p>
+          </div>
+          <a className="btn" href={startHref()}>
+            {user ? "Ir para meus mundos" : "Criar conta grátis"}
+          </a>
+        </div>
+      </section>
       <Footer />
     </>
   );

@@ -12,4 +12,5 @@ begin
   delete from public.news_articles where user_id = uid and visibility = 'PRIVATE';
   delete from public.player_profiles where user_id = uid;
   delete from private.person_owners where user_id = uid;
+  delete from auth.users where id = uid;
 end $$;
