@@ -1,0 +1,12 @@
+{
+  "nota": "Mudanças de prefeito que não aparecem nos dados de eleição do TSE (morte, cassação, afastamento). Só entram casos verificados, com fonte.",
+  "correcoes": [
+    {
+      "ano_partida": 2022,
+      "ibge": "3550308",
+      "prefeito": { "name": "Ricardo Nunes", "party": "MDB", "party_number": 15, "birth_year": 1967 },
+      "substituido": { "name": "Bruno Covas", "party": "PSDB", "reason": "morreu em maio de 2021, e o vice assumiu a prefeitura" },
+      "fonte": "Prefeitura de São Paulo: Ricardo Nunes assume a prefeitura em 16/05/2021"
+    }
+  ]
+}
