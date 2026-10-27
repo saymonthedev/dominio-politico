@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { AXES, AXIS_INFO, ORIGINS, PROFESSIONS, profileFor, UFS } from "@dp/engine";
+import { AXES, AXIS_INFO, CAPITAL_IBGE, ORIGINS, PROFESSIONS, profileFor, UFS } from "@dp/engine";
 import { CharacterForm } from "@/components/CharacterForm";
 import { Icon } from "@/components/Icon";
 import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
@@ -36,6 +36,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
           <CharacterForm
             year={year}
             ufs={UFS.map((u) => ({ value: u.code, label: u.name, hint: `Capital: ${u.capital}` }))}
+            capitals={CAPITAL_IBGE}
             professions={PROFESSIONS.map((p) => ({ value: p.id, label: cap(p.label), hint: `${brl(p.income)}/mês`, icon: PROF_ICON[p.id] }))}
             origins={ORIGINS.map((o) => ({ value: o.id, label: cap(o.label), hint: `Economias: ${brl(o.savings)}`, icon: ORIGIN_ICON[o.id] }))}
             axes={AXES.map((a) => ({ key: a, label: AXIS_INFO[a].label, neg: AXIS_INFO[a].neg, pos: AXIS_INFO[a].pos }))}

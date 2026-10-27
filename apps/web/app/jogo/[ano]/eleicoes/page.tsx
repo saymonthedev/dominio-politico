@@ -1,18 +1,13 @@
-import { OFFICES, UF_BY_CODE, eraRules, municipalityId, type CandidacyRow, type ElectionRow, type PollRow, type RaceRow } from "@dp/engine";
+import { OFFICES, UF_BY_CODE, canonicalGeo, capitalId, eraRules, geoName, isMunicipality, type CandidacyRow, type ElectionRow, type PollRow, type RaceRow } from "@dp/engine";
 import { NavSelect } from "@/components/NavSelect";
 import { PartyChip } from "@/components/ui";
 import { fmtDate, fmtNum, fmtPct } from "@/lib/format";
 import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
+import { citiesFor } from "@/lib/sim";
 
 const STATUS: Record<string, string> = {
   AGENDADA: "Agendada", PRE_CAMPANHA: "Pré-campanha", CONVENCOES: "Convenções", CAMPANHA: "Campanha", SEGUNDO_TURNO: "2º turno", ENCERRADA: "Encerrada",
 };
-
-function geoLabel(geo: string) {
-  if (geo === "BR") return "Brasil";
-  if (geo.endsWith("-CAP")) return UF_BY_CODE[geo.slice(0, 2)]?.capital ?? geo;
-  return UF_BY_CODE[geo]?.name ?? geo;
-}
 
 export default async function Page({ params, searchParams }: { params: Promise<{ ano: string }>; searchParams: Promise<{ e?: string; uf?: string }> }) {
   const year = Number((await params).ano);
@@ -20,6 +15,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const { sb } = await getSession();
   const sp = await searchParams;
   const uf = sp.uf ?? me.person.uf;
+  const cities = await citiesFor(year);
+  const geoLabel = (geo: string) => (geo === "BR" ? "Brasil" : geoName(geo, { cities }));
+  const myCity = canonicalGeo(me.person.municipality);
   const { data: elData } = await sb.from("elections").select("*").eq("world_id", me.worldId).order("year");
   const elections = (elData ?? []) as ElectionRow[];
   const current = elections.find((e) => e.status !== "AGENDADA" && e.status !== "ENCERRADA");
@@ -29,7 +27,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   let cands: CandidacyRow[] = [];
   let polls: PollRow[] = [];
   if (selected) {
-    const geos = ["BR", uf, municipalityId(uf)];
+    // capital da UF escolhida, mais a cidade do jogador quando for dessa UF
+    const geos = [...new Set(["BR", uf, capitalId(uf), ...(isMunicipality(myCity) && uf === me.person.uf ? [myCity] : [])])];
     const [r, c, p] = await Promise.all([
       sb.from("races").select("*").eq("world_id", me.worldId).eq("election_id", selected.id).in("geo", geos),
       sb.from("candidacies").select("*").eq("world_id", me.worldId).eq("election_id", selected.id).in("geo", geos),

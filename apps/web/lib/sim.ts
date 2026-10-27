@@ -4,7 +4,7 @@
  * relógio do mundo, aplicamos ações e gravamos as mudanças.
  */
 import { createClient } from "@supabase/supabase-js";
-import { loadSnapshot } from "@dp/data";
+import { loadCities, loadSnapshot } from "@dp/data";
 import {
   Changes,
   createInitialWorld,
@@ -15,6 +15,7 @@ import {
   STATEFUL_TABLES,
   START_YEARS,
   targetTick,
+  type CityBase,
   type EconomyRow,
   type WorldRow,
   type WorldState,
@@ -44,6 +45,14 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 export async function worldExists(year: number): Promise<boolean> {
   const { data } = await db().from("worlds").select("id").eq("id", worldIdFor(year)).maybeSingle();
   return !!data;
+}
+
+const cityCache = new Map<number, Promise<Map<string, CityBase>>>();
+
+/** Municípios reais do ponto de partida (estáticos; carregados uma vez por instância). */
+export function citiesFor(year: number): Promise<Map<string, CityBase>> {
+  if (!cityCache.has(year)) cityCache.set(year, loadCities(year).then((list) => new Map(list.map((c) => [c.id, c]))));
+  return cityCache.get(year)!;
 }
 
 /** Grava as mudanças em lotes; a linha do mundo vai por último, com checagem de tick. */
@@ -78,7 +87,9 @@ export async function ensureWorld(year: number): Promise<void> {
   if (!isStartYear(year)) throw new Error("Ponto de partida inválido");
   if (await worldExists(year)) return;
   const snap = await loadSnapshot(year);
+  const cities = await citiesFor(year);
   const { state, changes } = createInitialWorld(snap, {
+    cities: [...cities.values()],
     worldId: worldIdFor(year),
     seed: `dominio-politico-${year}-${WORLD_VERSION}`,
     startRealAt: new Date().toISOString(),
@@ -102,7 +113,7 @@ export async function loadState(worldId: string): Promise<WorldState> {
     const map = t[name] as Map<string, unknown>;
     for (const row of (data[name] ?? []) as Array<{ id: string }>) map.set(row.id, row);
   }
-  return { world: data.world, economy: data.economy, ruleset: DEFAULT_RULESET, t };
+  return { world: data.world, economy: data.economy, ruleset: DEFAULT_RULESET, t, cities: await citiesFor(yearOfWorld(worldId)) };
 }
 
 const cache = new Map<string, { state: WorldState; at: number }>();

@@ -1,10 +1,10 @@
-import { OFFICES, type CandidacyRow, type DebateRow, type PollRow } from "@dp/engine";
+import { OFFICES, geoName, type CandidacyRow, type DebateRow, type PollRow } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Meter, Stat } from "@/components/ui";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney, fmtPct } from "@/lib/format";
 import { getSession, requireMe } from "@/lib/game";
-import { cachedState } from "@/lib/sim";
+import { cachedState, citiesFor } from "@/lib/sim";
 
 const STATUS: Record<string, string> = {
   PRE: "Pré-candidatura (aguardando convenção)", HOMOLOGADA: "Candidatura homologada", SEGUNDO_TURNO: "No 2º turno", ELEITO: "Eleito(a)",
@@ -13,6 +13,7 @@ const STATUS: Record<string, string> = {
 
 export default async function Page({ params }: { params: Promise<{ ano: string }> }) {
   const year = Number((await params).ano);
+  const cities = await citiesFor(year);
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [state, cQ] = await Promise.all([
@@ -41,7 +42,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         {current ? (
           <div className="card dark">
             <div className="label">{STATUS[current.status] ?? current.status}</div>
-            <h2 style={{ margin: "6px 0" }}>{OFFICES[current.office_code].name} · {current.geo}</h2>
+            <h2 style={{ margin: "6px 0" }}>{OFFICES[current.office_code].name} · {geoName(current.geo, { cities })}</h2>
             <p style={{ color: "#d5deeb", margin: 0 }}>
               Número {current.ballot_number}
               {current.votes ? ` · ${current.votes.toLocaleString("pt-BR")} votos (${fmtPct(current.vote_share, 2)})` : ""}

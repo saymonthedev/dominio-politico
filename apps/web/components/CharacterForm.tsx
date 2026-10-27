@@ -21,9 +21,33 @@ function Block({ n, title, text, children }: { n: number; title: string; text: s
   );
 }
 
-export function CharacterForm({ year, ufs, professions, origins, axes }: { year: number; ufs: Option[]; professions: Choice[]; origins: Choice[]; axes: Axis[] }) {
+export function CharacterForm({
+  year,
+  ufs,
+  capitals,
+  professions,
+  origins,
+  axes,
+}: {
+  year: number;
+  ufs: Option[];
+  capitals: Record<string, string>;
+  professions: Choice[];
+  origins: Choice[];
+  axes: Axis[];
+}) {
   const [state, action] = useActionState<ActionState, FormData>(createCharacterAction, { ok: true, message: "" });
   const [name, setName] = useState("");
+  const [uf, setUf] = useState("");
+  const [cities, setCities] = useState<Record<string, Option[]>>({});
+  const chooseUf = (v: string) => {
+    setUf(v);
+    if (v && !cities[v])
+      fetch(`/api/cidades/${year}?uf=${v}`)
+        .then((r) => r.json())
+        .then((list: Option[]) => setCities((c) => ({ ...c, [v]: list })))
+        .catch(() => undefined);
+  };
   return (
     <form action={action} noValidate autoComplete="off" className="cf">
       <input type="hidden" name="year" value={year} />
@@ -33,8 +57,18 @@ export function CharacterForm({ year, ufs, professions, origins, axes }: { year:
           <Stepper label="Idade" name="age" min={18} max={80} defaultValue={30} suffix="anos" />
         </div>
       </Block>
-      <Block n={2} title="Base eleitoral" text="Seu estado. Você começa morando na capital, onde já é conhecido por algumas pessoas.">
-        <Select name="uf" label="Estado" options={ufs} placeholder="Escolha o estado" />
+      <Block n={2} title="Base eleitoral" text="Seu estado e sua cidade. É nela que você pode disputar prefeitura e câmara; para deputado e governo, vale o estado inteiro.">
+        <div className="cf-row cf-row--even">
+          <Select name="uf" label="Estado" options={ufs} placeholder="Escolha o estado" onChange={chooseUf} />
+          {uf && cities[uf] ? (
+            <Select key={uf} name="city" label="Cidade" options={cities[uf]} defaultValue={capitals[uf]} placeholder="Escolha a cidade" />
+          ) : (
+            <div className="ui-field">
+              <span className="ui-label">Cidade</span>
+              <div className="cf-wait">{uf ? "Carregando cidades…" : "Escolha o estado primeiro"}</div>
+            </div>
+          )}
+        </div>
       </Block>
       <Block n={3} title="Trajetória" text="A profissão define renda, competência e carisma iniciais. A origem define suas economias e quantas pessoas já conhecem você.">
         <ChoiceCards name="profession" label="Profissão anterior" options={professions} columns={3} />

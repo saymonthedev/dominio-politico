@@ -1,13 +1,14 @@
-import { OFFICES, type BillRow, type MandateRow, type PolicyRow } from "@dp/engine";
+import { OFFICES, geoName, type BillRow, type MandateRow, type PolicyRow } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { PartyChip } from "@/components/ui";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate } from "@/lib/format";
 import { getParties, getSession, getWorld, partyMap, requireMe } from "@/lib/game";
-import { cachedState } from "@/lib/sim";
+import { cachedState, citiesFor } from "@/lib/sim";
 
 export default async function Page({ params }: { params: Promise<{ ano: string }> }) {
   const year = Number((await params).ano);
+  const cities = await citiesFor(year);
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [state, world, parties, bQ, mQ, pQ] = await Promise.all([
@@ -34,7 +35,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             {mandates.map((m) => (
               <div key={m.id}>
                 <div className="label">{m.status === "ATIVO" ? "Mandato em curso" : m.status === "FUTURO" ? "Posse marcada" : "Mandato encerrado"}</div>
-                <h2 style={{ margin: "4px 0 10px" }}>{OFFICES[m.office_code].name} · {m.geo}</h2>
+                <h2 style={{ margin: "4px 0 10px" }}>{OFFICES[m.office_code].name} · {geoName(m.geo, { cities })}</h2>
                 <p style={{ color: "#d5deeb" }} className="mono">{fmtDate(m.start_on)} → {fmtDate(m.end_on)}</p>
               </div>
             ))}

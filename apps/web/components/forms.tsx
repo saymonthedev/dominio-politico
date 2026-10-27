@@ -169,6 +169,9 @@ export function Checkbox({ name, children, defaultChecked, required, value = "on
 
 /* ---------------------------------------------------------------- Seletor */
 
+/** Listas muito longas (ex.: 5.570 cidades) só desenham os primeiros resultados. */
+const MAX_RENDERED = 200;
+
 export interface Option {
   value: string;
   label: string;
@@ -248,7 +251,7 @@ export function Select({
     if (e.key === "ArrowDown") {
       e.preventDefault();
       if (!open) setOpen(true);
-      else setActive((a) => Math.min(filtered.length - 1, a + 1));
+      else setActive((a) => Math.min(Math.min(filtered.length, MAX_RENDERED) - 1, a + 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((a) => Math.max(0, a - 1));
@@ -262,7 +265,7 @@ export function Select({
     } else if (e.key === "Home" && open) {
       setActive(0);
     } else if (e.key === "End" && open) {
-      setActive(filtered.length - 1);
+      setActive(Math.min(filtered.length, MAX_RENDERED) - 1);
     }
   };
 
@@ -312,7 +315,7 @@ export function Select({
                   Nenhum
                 </li>
               )}
-              {filtered.map((o, i) => (
+              {filtered.slice(0, MAX_RENDERED).map((o, i) => (
                 <li
                   key={o.value}
                   id={`${id}-opt-${i}`}
@@ -331,6 +334,11 @@ export function Select({
                 </li>
               ))}
               {!filtered.length && <li className="ui-option ui-option--empty">Nada encontrado</li>}
+              {filtered.length > MAX_RENDERED && (
+                <li className="ui-option ui-option--empty">
+                  Mostrando {MAX_RENDERED} de {filtered.length.toLocaleString("pt-BR")}. Digite para refinar.
+                </li>
+              )}
             </ul>
           </div>
         )}

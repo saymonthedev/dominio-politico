@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
-import { AXES, AXIS_INFO, OFFICES, type MandateRow, type NewsRow, type PersonRow } from "@dp/engine";
+import { AXES, AXIS_INFO, OFFICES, geoName, type MandateRow, type NewsRow, type PersonRow } from "@dp/engine";
 import { NewsItem, PartyChip } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
+import { citiesFor } from "@/lib/sim";
 
 export default async function Page({ params }: { params: Promise<{ ano: string; id: string }> }) {
   const { ano, id } = await params;
   const year = Number(ano);
+  const cities = await citiesFor(year);
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [{ data: p }, mQ, nQ, parties] = await Promise.all([
@@ -46,7 +48,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
           {mandates.length ? (
             mandates.map((m) => (
               <div key={m.id} className="mt" style={{ fontSize: ".85rem" }}>
-                <b>{OFFICES[m.office_code].name}</b> · {m.geo}
+                <b>{OFFICES[m.office_code].name}</b> · {geoName(m.geo, { cities })}
                 <div className="muted mono">{fmtDate(m.start_on)} → {fmtDate(m.end_on)} · {m.status.toLowerCase()}</div>
               </div>
             ))
