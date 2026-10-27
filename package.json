@@ -10,11 +10,13 @@
     "dev": "npm run dev -w @dp/web",
     "build": "npm run build -w @dp/web",
     "start": "npm run start -w @dp/web",
-    "worker": "npm run start -w @dp/worker",
     "test": "npm run test -w @dp/engine",
     "typecheck": "npm run typecheck -w @dp/engine && npm run typecheck -w @dp/web",
-    "check:licenses": "node scripts/check-licenses.mjs",
-    "sim:advance": "npm run advance -w @dp/worker --"
+    "import:2026": "node scripts/import-snapshot/import-2026.mjs",
+    "import:historico": "node scripts/import-snapshot/import-historical.mjs",
+    "build:startpoints": "node scripts/build-startpoints.mjs",
+    "build:icons": "node scripts/build-icons.mjs",
+    "test:integration": "cd apps/web && tsx --env-file=.env.local scripts/integration.ts"
   },
   "engines": {
     "node": ">=20"

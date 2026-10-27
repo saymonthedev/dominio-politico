@@ -1,4 +1,4 @@
-import { profileFor } from "@dp/engine";
+import { profileFor, UFS } from "@dp/engine";
 import { ElectionMap, type MapYear } from "@/components/ElectionMap";
 import { Icon } from "@/components/Icon";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
@@ -91,7 +91,7 @@ export default async function Home() {
               </div>
             </div>
           </div>
-          <ElectionMap paths={paths} years={years} initial={latest.year} />
+          <ElectionMap paths={paths} years={years} initial={latest.year} ufNames={Object.fromEntries(UFS.map((u) => [u.code, u.name]))} />
         </div>
       </section>
 

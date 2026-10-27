@@ -788,3 +788,19 @@ td.num, th.num { text-align: right; }
 @media (max-width: 900px) { .auth__mapdeco { display: none; } }
 .auth__main { grid-template-columns: minmax(0, 440px); justify-content: center; }
 .ui-field { grid-template-columns: minmax(0, 1fr); } .ui-input input { width: 100%; }
+.map-canvas { position: relative; }
+.election-map path:focus { outline: none; }
+.map-tip { position: absolute; z-index: 5; pointer-events: none; transform: translate(-50%, calc(-100% - 16px)); min-width: 230px; background: var(--cartao); color: var(--tinta); border-radius: 14px; padding: 12px 14px; box-shadow: 0 18px 40px rgba(0,0,0,.35); display: grid; gap: 8px; animation: ui-pop .12s ease-out; }
+.map-tip::after { content: ""; position: absolute; left: calc(50% + var(--arrow, 0px)); bottom: -6px; width: 12px; height: 12px; background: var(--cartao); transform: translateX(-50%) rotate(45deg); border-radius: 2px; }
+.map-tip__head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--linha); }
+.map-tip__head b { font-size: 1rem; letter-spacing: -0.01em; }
+.map-tip__head span { font-family: var(--f-mono); font-size: .72rem; color: var(--apagado); background: var(--rebaixada); padding: 1px 7px; border-radius: 6px; }
+.map-tip__row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; column-gap: 8px; row-gap: 4px; align-items: center; font-size: .82rem; color: var(--apagado); }
+.map-tip__row.win { color: var(--tinta); font-weight: 600; }
+.map-tip__row i { width: 10px; height: 10px; border-radius: 3px; }
+.map-tip__row small { font-weight: 500; color: var(--apagado); font-size: .72rem; }
+.map-tip__row .v { font-family: var(--f-mono); font-size: .82rem; }
+.map-tip__row .bar { grid-column: 2 / -1; height: 4px; border-radius: 999px; background: var(--rebaixada); overflow: hidden; }
+.map-tip__row .bar span { display: block; height: 100%; border-radius: 999px; }
+.map-tip.below { transform: translate(-50%, 18px); }
+.map-tip.below::after { bottom: auto; top: -6px; }
