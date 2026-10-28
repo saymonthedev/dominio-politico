@@ -146,6 +146,8 @@ export function processAffiliationRequests(ctx: Ctx): void {
     const person = ctx.person(req.person_id);
     const party = ctx.t.parties.get(req.party_id);
     if (!person || !party) continue;
+    // partido presidido por jogador: quem decide é o presidente (partyfounding.ts)
+    if (party.founder_id && ctx.person(party.president_id)?.kind === "PLAYER") continue;
     const b = computeAffiliation(ctx, person, party, "PEDIDO");
     const p = acceptanceProbability(b.total);
     const accepted = ctx.rng("affiliation", req.id).chance(p);
@@ -198,6 +200,7 @@ export function partyInvitations(ctx: Ctx): void {
     if (pending) continue;
     const rng = ctx.rng("invite", person.id);
     for (const party of ctx.t.parties.values()) {
+      if (party.status !== "ATIVO" || party.founder_id) continue;
       const rel = bestPartyRelationship(ctx, person, party);
       const b = computeAffiliation(ctx, person, party, "CONVITE");
       const interest = acceptanceProbability(b.total) * Math.min(1, person.reputation / 50) * (rel.score > 30 ? 1 : 0.3);

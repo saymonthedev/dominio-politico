@@ -47,9 +47,16 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
             {party.federation_name && <Pill tone="sim">{party.federation_name}</Pill>}
             {party.gov_alignment === 1 ? <Pill tone="ok">base do governo</Pill> : party.gov_alignment === -1 ? <Pill tone="warn">oposição</Pill> : null}
             {mine && <Pill tone="gold">seu partido</Pill>}
+            {party.founder_id && <Pill tone="sim">fundado na simulação</Pill>}
           </div>
         </div>
         <div className="phero__actions">
+          {party.president_id === me.person.id && (
+            <a className="ui-btn ui-btn--gold ui-btn--sm" href={`/jogo/${year}/meu-partido`}>
+              <span>Gerenciar</span>
+            </a>
+          )}
+          <QuickAction year={year} action="investigar_partido" params={{ party: party.id }} label="Investigar as contas" tone="ghost" icon="search" />
           {!mine && <QuickAction year={year} action="reuniao_partidaria" params={{ party: party.id }} label="Ir à reunião aberta" tone="ghost" icon="users" />}
           {!me.person.party_id && <QuickAction year={year} action="pedir_filiacao" params={{ party: party.id }} label="Pedir filiação" tone="gold" icon="flag" />}
         </div>

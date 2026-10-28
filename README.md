@@ -56,14 +56,17 @@ Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE.
 - **Eleitorado por segmentos:** sete segmentos por estado, calibrados para reproduzir o 2º turno real de cada UF.
 - **Economia mensal:** PIB, inflação, Selic, câmbio, desemprego e dívida a partir das séries do Banco Central. O Copom decide os juros por uma regra de Taylor, e há choques externos.
 - **Governo:** projetos de lei em tramitação e políticas públicas com prazo, custo e efeito.
-- **Crime com rastro:**
-  - caixa dois, propina e outros ilícitos rendem dinheiro e deixam testemunhas;
-  - investigação em etapas: denúncia, imprensa, investigação, processo e desfecho;
-  - PF, Ministério Público, CPI e imprensa;
-  - delação premiada;
-  - condenação com inelegibilidade e perda de mandato.
+- **Crimes políticos com rastro (21 condutas):**
+  - caixa dois, corrupção passiva e ativa, peculato, rachadinha, funcionário fantasma, notas frias na cota parlamentar, fraude em licitação, desvio de emendas, lavagem de dinheiro, compra de votos, abuso de poder econômico, uso da máquina, desinformação, candidaturas laranjas, desvio do fundo partidário, tráfico de influência, concussão, nepotismo, obstrução de justiça e enriquecimento ilícito;
+  - cada conduta tem base legal conforme a época (por exemplo, Lei 8.666 antes de 2021 e Lei 14.133 depois), cargo que dá a oportunidade, ganho, rastro (documentos e testemunhas) e canais por onde costuma vir à tona: Coaf, Tribunal de Contas, Controladoria, imprensa, ex-assessores, adversários, Ministério Público Eleitoral e delação;
+  - esquemas recorrentes rendem todo mês e deixam mais rastro a cada mês;
+  - investigação em etapas, com quebra de sigilo, busca e apreensão, bloqueio de bens, prisão preventiva e afastamento do cargo;
+  - pena calculada pelas acusações: prisão com progressão de regime, multa e devolução, cassação em ilícitos eleitorais e inelegibilidade pela Ficha Limpa;
+  - dossiês mostram cada achado concreto, inclusive quando não há nada; partidos também podem ser investigados pelas contas.
 
-  Só personagens fictícios ou de jogadores cometem crimes. Eles podem ser filiados a partidos reais, e a reputação do partido muda pelo que eles fazem.
+  Só personagens fictícios ou de jogadores cometem crimes, e o motor cria com frequência casos entre os personagens fictícios. Eles podem ser filiados a partidos reais, e a reputação e a integridade do partido mudam pelo que eles fazem. Pessoas reais nunca são autoras nem alvos.
+- **Dinheiro:** fechamento mensal com extrato por categoria: salário da profissão ou subsídio do cargo (valores de cada época, de vereador a presidente), Imposto de Renda simplificado (com a isenção até R$ 5 mil a partir de 2026), custo de vida, rendimento da reserva pela Selic, contribuição ao partido, empréstimos com juros e dinheiro não declarado separado da conta, que só volta ao bolso lavado e com perda.
+- **Partido próprio:** fundação com estatuto e custos, coleta de apoio de eleitores (0,5% dos votos válidos para a Câmara, com mínimo em nove estados) em até dois anos, conferência e registro no TSE, presidência da legenda, pedidos de filiação de outros políticos, convites e fidelidade partidária conforme a época (a criação de partido deixou de ser justa causa em 2015).
 - **Passar o tempo:** além do relógio automático, o Painel tem um lugar único para pular 1 dia, 1 semana, 15 dias ou 1 mês, sem espera entre um salto e outro. Ao fim, um resumo mostra o que aconteceu no Brasil (aprovação, Selic, inflação, desemprego, dólar e manchetes) e o que mudou para você, com atalho para responder convites.
 - **Mapa político dos 5.570 municípios,** com prefeito(a) e câmara de cada cidade no ponto de partida (TSE) e zoom do país até o município. Capitais e a cidade do jogador têm disputa completa; as demais são simuladas de forma determinística a cada eleição municipal.
 - **Fotos e logos reais:** fotos oficiais de candidatura do TSE (CC-BY) para 5.702 candidaturas de pessoas reais, sempre com o ano, e logos dos partidos do Wikimedia Commons, só de arquivos em domínio público ou com licença livre, com autor e licença na página de Fontes.
@@ -136,6 +139,9 @@ apps/web/              site Next.js (App Router, Server Actions)
   lib/logos.json       logos dos partidos com licença e autor (arquivos em public/logos)
 packages/engine/       motor da simulação em TypeScript puro (sem React, sem banco)
   src/                 eleições, partidos, economia, governo, crime, notícias, relógio
+    crimes.ts          catálogo das condutas ilícitas (lei, oportunidade, rastro, canais, pena)
+    finance.ts         subsídios, imposto, custo de vida, fundo partidário e fechamento mensal
+    partyfounding.ts   fundação de partidos, apoiamento, registro e pedidos de filiação
   test/                testes dos pontos de partida e simulação longa
 packages/data/         carrega os snapshots por ano
 data/                  snapshots reais (snapshot-2002.json … snapshot-2026.json)
@@ -222,7 +228,7 @@ Os arquivos do TSE ficam em cache em `.cache/tse/` (fora do Git).
 
 | Verificação | Resultado |
 | --- | --- |
-| `npm test`: os 7 pontos de partida reproduzem o eleito real, 513 cadeiras na Câmara e 81 no Senado; municípios e eleições municipais; simulação de 2026 até depois da eleição de 2030 | 18 de 18 |
+| `npm test`: os 7 pontos de partida reproduzem o eleito real, 513 cadeiras na Câmara e 81 no Senado; municípios e eleições municipais; crimes nunca atribuídos a pessoas reais; dossiês; fundação de partido até o registro; subsídios e imposto por época; simulação de 2026 até depois da eleição de 2030 | 25 de 25 |
 | `npm run test:integration`: criação do mundo, personagem, ações e avanço de 15 dias contra o Supabase real | aprovado |
 | Totais do 2º turno contra o TSE (ex.: Lula 2002 com 52.793.364 votos, Lula 2022 com 60.345.999) | iguais |
 | `npm run typecheck` e `npm run build` | sem erros |

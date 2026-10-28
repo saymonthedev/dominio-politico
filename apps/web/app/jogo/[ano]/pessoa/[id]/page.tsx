@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { AXES, AXIS_INFO, OFFICES, geoName, type MandateRow, type NewsRow, type PersonRow } from "@dp/engine";
+import { AXES, AXIS_INFO, CRIMES, OFFICES, canBeTargeted, dossierLabel, geoName, type Finding, type MandateRow, type NewsRow, type PersonRow } from "@dp/engine";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, Kpi, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
@@ -77,7 +77,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
           <Icon name="shield" size={18} />
           <span>
             Os fatos do ponto de partida vêm do TSE. Depois disso, a atuação desta pessoa no jogo é <b>simulação</b>. O jogo não atribui a pessoas reais crimes, falas, saúde ou
-            vida íntima inventados.
+            vida íntima inventados — por isso ela não pode ser investigada aqui.
           </span>
         </div>
       )}
@@ -88,6 +88,8 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
         <Kpi label="Visibilidade" value={Math.round(person.visibility)} />
         {!isMe && <Kpi label="Sua relação" value={rel ? Math.round(rel.score) : "—"} hint={rel ? `${rel.interactions} conversa(s)` : "vocês ainda não conversaram"} tone={rel ? (rel.score >= 0 ? "up" : "down") : undefined} />}
       </div>
+
+      {!isMe && canBeTargeted(person) && <DossierPanel year={year} person={person} findings={(me.state.findings ?? {})[person.id] ?? []} level={me.state.dossiers?.[person.id] ?? 0} />}
 
       <div className="ggrid ggrid--main">
         <Panel title="No noticiário" icon="newspaper">
@@ -134,5 +136,45 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
         </div>
       </div>
     </>
+  );
+}
+
+function DossierPanel({ year, person, findings, level }: { year: number; person: PersonRow; findings: Finding[]; level: number }) {
+  const proof = findings.filter((f) => f.verified && f.act_id).length;
+  return (
+    <Panel
+      title="Seu dossiê"
+      icon="file"
+      className="mb"
+      aside={
+        <span className="pend__actions">
+          <QuickAction year={year} action="investigar" params={{ target: person.id }} label={findings.length ? "Aprofundar" : "Levantar informações"} tone="ghost" icon="search" />
+          {proof > 0 && <QuickAction year={year} action="denunciar" params={{ target: person.id, authority: "PF" }} label="Denunciar à PF" tone="primary" icon="shield" />}
+        </span>
+      }
+    >
+      {findings.length ? (
+        <>
+          <p className="small" style={{ marginTop: 0 }}>
+            Situação: <b>{dossierLabel(level)}</b> ({Math.round(level * 100)}%).
+          </p>
+          <ul className="findings">
+            {[...findings].reverse().slice(0, 6).map((f) => (
+              <li key={f.id} className={`finding finding--${f.act_id ? "ok" : f.verified ? "none" : "rumor"}`}>
+                <Icon name={f.act_id ? "check" : f.verified ? "shield" : "info"} size={14} />
+                <span>
+                  {f.text}
+                  <small>{f.act_id ? `prova${f.crime ? ` de ${CRIMES[f.crime].label.toLowerCase()}` : ""}` : f.verified ? "nada encontrado" : "pista sem prova"}</small>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="muted small" style={{ margin: 0 }}>
+          Você ainda não investigou {person.name}. O levantamento mostra o que de fato aparecer nas fontes — inclusive quando não há nada.
+        </p>
+      )}
+    </Panel>
   );
 }

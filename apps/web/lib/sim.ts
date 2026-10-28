@@ -11,6 +11,7 @@ import {
   Ctx,
   DEFAULT_RULESET,
   emptyTables,
+  hydrateState,
   runTicks,
   STATEFUL_TABLES,
   START_YEARS,
@@ -105,15 +106,31 @@ export async function ensureWorld(year: number): Promise<void> {
 
 type LoadedJson = Record<string, unknown[]> & { world: WorldRow; economy: EconomyRow };
 
+const LOAD_PARTS = ["core", "persons", "person_states", "parties", "elections", "mandates", "crime"] as const;
+
+/** Busca o mundo em partes paralelas (cada uma bem abaixo do limite de tempo do banco); cai no sim_load inteiro se preciso. */
+async function fetchWorld(worldId: string): Promise<LoadedJson | null> {
+  try {
+    const parts = await Promise.all(LOAD_PARTS.map((part) => rpc<Record<string, unknown> | null>("sim_load_part", { p_world: worldId, p_part: part })));
+    if (parts.some((x) => !x)) return null;
+    return Object.assign({}, ...parts) as LoadedJson;
+  } catch (e) {
+    if (e instanceof Error && /sim_load_part/.test(e.message) && /function|does not exist|schema cache/i.test(e.message)) {
+      return rpc<LoadedJson | null>("sim_load", { p_world: worldId });
+    }
+    throw e;
+  }
+}
+
 export async function loadState(worldId: string): Promise<WorldState> {
-  const data = await rpc<LoadedJson | null>("sim_load", { p_world: worldId });
+  const data = await fetchWorld(worldId);
   if (!data) throw new Error("Mundo não encontrado");
   const t = emptyTables();
   for (const name of STATEFUL_TABLES) {
     const map = t[name] as Map<string, unknown>;
     for (const row of (data[name] ?? []) as Array<{ id: string }>) map.set(row.id, row);
   }
-  return { world: data.world, economy: data.economy, ruleset: DEFAULT_RULESET, t, cities: await citiesFor(yearOfWorld(worldId)) };
+  return hydrateState({ world: data.world, economy: data.economy, ruleset: DEFAULT_RULESET, t, cities: await citiesFor(yearOfWorld(worldId)) });
 }
 
 const cache = new Map<string, { state: WorldState; at: number }>();

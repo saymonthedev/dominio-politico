@@ -154,6 +154,10 @@ export interface Pending {
   requests: Array<{ id: string; party: PartyRow; until: string; days: number }>;
   offers: Array<{ id: string; kind: string; amount: number; from: string }>;
   investigations: number;
+  /** pedidos de filiação ao partido que você preside */
+  partyRequests: Array<{ id: string; name: string; role: string; until: string }>;
+  /** fundação de partido em andamento */
+  founding: { acronym: string; pct: number; days: number } | null;
 }
 
 export function pending(state: WorldState, me: PersonRow, st: PersonStateRow): Pending {
@@ -165,6 +169,21 @@ export function pending(state: WorldState, me: PersonRow, st: PersonStateRow): P
     requests: reqs.filter((r) => r.kind === "PEDIDO").map((r) => ({ id: r.id, party: party(r.party_id), until: r.decide_on, days: daysBetween(today, r.decide_on) })),
     offers: st.offers.map((o) => ({ id: o.id, kind: o.kind === "PROPINA" ? "Propina" : "Caixa dois", amount: o.amount, from: state.t.persons.get(o.from)?.name ?? "um intermediário" })),
     investigations: [...state.t.investigations.values()].filter((i) => i.person_id === me.id && !i.outcome).length,
+    partyRequests: (() => {
+      const led = [...state.t.parties.values()].find((p) => p.president_id === me.id && p.status === "ATIVO" && p.founder_id);
+      if (!led) return [];
+      return [...state.t.affiliation_requests.values()]
+        .filter((r) => r.party_id === led.id && r.kind === "PEDIDO" && r.status === "PENDENTE")
+        .map((r) => {
+          const who = state.t.persons.get(r.person_id);
+          return { id: r.id, name: who?.name ?? "Alguém", role: who?.office_code ? OFFICES[who.office_code].name : who?.role_label ?? "político(a)", until: r.decide_on };
+        });
+    })(),
+    founding: (() => {
+      const f = [...state.t.parties.values()].find((p) => p.founder_id === me.id && p.status === "EM_FORMACAO");
+      if (!f?.formation) return null;
+      return { acronym: f.acronym, pct: Math.min(1, f.formation.signatures / f.formation.goal), days: daysBetween(today, f.formation.deadline) };
+    })(),
   };
 }
 

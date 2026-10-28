@@ -15,7 +15,8 @@ import {
   updateTerritoryFromResults,
 } from "./elections";
 import { dailyBillVotes, dailyPolicies, monthlyBills, monthlyFiscalStance } from "./government";
-import { profession } from "./names";
+import { monthlyFinances, monthlyPartyFinances } from "./finance";
+import { dailyPartyFormation, playerPartyRecruitment, processPartyInvites } from "./partyfounding";
 import { partySwitchWindow, weeklyAgenda, yearlyRenewal } from "./npclife";
 import { eraRules } from "./ruleset";
 import { scheduledElection } from "./bootstrap";
@@ -96,19 +97,18 @@ export function advanceDay(ctx: Ctx): void {
     const before = st.energy;
     st.energy = Math.min(100, st.energy + 25);
     st.offers = st.offers.filter((o) => o.expires_tick > w.tick);
-    if (day(d) === 1) {
-      const salary = p.office_code ? 25_000 : 0;
-      const income = Math.round(profession(p.profession).income * 0.25) + salary;
-      st.money += income;
-      if (month(d) === 1) st.income_last_year = 0;
-      st.income_last_year += income;
-      st.political_capital = Math.min(100, st.political_capital + (p.office_code ? 3 : 0.5));
+    if (st.jailed_until && st.jailed_until <= d) {
+      st.jailed_until = null;
+      ctx.notify(p.id, "Você deixou o regime fechado", "A pena progrediu de regime. Você volta a poder agir, mas a condenação continua na sua ficha.", "/jogo/investigacoes");
     }
-    if (st.energy !== before || day(d) === 1) ctx.save("person_states", st);
+    if (st.energy !== before) ctx.save("person_states", st);
   }
+  if (day(d) === 1) monthlyFinances(ctx);
 
   processMandates(ctx);
   processAffiliationRequests(ctx);
+  processPartyInvites(ctx);
+  dailyPartyFormation(ctx);
   for (const e of [...ctx.t.elections.values()].sort((a, b) => a.year - b.year)) {
     if (e.status === "ENCERRADA") continue;
     electionCalendarDay(ctx, e);
@@ -121,6 +121,7 @@ export function advanceDay(ctx: Ctx): void {
 
   if (weekday(d) === 1) {
     partyInvitations(ctx);
+    playerPartyRecruitment(ctx);
     weeklyAgenda(ctx);
   }
   if (day(d) === 1) {
@@ -128,6 +129,7 @@ export function advanceDay(ctx: Ctx): void {
     monthlyFiscalStance(ctx);
     monthlyBills(ctx);
     monthlyCrime(ctx);
+    monthlyPartyFinances(ctx);
   }
   if (month(d) === 1 && day(d) === 2) yearlyRenewal(ctx);
   ctx.saveWorld();

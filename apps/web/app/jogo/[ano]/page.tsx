@@ -44,7 +44,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const top = parties.slice(0, 8);
   const others = parties.slice(8).reduce((s, p) => s + (p.seats.camara ?? 0), 0);
   const firstName = me.person.name.split(" ")[0];
-  const pendCount = todo.invites.length + todo.offers.length + todo.investigations;
+  const pendCount = todo.invites.length + todo.offers.length + todo.investigations + todo.partyRequests.length;
 
   return (
     <>
@@ -108,7 +108,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
                   </b>
                   <span>Oferecido por {o.from}. Aceitar, recusar ou denunciar?</span>
                 </div>
-                <a className="ui-btn ui-btn--danger ui-btn--sm" href={`/jogo/${year}/investigacoes`}>
+                <a className="ui-btn ui-btn--danger ui-btn--sm" href={`/jogo/${year}/esquemas`}>
                   <span>Decidir</span>
                 </a>
               </div>
@@ -124,7 +124,32 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
                 </a>
               </div>
             )}
-            {!todo.invites.length && !todo.requests.length && !todo.offers.length && !todo.investigations && <p className="muted small">Nada esperando por você agora.</p>}
+            {todo.partyRequests.map((r) => (
+              <div key={r.id} className="pend">
+                <div className="pend__text">
+                  <b>{r.name} quer entrar no seu partido</b>
+                  <span>
+                    {r.role} · responda até {fmtDate(r.until)}
+                  </span>
+                </div>
+                <div className="pend__actions">
+                  <QuickAction year={year} action="decidir_filiacao" params={{ request: r.id, decision: "ACEITAR" }} label="Aprovar" tone="gold" icon="check" />
+                  <QuickAction year={year} action="decidir_filiacao" params={{ request: r.id, decision: "RECUSAR" }} label="Recusar" tone="ghost" />
+                </div>
+              </div>
+            ))}
+            {todo.founding && (
+              <div className="pend">
+                <div className="pend__text">
+                  <b>Fundação do {todo.founding.acronym}: {Math.round(todo.founding.pct * 100)}% dos apoios</b>
+                  <span>{todo.founding.days} dias até o fim do prazo de coleta</span>
+                </div>
+                <a className="ui-btn ui-btn--ghost ui-btn--sm" href={`/jogo/${year}/meu-partido`}>
+                  <span>Acompanhar</span>
+                </a>
+              </div>
+            )}
+            {!todo.invites.length && !todo.requests.length && !todo.offers.length && !todo.investigations && !todo.partyRequests.length && !todo.founding && <p className="muted small">Nada esperando por você agora.</p>}
           </Panel>
 
           <Panel title="Agenda" icon="calendar" href={`/jogo/${year}/eleicoes`} hrefLabel="Calendário">

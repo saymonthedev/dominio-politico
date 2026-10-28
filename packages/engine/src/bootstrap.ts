@@ -154,6 +154,10 @@ export function createInitialWorld(snap: Snapshot, opts: BootstrapOptions): { st
       federation_name: fed ? titleFed(fed.name) : null,
       is_fictional: false,
       status: "ATIVO",
+      founder_id: null,
+      founded_on: null,
+      formation: null,
+      fund_suspended_until: null,
     };
     ctx.save("parties", party);
     partyByAcronym.set(sp.acronym, party);

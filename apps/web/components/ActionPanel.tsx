@@ -15,6 +15,12 @@ const ACTION_ICON: Record<string, string> = {
   contratar_equipe: "briefcase", preparar_debate: "users", impulsionar_boato: "alert", votar_projeto: "ballot", apresentar_projeto: "file",
   destinar_emenda: "coins", fiscalizar_governo: "eye", lancar_politica: "trending", abrir_cpi: "gavel", investigar: "search", denunciar: "shield",
   vazar_imprensa: "newspaper", responder_oferta: "alert", contratar_defesa: "scale", colaborar: "key", nota_publica: "megaphone",
+  investigar_partido: "search", denunciar_partido: "shield", rachadinha: "coins", funcionario_fantasma: "user", desviar_cota: "file",
+  nomear_parentes: "users", cobrar_propina: "coins", fraudar_licitacao: "file", desviar_verba: "landmark", desviar_emenda: "coins",
+  vender_influencia: "key", buscar_caixa_dois: "coins", comprar_votos: "ballot", usar_maquina: "landmark", gastar_por_fora: "coins",
+  pagar_mesada: "coins", lancar_laranjas: "users", desviar_fundo: "flag", lavar_dinheiro: "coins", obstruir_investigacao: "trash",
+  encerrar_esquema: "x", fundar_partido: "flag", coletar_assinaturas: "file", mobilizar_voluntarios: "users", desistir_fundacao: "x",
+  filiar_meu_partido: "flag", decidir_filiacao: "check", convidar_filiacao: "mail", pegar_emprestimo: "coins", quitar_divida: "check",
 };
 
 const CAT: Record<string, { icon: string; label: string; cls: string }> = {
@@ -22,7 +28,10 @@ const CAT: Record<string, { icon: string; label: string; cls: string }> = {
   PARTIDO: { icon: "flag", label: "Partido", cls: "" },
   CAMPANHA: { icon: "megaphone", label: "Campanha", cls: "camp" },
   MANDATO: { icon: "landmark", label: "Mandato", cls: "" },
-  INVESTIGACAO: { icon: "search", label: "Investigação", cls: "crime" },
+  INVESTIGACAO: { icon: "search", label: "Investigação", cls: "" },
+  ESQUEMA: { icon: "key", label: "Esquema", cls: "crime" },
+  MEU_PARTIDO: { icon: "flag", label: "Meu partido", cls: "camp" },
+  FINANCAS: { icon: "coins", label: "Finanças", cls: "" },
 };
 const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR")}`;
 
@@ -55,10 +64,16 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
               </span>
             )}
             {!!a.cost && <span className="cost-chip">{brl(a.cost)}</span>}
+            {a.crime && <span className="cost-chip cost-chip--crime">ilegal · {a.crime.sphere}</span>}
           </div>
         </div>
       </div>
       <p className="acard__desc">{a.description}</p>
+      {a.crime && (
+        <p className="acard__law">
+          <Icon name="scale" size={13} /> {a.crime.law}
+        </p>
+      )}
       {locked ? (
         <div className="acard__lock">
           <Icon name="lock" size={14} /> {a.reason}

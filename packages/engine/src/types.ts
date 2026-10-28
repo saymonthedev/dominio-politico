@@ -4,6 +4,7 @@
  */
 import type { ISODate } from "./calendar";
 import type { Ideology } from "./ideology";
+import type { ChargeKind, DetectionChannel, IllicitKind } from "./crimes";
 import type { ElectionKind, OfficeCode } from "./ruleset";
 
 export type PersonKind = "REAL_HISTORICAL" | "REAL_ACTIVE_AT_SNAPSHOT" | "FICTIONAL_GENERATED" | "PLAYER";
@@ -97,6 +98,46 @@ export interface Offer {
   expires_tick: number;
 }
 
+/** Linha do fechamento mensal (extrato resumido). */
+export interface LedgerItem {
+  kind: string;
+  label: string;
+  amount: number;
+}
+
+export interface Ledger {
+  /** mês fechado (AAAA-MM) */
+  month: string | null;
+  items: LedgerItem[];
+  net: number;
+}
+
+/** Achado de um dossiê: o que de fato apareceu nas fontes consultadas. */
+export interface Finding {
+  id: string;
+  on: ISODate;
+  /** ato ilícito a que o achado se refere (null = nada ou boato) */
+  act_id: string | null;
+  crime: IllicitKind | null;
+  text: string;
+  /** força do indício (0–1) */
+  strength: number;
+  /** documento ou testemunho verificável (false = boato sem prova) */
+  verified: boolean;
+  /** de quem é o ato (útil em dossiês sobre partidos) */
+  person_id: string | null;
+}
+
+/** Pena aplicada numa condenação. */
+export interface Sentence {
+  years: number;
+  regime: "FECHADO" | "SEMIABERTO" | "ABERTO" | "SEM_PRISAO";
+  fine: number;
+  ineligible_until: ISODate | null;
+  cassation: boolean;
+  charges: ChargeKind[];
+}
+
 export interface PersonStateRow {
   id: string;
   world_id: string;
@@ -122,6 +163,20 @@ export interface PersonStateRow {
   action_seq: number;
   /** dossiês montados pelo jogador: alvo → força das provas (0–1) */
   dossiers: Record<string, number>;
+  /** achados de cada dossiê (chave: id da pessoa ou "party:<id>") */
+  findings: Record<string, Finding[]>;
+  /** dinheiro não declarado (em espécie, com laranjas ou em contas de terceiros) */
+  dirty_money: number;
+  /** dívida bancária */
+  debt: number;
+  /** bens declarados (imóveis, veículos, participações) */
+  assets: number;
+  /** último fechamento mensal */
+  ledger: Ledger;
+  /** cumprindo pena em regime fechado até */
+  jailed_until: ISODate | null;
+  /** última condenação */
+  sentence: Sentence | null;
 }
 
 export type EntryCulture = "ABERTO" | "RELACIONAMENTO" | "CONVITE";
@@ -151,7 +206,36 @@ export interface PartyRow {
   federation: string | null;
   federation_name: string | null;
   is_fictional: boolean;
-  status: "ATIVO" | "EXTINTO";
+  status: "ATIVO" | "EXTINTO" | "EM_FORMACAO";
+  /** jogador que fundou o partido (partidos criados no jogo) */
+  founder_id: string | null;
+  founded_on: ISODate | null;
+  /** coleta de apoiamento e registro no TSE */
+  formation: PartyFormation | null;
+  /** cotas do fundo partidário suspensas até (sanção da Justiça Eleitoral) */
+  fund_suspended_until: ISODate | null;
+}
+
+export interface PartyFormation {
+  stage: "APOIAMENTO" | "REGISTRO" | "CONCLUIDA" | "FRACASSADA";
+  started_on: ISODate;
+  /** prazo de dois anos para o apoiamento (Lei 9.096/95, art. 7º, §1º) */
+  deadline: ISODate;
+  /** assinaturas exigidas: 0,5% dos votos válidos da última eleição para a Câmara */
+  goal: number;
+  /** mínimo por UF: 0,1% do eleitorado */
+  uf_goal: Record<string, number>;
+  /** UFs que precisam atingir o mínimo (um terço das unidades da Federação) */
+  ufs_needed: number;
+  signatures: number;
+  by_uf: Record<string, number>;
+  spent: number;
+  /** julgamento do pedido de registro */
+  registry_on: ISODate | null;
+  /** assinaturas invalidadas na conferência do TSE */
+  rejected: number;
+  /** fundador ainda não se filiou (mandato proporcional fora da janela) */
+  founder_pending: boolean;
 }
 
 export interface FactionRow {
@@ -324,8 +408,6 @@ export interface PolicyRow {
   effects: Record<string, number>;
 }
 
-export type IllicitKind = "CAIXA_DOIS" | "PROPINA" | "DESINFORMACAO";
-
 export interface IllicitActRow {
   id: string;
   world_id: string;
@@ -346,14 +428,43 @@ export interface IllicitActRow {
   description: string;
   discovered: boolean;
   discovered_on: ISODate | null;
+  /** esquema que se repete todo mês (rachadinha, fantasma, cota) */
+  ongoing: boolean;
+  monthly_gain: number;
+  stopped_on: ISODate | null;
+  /** cargo e lugar em que a conduta aconteceu */
+  office_code: OfficeCode | null;
+  geo: string | null;
+  /** efeito eleitoral (compra de votos, máquina, abuso) */
+  votes_gain: number;
 }
 
 export type InvestigationStage = "DENUNCIA" | "IMPRENSA" | "INVESTIGACAO" | "PROCESSO" | "DESFECHO";
 
+export type Authority = "PF" | "MP" | "MP_ELEITORAL" | "CPI" | "IMPRENSA" | "TRIBUNAL_CONTAS" | "JUSTICA_ELEITORAL";
+
+export interface InvestigationMeasure {
+  on: ISODate;
+  kind: "BUSCA" | "QUEBRA_SIGILO" | "BLOQUEIO_BENS" | "PRISAO_PREVENTIVA" | "AFASTAMENTO" | "DENUNCIA_ACEITA" | "DEPOIMENTO" | "ACORDO";
+  text: string;
+}
+
 export interface InvestigationRow {
   id: string;
   world_id: string;
-  person_id: string;
+  /** pessoa investigada (null quando o alvo é só o partido) */
+  person_id: string | null;
+  /** partido investigado ou envolvido */
+  party_id: string | null;
+  target_type: "PESSOA" | "PARTIDO";
+  /** acusações em apuração */
+  crimes: ChargeKind[];
+  /** como o caso começou */
+  channel: DetectionChannel | "DENUNCIA" | "CPI" | null;
+  /** medidas tomadas no caso (busca, quebra de sigilo, prisão...) */
+  measures: InvestigationMeasure[];
+  /** pena, quando há condenação */
+  sentence: Sentence | null;
   stage: InvestigationStage;
   opened_on: ISODate;
   next_step_on: ISODate;
@@ -361,8 +472,8 @@ export interface InvestigationRow {
   defense: number;
   evidences: Array<{ on: ISODate; description: string; strength: number }>;
   outcome: null | "ARQUIVADO" | "ABSOLVIDO" | "CONDENADO";
-  /** quem conduz: Polícia Federal, Ministério Público, CPI ou imprensa */
-  authority: "PF" | "MP" | "CPI" | "IMPRENSA";
+  /** quem conduz o caso */
+  authority: Authority;
   /** jogador que acionou as autoridades, se houver */
   opened_by: string | null;
   /** atos cobertos (pode ser vazio se a denúncia não tiver base) */
@@ -473,12 +584,32 @@ export interface NotificationRow {
   read_at: string | null;
 }
 
+export type FinanceKind =
+  | "DOACAO"
+  | "FEFC"
+  | "RECURSO_PROPRIO"
+  | "DESPESA"
+  | "RENDA"
+  | "NAO_DECLARADO"
+  | "CONTRIBUICAO_PARTIDO"
+  | "SUBSIDIO"
+  | "IMPOSTO"
+  | "RENDIMENTO"
+  | "CUSTO_VIDA"
+  | "JUROS"
+  | "EMPRESTIMO"
+  | "AMORTIZACAO"
+  | "FUNDACAO_PARTIDO"
+  | "COLETA_ASSINATURAS"
+  | "LAVAGEM"
+  | "MULTA";
+
 export interface FinanceRow {
   id: string;
   world_id: string;
   person_id: string;
   candidacy_id: string | null;
-  kind: "DOACAO" | "FEFC" | "RECURSO_PROPRIO" | "DESPESA" | "RENDA" | "NAO_DECLARADO" | "CONTRIBUICAO_PARTIDO";
+  kind: FinanceKind;
   amount: number;
   declared: boolean;
   game_date: ISODate;

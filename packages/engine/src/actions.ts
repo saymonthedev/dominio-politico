@@ -1,25 +1,75 @@
 import { joinParty, leaveParty, relKey, requestAffiliation } from "./affiliation";
 import { addDays, formatDatePt } from "./calendar";
-import { canBeTargeted, createIllicitAct, openInvestigation } from "./crime";
+import {
+  canBeTargeted,
+  commitCrime,
+  createIllicitAct,
+  crimeOpportunity,
+  dossierLabel,
+  gatherIntel,
+  isJailed,
+  openInvestigation,
+  partyLedBy,
+  stopScheme,
+  type SchemeResult,
+} from "./crime";
+import { CRIMES, type IllicitKind } from "./crimes";
+import { priceLevel } from "./finance";
 import { checkEligibility, emptyCampaign, ensureRace, geoName, tallyMajoritarian, ufOfGeo } from "./elections";
 import { canonicalGeo, capitalId, isMunicipality, UF_BY_CODE, UF_CODES } from "./geo";
 import { POLICY_CATALOG, startPolicy } from "./government";
 import { AXES, AXIS_INFO, clampAxis, ideologyAffinity, type Axis } from "./ideology";
 import { moderateText } from "./news/moderation";
 import { isReal } from "./news/policy";
+import {
+  addSignatures,
+  decideJoinRequest,
+  ENTRY_OPTIONS,
+  formationProgress,
+  foundingCost,
+  foundParty,
+  inviteToParty,
+  joinOwnParty,
+  PARTY_COLORS,
+  partyFoundedBy,
+  partyInFormationBy,
+  signatureCost,
+  validateFounding,
+} from "./partyfounding";
 import { profession } from "./names";
 import type { Rng } from "./rng";
 import { eraRules, OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
-import type { CandidacyRow, ElectionRow, PersonRow, PersonStateRow, RaceRow } from "./types";
+import type { CandidacyRow, EntryCulture, ElectionRow, PersonRow, PersonStateRow, RaceRow } from "./types";
 
-export type ActionCategory = "BASE" | "PARTIDO" | "CAMPANHA" | "MANDATO" | "INVESTIGACAO";
+export type ActionCategory = "BASE" | "PARTIDO" | "MEU_PARTIDO" | "CAMPANHA" | "MANDATO" | "INVESTIGACAO" | "ESQUEMA" | "FINANCAS";
 
 export interface ActionParam {
   name: string;
   label: string;
-  type: "party" | "person" | "uf" | "axis" | "choice" | "text" | "number" | "faction" | "office" | "bill" | "offer" | "request" | "policy" | "debate";
+  type:
+    | "party"
+    | "person"
+    | "uf"
+    | "uf_br"
+    | "axis"
+    | "choice"
+    | "text"
+    | "number"
+    | "amount"
+    | "faction"
+    | "office"
+    | "bill"
+    | "offer"
+    | "request"
+    | "party_request"
+    | "recruit"
+    | "scheme"
+    | "policy"
+    | "debate";
   options?: Array<{ value: string; label: string }>;
+  /** valores de referência (R$ de 2026) para type "amount"; a tela corrige pela época */
+  amounts?: number[];
   optional?: boolean;
 }
 
@@ -45,6 +95,10 @@ export interface ActionDef {
   category: ActionCategory;
   energy: number;
   cost?: number;
+  /** custo que depende da época ou da situação */
+  costFn?: (ctx: Ctx, p: PersonRow, st: PersonStateRow) => number;
+  /** conduta ilícita que a ação representa (a tela mostra a lei e o aviso) */
+  crime?: IllicitKind;
   params?: ActionParam[];
   /** null = disponível; string = motivo da indisponibilidade */
   available: (ctx: Ctx, p: PersonRow, st: PersonStateRow) => string | null;
@@ -53,6 +107,25 @@ export interface ActionDef {
 
 const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 const fmtMoney = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
+
+/** Valor de referência (R$ de 2026) corrigido para o nível de preços do dia. */
+export function scaledAmount(ctx: Ctx, base: number): number {
+  return Math.round((base * priceLevel(ctx.date)) / 1000) * 1000;
+}
+
+/** Valor escolhido numa lista de type "amount" (aceita só as opções oferecidas). */
+function pickAmount(ctx: Ctx, raw: string | undefined, bases: number[]): number | null {
+  const v = Math.round(Number(raw));
+  const allowed = bases.map((b) => scaledAmount(ctx, b));
+  return allowed.includes(v) ? v : null;
+}
+
+/** Paga primeiro com dinheiro não declarado e completa com o declarado. */
+function payDirtyFirst(st: PersonStateRow, amount: number): void {
+  const fromDirty = Math.min(st.dirty_money, amount);
+  st.dirty_money -= fromDirty;
+  st.money -= amount - fromDirty;
+}
 
 function addReach(st: PersonStateRow, uf: string, amount: number): void {
   st.reach[uf] = Math.min(0.98, (st.reach[uf] ?? 0) + amount * (1 - (st.reach[uf] ?? 0) * 0.6));
@@ -170,17 +243,17 @@ export const ACTIONS: ActionDef[] = [
   // ------------------------------------------------------------------ BASE
   {
     id: "trabalhar",
-    label: "Trabalhar na sua profissão",
-    description: "Garante renda para se manter e financiar os primeiros passos.",
+    label: "Pegar trabalho extra na sua profissão",
+    description: "Plantões, consultorias e serviços avulsos além do salário que já cai todo mês. Rende menos se repetir muito.",
     category: "BASE",
     energy: 25,
     available: () => null,
     run: ({ ctx, p, st, dr }) => {
-      const income = Math.round(profession(professionIdOf(p)).income * 0.35 * (0.6 + 0.4 * dr("trabalhar")));
+      const income = Math.round(profession(professionIdOf(p)).income * priceLevel(ctx.date) * 0.2 * (0.5 + 0.5 * dr("trabalhar")));
       st.money += income;
       st.income_last_year += income;
-      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "RENDA", amount: income, declared: true, game_date: ctx.date, description: "Renda profissional" });
-      return { ok: true, message: `Você trabalhou e recebeu ${fmtMoney(income)}.`, effects: { dinheiro: income } };
+      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "RENDA", amount: income, declared: true, game_date: ctx.date, description: "Trabalho extra" });
+      return { ok: true, message: `Trabalho extra feito: ${fmtMoney(income)} a mais na conta.`, effects: { dinheiro: income } };
     },
   },
   {
@@ -330,6 +403,13 @@ export const ACTIONS: ActionDef[] = [
       const party = ctx.t.parties.get(params.party);
       if (!party || party.status !== "ATIVO") return { ok: false, message: "Partido inválido." };
       const req = requestAffiliation(ctx, p, party);
+      const president = party.founder_id ? ctx.person(party.president_id) : undefined;
+      if (president?.kind === "PLAYER") {
+        req.decide_on = addDays(ctx.date, 30);
+        ctx.save("affiliation_requests", req);
+        ctx.notify(president.id, `Pedido de filiação ao ${party.acronym}`, `${p.name} (jogador, ${p.uf}) quer entrar no partido.`, "/jogo/meu-partido");
+        return { ok: true, message: `Pedido enviado à presidência do ${party.acronym}, que tem até ${formatDatePt(req.decide_on)} para responder.` };
+      }
       return { ok: true, message: `Pedido enviado ao ${party.acronym}. Resposta prevista até ${formatDatePt(req.decide_on)}.` };
     },
   },
@@ -647,19 +727,20 @@ export const ACTIONS: ActionDef[] = [
   },
   {
     id: "impulsionar_boato",
-    label: "Impulsionar boato contra adversário (ilegal)",
+    label: "Impulsionar boato contra adversário",
     description: "Desinformação com perfis automatizados DENTRO do mundo simulado. Pode render votos — e uma investigação. Nunca atinge pessoas reais.",
-    category: "CAMPANHA",
+    category: "ESQUEMA",
+    crime: "DESINFORMACAO",
     energy: 10,
     cost: 15_000,
     params: [{ name: "target", label: "Adversário", type: "person" }],
-    available: (ctx, p, st) => CAMPAIGN_STAGE_REASON(ctx, p) ?? (st.money < 15_000 ? "Custa R$ 15.000 (por fora)." : null),
+    available: (ctx, p, st) => CAMPAIGN_STAGE_REASON(ctx, p) ?? (st.money + st.dirty_money < 15_000 ? "Custa R$ 15.000 (por fora)." : null),
     run: ({ ctx, p, st, params, rng }) => {
       const target = ctx.person(params.target);
       if (!target || isReal(target.kind)) return { ok: false, message: "O jogo não cria boatos sobre pessoas reais. Escolha um adversário fictício ou outro jogador." };
       const tc = activeCandidacy(ctx, target.id);
       if (!tc) return { ok: false, message: "Esse alvo não está em campanha." };
-      st.money -= 15_000;
+      payDirtyFirst(st, 15_000);
       const topic = rng.pick(["uso de dinheiro público em viagens", "ligação com empresas investigadas", "promessas falsas a servidores", "patrimônio incompatível"]);
       tc.campaign.rumor_damage += rng.range(3, 9);
       ctx.save("candidacies", tc);
@@ -782,7 +863,7 @@ export const ACTIONS: ActionDef[] = [
   {
     id: "abrir_cpi",
     label: "Propor CPI contra alguém",
-    description: "Comissão Parlamentar de Inquérito. Exige capital político; se não houver nada, quem perde é você.",
+    description: "Comissão Parlamentar de Inquérito. Exige capital político; se o seu dossiê não tiver prova, quem perde é você.",
     category: "MANDATO",
     energy: 25,
     params: [{ name: "target", label: "Alvo", type: "person" }],
@@ -792,62 +873,91 @@ export const ACTIONS: ActionDef[] = [
       if (!canBeTargeted(target)) return { ok: false, message: "Pessoas reais não podem ser alvo de investigações inventadas no jogo." };
       st.political_capital = clamp(st.political_capital - 30);
       p.visibility = clamp(p.visibility + 6);
-      openInvestigation(ctx, target, { authority: "CPI", openedBy: p.id, initialEvidence: (st.dossiers[target.id] ?? 0) * 0.8 + 0.05, reason: `CPI proposta por ${p.name}` });
-      return { ok: true, message: `CPI instalada para apurar a conduta de ${target.name}.` };
+      const proof = provenActs(st, target.id);
+      openInvestigation(ctx, target, { authority: "CPI", openedBy: p.id, initialEvidence: (st.dossiers[target.id] ?? 0) * 0.8 + 0.05, actIds: proof, reason: `CPI proposta por ${p.name}`, channel: "CPI" });
+      return { ok: true, message: `CPI instalada para apurar a conduta de ${target.name}.${proof.length ? "" : " Sem provas no seu dossiê, a comissão tende a terminar sem nada."}` };
     },
   },
   // ------------------------------------------------------------------ INVESTIGAÇÃO
   {
     id: "investigar",
     label: "Levantar informações sobre alguém",
-    description: "Documentos públicos, fontes e cruzamento de dados. Monta um dossiê com o que de fato existir.",
+    description: "Cartórios, diários oficiais, juntas comerciais, prestação de contas e fontes. O dossiê mostra o que de fato apareceu, inclusive quando não há nada.",
     category: "INVESTIGACAO",
     energy: 20,
-    cost: 3_000,
+    costFn: (ctx) => scaledAmount(ctx, 3_000),
     params: [{ name: "target", label: "Alvo", type: "person" }],
-    available: (_c, _p, st) => (st.money < 3_000 ? "Custa R$ 3.000." : null),
+    available: (ctx, _p, st) => (st.money < scaledAmount(ctx, 3_000) ? `Custa ${fmtMoney(scaledAmount(ctx, 3_000))}.` : null),
     run: ({ ctx, p, st, params, rng, dr }) => {
       const target = ctx.person(params.target);
       if (!canBeTargeted(target) || target.id === p.id) return { ok: false, message: "Alvo inválido. Pessoas reais não podem ser investigadas por fatos inventados." };
-      st.money -= 3_000;
-      const acts = [...ctx.t.illicit_acts.values()].filter((a) => a.person_id === target.id && !a.discovered);
-      const f = dr(`investigar:${target.id}`);
-      const skill = 0.5 + st.traits.competence * 0.5;
-      let gain = 0;
-      if (acts.length) {
-        const trail = Math.max(...acts.map((a) => a.paper_trail + a.witnesses * 0.03));
-        gain = rng.range(0.05, 0.2) * trail * skill * f * 2;
-      } else {
-        gain = rng.chance(0.3) ? rng.range(0, 0.03) : 0;
-      }
-      const before = st.dossiers[target.id] ?? 0;
-      st.dossiers[target.id] = Math.min(acts.length ? 1 : 0.15, before + gain);
-      const level = st.dossiers[target.id];
-      const label = level < 0.15 ? "nada consistente" : level < 0.4 ? "indícios fracos" : level < 0.7 ? "indícios moderados" : "indícios fortes";
-      return { ok: true, message: `Dossiê sobre ${target.name}: ${label}.`, effects: { dossie: Math.round(level * 100) } };
+      st.money -= scaledAmount(ctx, 3_000);
+      const skill = (0.55 + st.traits.competence * 0.45) * dr(`investigar:${target.id}`);
+      const r = gatherIntel(ctx, st, { person: target }, rng, skill);
+      return { ok: true, message: intelMessage(target.name, r.found, r.level), effects: { dossie: Math.round(r.level * 100) } };
+    },
+  },
+  {
+    id: "investigar_partido",
+    label: "Investigar as contas de um partido",
+    description: "Cruza prestação de contas, fornecedores e candidaturas. Só aparecem atos de membros fictícios ou de jogadores.",
+    category: "INVESTIGACAO",
+    energy: 20,
+    costFn: (ctx) => scaledAmount(ctx, 8_000),
+    params: [{ name: "party", label: "Partido", type: "party" }],
+    available: (ctx, _p, st) => (st.money < scaledAmount(ctx, 8_000) ? `Custa ${fmtMoney(scaledAmount(ctx, 8_000))}.` : null),
+    run: ({ ctx, p, st, params, rng, dr }) => {
+      const party = ctx.t.parties.get(params.party);
+      if (!party || party.status !== "ATIVO") return { ok: false, message: "Partido inválido." };
+      st.money -= scaledAmount(ctx, 8_000);
+      const skill = (0.5 + st.traits.competence * 0.4) * dr(`investigar_partido:${party.id}`);
+      const r = gatherIntel(ctx, st, { party }, rng, skill);
+      if (party.id === p.party_id) st.party_standing = clamp(st.party_standing - 3);
+      return { ok: true, message: intelMessage(`o ${party.acronym}`, r.found, r.level), effects: { dossie: Math.round(r.level * 100) } };
     },
   },
   {
     id: "denunciar",
     label: "Acionar a polícia / Ministério Público",
-    description: "Leve o caso às autoridades. Com dossiê forte, a investigação anda rápido; denúncia vazia desgasta você.",
+    description: "Leve o caso às autoridades. Com provas no dossiê, a investigação anda; denúncia sem prova é arquivada e desgasta você.",
     category: "INVESTIGACAO",
     energy: 10,
     params: [
       { name: "target", label: "Alvo", type: "person" },
-      { name: "authority", label: "Autoridade", type: "choice", options: [{ value: "PF", label: "Polícia Federal" }, { value: "MP", label: "Ministério Público" }] },
+      { name: "authority", label: "Autoridade", type: "choice", options: [{ value: "PF", label: "Polícia Federal" }, { value: "MP", label: "Ministério Público" }, { value: "MP_ELEITORAL", label: "Ministério Público Eleitoral" }] },
     ],
     available: () => null,
     run: ({ ctx, p, st, params }) => {
       const target = ctx.person(params.target);
       if (!canBeTargeted(target) || target.id === p.id) return { ok: false, message: "Alvo inválido. Pessoas reais não podem ser alvo de denúncias inventadas." };
-      const authority = params.authority === "MP" ? "MP" : "PF";
-      openInvestigation(ctx, target, { authority, openedBy: p.id, initialEvidence: (st.dossiers[target.id] ?? 0) * 0.9 + 0.05, reason: `Denúncia apresentada por ${p.name}` });
+      const authority = params.authority === "MP" ? "MP" : params.authority === "MP_ELEITORAL" ? "MP_ELEITORAL" : "PF";
+      const proof = provenActs(st, target.id);
+      openInvestigation(ctx, target, { authority, openedBy: p.id, initialEvidence: (st.dossiers[target.id] ?? 0) * 0.9 + 0.05, actIds: proof, reason: `Denúncia apresentada por ${p.name}`, channel: "DENUNCIA" });
+      const where = authority === "PF" ? "na Polícia Federal" : authority === "MP" ? "no Ministério Público" : "no Ministério Público Eleitoral";
+      const base = proof.length ? `Denúncia registrada ${where}, com ${proof.length} prova(s) do seu dossiê.` : `Denúncia registrada ${where}, mas sem prova documental: a tendência é o arquivamento.`;
       if (target.party_id && target.party_id === p.party_id) {
         st.party_standing = clamp(st.party_standing - 10);
-        return { ok: true, message: `Denúncia registrada na ${authority === "PF" ? "Polícia Federal" : "Ministério Público"}. Denunciar um correligionário abalou sua posição no partido.` };
+        return { ok: true, message: `${base} Denunciar um correligionário abalou sua posição no partido.` };
       }
-      return { ok: true, message: `Denúncia registrada na ${authority === "PF" ? "Polícia Federal" : "Ministério Público"}.` };
+      return { ok: true, message: base };
+    },
+  },
+  {
+    id: "denunciar_partido",
+    label: "Denunciar as contas de um partido",
+    description: "Representação ao Ministério Público Eleitoral sobre o uso do fundo partidário e das candidaturas do partido.",
+    category: "INVESTIGACAO",
+    energy: 10,
+    params: [{ name: "party", label: "Partido", type: "party" }],
+    available: () => null,
+    run: ({ ctx, p, st, params }) => {
+      const party = ctx.t.parties.get(params.party);
+      if (!party || party.status !== "ATIVO") return { ok: false, message: "Partido inválido." };
+      const key = `party:${party.id}`;
+      const proof = provenActs(st, key);
+      openInvestigation(ctx, null, { authority: "MP_ELEITORAL", partyId: party.id, openedBy: p.id, initialEvidence: (st.dossiers[key] ?? 0) * 0.9 + 0.05, actIds: proof, reason: `Representação apresentada por ${p.name}`, channel: "DENUNCIA" });
+      if (party.id === p.party_id) st.party_standing = clamp(st.party_standing - 25);
+      return { ok: true, message: proof.length ? `Representação contra o ${party.acronym} protocolada com ${proof.length} prova(s).` : `Representação contra o ${party.acronym} protocolada, sem provas: deve ser arquivada.` };
     },
   },
   {
@@ -861,14 +971,15 @@ export const ACTIONS: ActionDef[] = [
     run: ({ ctx, p, st, params }) => {
       const target = ctx.person(params.target);
       if (!canBeTargeted(target) || target.id === p.id) return { ok: false, message: "Alvo inválido. O jogo não publica acusações inventadas sobre pessoas reais." };
-      openInvestigation(ctx, target, { authority: "IMPRENSA", openedBy: p.id, initialEvidence: (st.dossiers[target.id] ?? 0) * 0.7 + 0.05, reason: "Reportagem com base em dossiê recebido" });
-      return { ok: true, message: `O material chegou às redações. ${target.name} terá de se explicar.` };
+      const proof = provenActs(st, target.id);
+      openInvestigation(ctx, target, { authority: "IMPRENSA", openedBy: p.id, initialEvidence: (st.dossiers[target.id] ?? 0) * 0.7 + 0.05, actIds: proof, reason: "Reportagem com base em dossiê recebido", channel: "IMPRENSA" });
+      return { ok: true, message: `O material chegou às redações. ${target.name} terá de se explicar.${proof.length ? "" : " Sem documentos, a história pode não parar em pé."}` };
     },
   },
   {
     id: "responder_oferta",
     label: "Responder a uma oferta ilícita",
-    description: "Aceitar traz dinheiro e risco; recusar não traz nada; denunciar pode render reputação — e inimigos.",
+    description: "Aceitar traz dinheiro não declarado e risco; recusar não traz nada; denunciar pode render reputação — e inimigos.",
     category: "INVESTIGACAO",
     energy: 5,
     params: [
@@ -882,19 +993,19 @@ export const ACTIONS: ActionDef[] = [
       st.offers = st.offers.filter((o) => o.id !== offer.id);
       const broker = ctx.person(offer.from);
       if (params.decision === "ACEITAR") {
-        st.money += offer.amount;
         const c = activeCandidacy(ctx, p.id);
         if (c && offer.kind === "CAIXA_DOIS") {
           c.campaign.budget += offer.amount;
           ctx.save("candidacies", c);
+        } else {
+          st.dirty_money += offer.amount;
         }
-        ctx.insert("finance_transactions", { id: ctx.id("fin", p.id), world_id: ctx.world.id, person_id: p.id, candidacy_id: c?.id ?? null, kind: "NAO_DECLARADO", amount: offer.amount, declared: false, game_date: ctx.date, description: "Recurso não declarado" });
         createIllicitAct(ctx, p, offer.kind, { amount: offer.amount, partners: broker ? [broker.id] : [], description: offer.kind === "PROPINA" ? `Vantagem indevida oferecida por ${broker?.name ?? "intermediário"}` : `Caixa dois oferecido por ${broker?.name ?? "intermediário"}` });
-        return { ok: true, message: `Você aceitou ${fmtMoney(offer.amount)}. Ninguém precisa saber... por enquanto.` };
+        return { ok: true, message: `Você aceitou ${fmtMoney(offer.amount)} ${c && offer.kind === "CAIXA_DOIS" ? "para a campanha, fora da prestação de contas" : "em dinheiro não declarado"}. Ninguém precisa saber... por enquanto.` };
       }
       if (params.decision === "DENUNCIAR" && broker) {
-        createIllicitAct(ctx, broker, offer.kind === "PROPINA" ? "PROPINA" : "CAIXA_DOIS", { amount: offer.amount, description: `Oferta de vantagem indevida a ${p.name}`, witnesses: 1, paperTrail: 0.6 });
-        openInvestigation(ctx, broker, { authority: "PF", openedBy: p.id, initialEvidence: 0.45, reason: `Denúncia de tentativa de corrupção feita por ${p.name}` });
+        const act = createIllicitAct(ctx, broker, offer.kind === "PROPINA" ? "CORRUPCAO_ATIVA" : "CAIXA_DOIS", { amount: offer.amount, description: `Oferta de vantagem indevida a ${p.name}`, witnesses: 1, paperTrail: 0.6 });
+        openInvestigation(ctx, broker, { authority: "PF", openedBy: p.id, initialEvidence: 0.45, actIds: [act.id], reason: `Denúncia de tentativa de corrupção feita por ${p.name}`, channel: "DENUNCIA" });
         p.reputation = clamp(p.reputation + 3);
         return { ok: true, message: `Você denunciou ${broker.name} à Polícia Federal.` };
       }
@@ -907,16 +1018,18 @@ export const ACTIONS: ActionDef[] = [
     description: "Bons advogados reduzem a chance de condenação em casos abertos contra você.",
     category: "INVESTIGACAO",
     energy: 5,
-    cost: 50_000,
-    available: (ctx, p, st) => (![...ctx.t.investigations.values()].some((i) => i.person_id === p.id && !i.outcome) ? "Não há investigação aberta contra você." : st.money < 50_000 ? "Custa R$ 50.000." : null),
+    costFn: (ctx) => scaledAmount(ctx, 50_000),
+    available: (ctx, p, st) => (![...ctx.t.investigations.values()].some((i) => i.person_id === p.id && !i.outcome) ? "Não há investigação aberta contra você." : st.money < scaledAmount(ctx, 50_000) ? `Custa ${fmtMoney(scaledAmount(ctx, 50_000))}.` : null),
     run: ({ ctx, p, st }) => {
-      st.money -= 50_000;
+      const cost = scaledAmount(ctx, 50_000);
+      st.money -= cost;
       for (const inv of ctx.t.investigations.values()) {
         if (inv.person_id === p.id && !inv.outcome) {
           inv.defense = Math.min(1, inv.defense + 0.15);
           ctx.save("investigations", inv);
         }
       }
+      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "DESPESA", amount: -cost, declared: true, game_date: ctx.date, description: "Honorários advocatícios" });
       return { ok: true, message: "Escritório contratado. Sua defesa ficou mais robusta." };
     },
   },
@@ -931,12 +1044,13 @@ export const ACTIONS: ActionDef[] = [
       for (const inv of ctx.t.investigations.values()) {
         if (inv.person_id !== p.id || inv.outcome) continue;
         inv.defense = Math.min(1, inv.defense + 0.5);
+        inv.measures.push({ on: ctx.date, kind: "ACORDO", text: `${p.name} assina acordo de colaboração premiada` });
         ctx.save("investigations", inv);
         for (const actId of inv.act_ids) {
           const act = ctx.t.illicit_acts.get(actId);
           for (const pid of act?.partners ?? []) {
             const partner = ctx.person(pid);
-            if (canBeTargeted(partner)) openInvestigation(ctx, partner, { authority: "PF", initialEvidence: 0.5, reason: `Citado(a) na colaboração de ${p.name}` });
+            if (canBeTargeted(partner)) openInvestigation(ctx, partner, { authority: "PF", initialEvidence: 0.5, actIds: [actId], reason: `Citado(a) na colaboração de ${p.name}`, channel: "COLABORACAO" });
           }
         }
       }
@@ -962,7 +1076,467 @@ export const ACTIONS: ActionDef[] = [
       return { ok: true, message: "A nota soou como deboche diante das provas. Pegou mal." };
     },
   },
+  // ------------------------------------------------------------------ ESQUEMAS (condutas ilícitas)
+  schemeAction({
+    id: "rachadinha",
+    kind: "RACHADINHA",
+    label: "Exigir parte do salário dos assessores",
+    description: "A chamada rachadinha: assessores devolvem parte do salário todo mês. Rende sempre, e cada mês deixa mais testemunhas.",
+    energy: 15,
+  }),
+  schemeAction({
+    id: "funcionario_fantasma",
+    kind: "FUNCIONARIO_FANTASMA",
+    label: "Nomear funcionário fantasma",
+    description: "Alguém recebe sem trabalhar e repassa parte do salário. Pequeno, recorrente e fácil de flagrar pela imprensa.",
+    energy: 10,
+  }),
+  schemeAction({
+    id: "desviar_cota",
+    kind: "DESVIO_COTA",
+    label: "Usar notas frias na cota parlamentar",
+    description: "Reembolsos de despesas que não existiram. Recorrente; as notas ficam públicas no portal da transparência.",
+    energy: 10,
+  }),
+  schemeAction({
+    id: "nomear_parentes",
+    kind: "NEPOTISMO",
+    label: "Nomear parentes para cargos de confiança",
+    description: "Família na folha: renda extra para a casa e aliados leais. É improbidade, e a imprensa adora o tema.",
+    energy: 10,
+    after: ({ st }) => {
+      st.political_capital = clamp(st.political_capital + 5);
+    },
+  }),
+  schemeAction({
+    id: "cobrar_propina",
+    kind: "CONCUSSAO",
+    label: "Cobrar 'pedágio' de empresários",
+    description: "Exigir vantagem para liberar pagamentos ou licenças. Dinheiro rápido; quem paga pode gravar.",
+    energy: 15,
+  }),
+  schemeAction({
+    id: "fraudar_licitacao",
+    kind: "FRAUDE_LICITACAO",
+    label: "Direcionar uma licitação",
+    description: "Edital feito sob medida para uma empresa combinada, com sobrepreço. Muito dinheiro e muito papel: o Tribunal de Contas olha os contratos.",
+    energy: 20,
+  }),
+  schemeAction({
+    id: "desviar_verba",
+    kind: "PECULATO",
+    label: "Desviar verba de um contrato",
+    description: "Pagar por serviço que não foi prestado e dividir o dinheiro. Auditorias e controladorias costumam achar.",
+    energy: 20,
+  }),
+  schemeAction({
+    id: "desviar_emenda",
+    kind: "DESVIO_EMENDAS",
+    label: "Desviar uma emenda parlamentar",
+    description: "Emenda para uma entidade de fachada ou prefeitura aliada, com retorno de parte do valor. A Controladoria vistoria as obras.",
+    energy: 20,
+  }),
+  schemeAction({
+    id: "vender_influencia",
+    kind: "TRAFICO_INFLUENCIA",
+    label: "Vender acesso a autoridades",
+    description: "Cobrar de empresários pela promessa de influência sobre decisões. Exige conhecer quem tem cargo.",
+    energy: 15,
+  }),
+  {
+    id: "buscar_caixa_dois",
+    label: "Buscar doação não declarada (caixa dois)",
+    description: "Dinheiro de campanha por fora da prestação de contas. Reforça a campanha (ou o seu caixa), com risco de cassação.",
+    category: "ESQUEMA",
+    crime: "CAIXA_DOIS",
+    energy: 15,
+    params: [{ name: "amount", label: "Valor", type: "amount", amounts: [50_000, 150_000, 400_000] }],
+    available: (ctx, p) => crimeOpportunity(ctx, p, "CAIXA_DOIS"),
+    run: ({ ctx, p, st, params }) => {
+      const amount = pickAmount(ctx, params.amount, [50_000, 150_000, 400_000]);
+      if (!amount) return { ok: false, message: "Escolha um dos valores." };
+      const r = commitCrime(ctx, p, "CAIXA_DOIS", { amount });
+      const c = activeCandidacy(ctx, p.id);
+      if (c && c.status !== "PRE") {
+        st.dirty_money -= amount;
+        c.campaign.budget += amount;
+        ctx.save("candidacies", c);
+        return { ok: true, message: `${fmtMoney(amount)} entraram na campanha por fora, via ${partnerText(r)}. Não aparecem na prestação de contas.` };
+      }
+      return { ok: true, message: `${fmtMoney(amount)} guardados por fora para a próxima campanha, via ${partnerText(r)}.` };
+    },
+  },
+  {
+    id: "comprar_votos",
+    label: "Comprar votos",
+    description: "Dinheiro, cestas e favores em troca do voto, por meio de cabos eleitorais. Rende votos rápido; muitas testemunhas.",
+    category: "ESQUEMA",
+    crime: "COMPRA_VOTOS",
+    energy: 20,
+    params: [{ name: "amount", label: "Quanto distribuir", type: "amount", amounts: [20_000, 60_000, 150_000] }],
+    available: (ctx, p) => crimeOpportunity(ctx, p, "COMPRA_VOTOS"),
+    run: ({ ctx, p, st, params }) => {
+      const amount = pickAmount(ctx, params.amount, [20_000, 60_000, 150_000]);
+      if (!amount) return { ok: false, message: "Escolha um dos valores." };
+      if (st.money + st.dirty_money < amount) return { ok: false, message: "Você não tem esse dinheiro." };
+      const c = activeCandidacy(ctx, p.id)!;
+      payDirtyFirst(st, amount);
+      const boost = Math.min(0.25, amount / scaledAmount(ctx, 600_000));
+      c.campaign.momentum = Math.min(1, c.campaign.momentum + boost);
+      c.campaign.volunteers += Math.round(amount / scaledAmount(ctx, 1_000));
+      ctx.save("candidacies", c);
+      commitCrime(ctx, p, "COMPRA_VOTOS", { amount, votesGain: boost });
+      return { ok: true, message: `Cabos eleitorais distribuíram ${fmtMoney(amount)}. A campanha ganhou fôlego — e dezenas de pessoas sabem.` };
+    },
+  },
+  {
+    id: "usar_maquina",
+    label: "Usar a máquina pública na campanha",
+    description: "Servidores, carros oficiais e programas sociais a serviço da reeleição. Funciona; e é conduta vedada.",
+    category: "ESQUEMA",
+    crime: "USO_MAQUINA",
+    energy: 15,
+    available: (ctx, p) => crimeOpportunity(ctx, p, "USO_MAQUINA"),
+    run: ({ ctx, p, dr }) => {
+      const c = activeCandidacy(ctx, p.id)!;
+      const boost = 0.1 * dr("usar_maquina");
+      c.campaign.momentum = Math.min(1, c.campaign.momentum + boost);
+      c.campaign.volunteers += 60;
+      ctx.save("candidacies", c);
+      commitCrime(ctx, p, "USO_MAQUINA", { amount: 0, votesGain: boost, noPartner: false });
+      return { ok: true, message: "A estrutura do governo trabalhou pela sua campanha. Adversários estão fotografando tudo." };
+    },
+  },
+  {
+    id: "gastar_por_fora",
+    label: "Gastar acima do teto com dinheiro não declarado",
+    description: "Estrutura de campanha bancada com dinheiro por fora, além do limite legal. Desequilibra a disputa; pode cassar o registro.",
+    category: "ESQUEMA",
+    crime: "ABUSO_PODER_ECONOMICO",
+    energy: 15,
+    params: [{ name: "amount", label: "Quanto injetar", type: "amount", amounts: [100_000, 300_000, 800_000] }],
+    available: (ctx, p, st) => crimeOpportunity(ctx, p, "ABUSO_PODER_ECONOMICO") ?? (st.dirty_money < scaledAmount(ctx, 100_000) ? "Exige dinheiro não declarado guardado." : null),
+    run: ({ ctx, p, st, params }) => {
+      const amount = pickAmount(ctx, params.amount, [100_000, 300_000, 800_000]);
+      if (!amount) return { ok: false, message: "Escolha um dos valores." };
+      if (st.dirty_money < amount) return { ok: false, message: "Você não tem esse dinheiro não declarado." };
+      const c = activeCandidacy(ctx, p.id)!;
+      st.dirty_money -= amount;
+      c.campaign.budget += amount;
+      c.campaign.momentum = Math.min(1, c.campaign.momentum + Math.min(0.15, amount / scaledAmount(ctx, 1_500_000)));
+      ctx.save("candidacies", c);
+      commitCrime(ctx, p, "ABUSO_PODER_ECONOMICO", { amount });
+      return { ok: true, message: `${fmtMoney(amount)} a mais na rua, fora da prestação de contas.` };
+    },
+  },
+  {
+    id: "pagar_mesada",
+    label: "Pagar mesada a parlamentares por apoio",
+    description: "Repasses mensais a parlamentares em troca de votos na Casa. Compra governabilidade; um único delator derruba tudo.",
+    category: "ESQUEMA",
+    crime: "CORRUPCAO_ATIVA",
+    energy: 20,
+    params: [{ name: "amount", label: "Valor do repasse", type: "amount", amounts: [100_000, 300_000] }],
+    available: (ctx, p, st) => crimeOpportunity(ctx, p, "CORRUPCAO_ATIVA") ?? (st.dirty_money + st.money < scaledAmount(ctx, 100_000) ? "Exige dinheiro para os repasses." : null),
+    run: ({ ctx, p, st, params }) => {
+      const amount = pickAmount(ctx, params.amount, [100_000, 300_000]);
+      if (!amount) return { ok: false, message: "Escolha um dos valores." };
+      if (st.money + st.dirty_money < amount) return { ok: false, message: "Você não tem esse dinheiro." };
+      payDirtyFirst(st, amount);
+      st.political_capital = clamp(st.political_capital + Math.min(30, amount / scaledAmount(ctx, 10_000)));
+      commitCrime(ctx, p, "CORRUPCAO_ATIVA", { amount });
+      return { ok: true, message: `Repasses de ${fmtMoney(amount)} feitos. A base ficou mais dócil (+capital político).` };
+    },
+  },
+  schemeAction({
+    id: "lancar_laranjas",
+    kind: "CANDIDATURAS_LARANJA",
+    label: "Registrar candidaturas laranjas",
+    description: "Candidatas de fachada para cumprir a cota de gênero e desviar parte do fundo eleitoral do partido. Pode cassar a chapa.",
+    energy: 20,
+  }),
+  schemeAction({
+    id: "desviar_fundo",
+    kind: "DESVIO_FUNDO_PARTIDARIO",
+    label: "Desviar dinheiro do partido",
+    description: "Gastos pessoais pagos com o caixa da legenda (que vem do fundo partidário). A Justiça Eleitoral julga as contas todo ano.",
+    energy: 15,
+  }),
+  {
+    id: "lavar_dinheiro",
+    label: "Lavar dinheiro não declarado",
+    description: "Dar aparência legal ao dinheiro por fora, com perda de cerca de 30% no caminho. Movimentações grandes chamam a atenção do Coaf.",
+    category: "ESQUEMA",
+    crime: "LAVAGEM",
+    energy: 15,
+    params: [{ name: "amount", label: "Quanto lavar", type: "amount", amounts: [50_000, 200_000, 1_000_000] }],
+    available: (ctx, p) => crimeOpportunity(ctx, p, "LAVAGEM"),
+    run: ({ ctx, p, st, params }) => {
+      const asked = pickAmount(ctx, params.amount, [50_000, 200_000, 1_000_000]);
+      if (!asked) return { ok: false, message: "Escolha um dos valores." };
+      const amount = Math.min(asked, Math.floor(st.dirty_money));
+      if (amount <= 0) return { ok: false, message: "Você não tem dinheiro não declarado." };
+      const net = Math.round(amount * 0.7);
+      st.dirty_money -= amount;
+      st.money += net;
+      st.assets += Math.round(amount * 0.1);
+      const r = commitCrime(ctx, p, "LAVAGEM", { amount });
+      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id, "lavagem"), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "LAVAGEM", amount: net, declared: true, game_date: ctx.date, description: `"Lucros" de empresa de fachada (dinheiro lavado via ${r.partner?.role_label ?? "intermediário"})` });
+      return { ok: true, message: `${fmtMoney(amount)} lavados: ${fmtMoney(net)} entraram na sua conta como se fossem lucros de empresa.` };
+    },
+  },
+  {
+    id: "obstruir_investigacao",
+    label: "Pressionar testemunhas e sumir com provas",
+    description: "Pode enfraquecer o caso contra você. Se descoberto, é crime à parte e motivo clássico de prisão preventiva.",
+    category: "ESQUEMA",
+    crime: "OBSTRUCAO_JUSTICA",
+    energy: 20,
+    available: (ctx, p) => crimeOpportunity(ctx, p, "OBSTRUCAO_JUSTICA"),
+    run: ({ ctx, p, rng }) => {
+      for (const inv of ctx.t.investigations.values()) {
+        if (inv.person_id !== p.id || inv.outcome) continue;
+        inv.evidence = Math.max(0, inv.evidence - rng.range(0.04, 0.12));
+        ctx.save("investigations", inv);
+      }
+      createIllicitAct(ctx, p, "OBSTRUCAO_JUSTICA", { amount: 0, description: "Pressão sobre testemunhas e destruição de documentos", witnesses: rng.int(2, 4), paperTrail: rng.range(0.4, 0.7) });
+      return { ok: true, message: "Uma testemunha recuou e alguns papéis sumiram. Se isso vier à tona, a situação piora muito." };
+    },
+  },
+  {
+    id: "encerrar_esquema",
+    label: "Encerrar um esquema em andamento",
+    description: "Parar o que se repete todo mês. O que já foi feito continua rastreável, mas o risco para de crescer.",
+    category: "ESQUEMA",
+    energy: 5,
+    params: [{ name: "scheme", label: "Esquema", type: "scheme" }],
+    available: (ctx, p) => ([...ctx.t.illicit_acts.values()].some((a) => a.person_id === p.id && a.ongoing) ? null : "Você não tem esquemas em andamento."),
+    run: ({ ctx, p, params }) => {
+      const act = ctx.t.illicit_acts.get(params.scheme);
+      if (!act || act.person_id !== p.id || !act.ongoing) return { ok: false, message: "Esquema inválido." };
+      stopScheme(ctx, act);
+      return { ok: true, message: `${CRIMES[act.kind].label} encerrado. Rendeu ${fmtMoney(act.amount)} no total.` };
+    },
+  },
+  // ------------------------------------------------------------------ MEU PARTIDO
+  {
+    id: "fundar_partido",
+    label: "Fundar um partido",
+    description: "Estatuto, fundadores e registro civil; depois, dois anos para reunir o apoio de eleitores em pelo menos nove estados e pedir o registro ao TSE.",
+    category: "MEU_PARTIDO",
+    energy: 30,
+    costFn: (ctx) => foundingCost(ctx.date),
+    params: [
+      { name: "name", label: "Nome do partido", type: "text" },
+      { name: "acronym", label: "Sigla", type: "text" },
+      { name: "number", label: "Número (de 10 a 99)", type: "number" },
+      { name: "color", label: "Cor", type: "choice", options: PARTY_COLORS },
+      { name: "entry", label: "Como se entra", type: "choice", options: ENTRY_OPTIONS },
+    ],
+    available: (ctx, p, st) => {
+      if (partyInFormationBy(ctx, p.id)) return "Você já está fundando um partido.";
+      if (partyFoundedBy(ctx, p.id)) return "Você já fundou um partido.";
+      if (p.reputation < 25) return "Exige reputação de pelo menos 25 para reunir fundadores.";
+      if (st.money < foundingCost(ctx.date)) return `Custa ${fmtMoney(foundingCost(ctx.date))}.`;
+      return null;
+    },
+    run: ({ ctx, p, params }) => {
+      const input = { name: params.name ?? "", acronym: params.acronym ?? "", number: Number(params.number), color: params.color ?? "", entry: (params.entry ?? "") as EntryCulture };
+      const err = validateFounding(ctx, p, input);
+      if (err) return { ok: false, message: err };
+      const party = foundParty(ctx, p, input);
+      const f = party.formation!;
+      return { ok: true, message: `O ${party.acronym} está em formação. Meta: ${f.goal.toLocaleString("pt-BR")} apoios, com o mínimo em ${f.ufs_needed} estados, até ${formatDatePt(f.deadline)}.` };
+    },
+  },
+  {
+    id: "coletar_assinaturas",
+    label: "Pagar coleta de assinaturas",
+    description: "Equipes contratadas recolhem apoios nas ruas. Escolha um estado ou espalhe pelo país, proporcional ao eleitorado.",
+    category: "MEU_PARTIDO",
+    energy: 10,
+    params: [
+      { name: "uf", label: "Onde coletar", type: "uf_br" },
+      { name: "amount", label: "Investimento", type: "amount", amounts: [20_000, 60_000, 150_000, 400_000] },
+    ],
+    available: (ctx, p) => {
+      const party = partyInFormationBy(ctx, p.id);
+      if (!party) return "Só durante a fundação de um partido.";
+      return party.formation?.stage === "APOIAMENTO" ? null : "A coleta está fechada enquanto o TSE confere as assinaturas.";
+    },
+    run: ({ ctx, p, st, params, rng }) => {
+      const party = partyInFormationBy(ctx, p.id)!;
+      const amount = pickAmount(ctx, params.amount, [20_000, 60_000, 150_000, 400_000]);
+      if (!amount) return { ok: false, message: "Escolha um dos valores." };
+      if (st.money < amount) return { ok: false, message: "Saldo insuficiente." };
+      const uf = params.uf === "BR" || UF_BY_CODE[params.uf ?? ""] ? params.uf! : "BR";
+      st.money -= amount;
+      const got = addSignatures(party, uf, (amount / signatureCost(ctx.date)) * rng.range(0.85, 1.1));
+      party.formation!.spent += amount;
+      ctx.save("parties", party);
+      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id, "assinaturas"), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "COLETA_ASSINATURAS", amount: -amount, declared: true, game_date: ctx.date, description: `Coleta de assinaturas do ${party.acronym} (${uf === "BR" ? "todo o país" : uf})` });
+      const prog = formationProgress(party.formation!);
+      return { ok: true, message: `${got.toLocaleString("pt-BR")} novos apoios. Total: ${Math.round(prog.pct * 100)}% da meta, ${prog.ufsOk} de ${prog.ufsNeeded} estados com o mínimo.` };
+    },
+  },
+  {
+    id: "mobilizar_voluntarios",
+    label: "Mutirão de voluntários pela coleta",
+    description: "Feiras, igrejas, sindicatos, universidades. De graça, mas cansa; rende mais onde você é conhecido(a).",
+    category: "MEU_PARTIDO",
+    energy: 25,
+    params: [{ name: "uf", label: "Onde", type: "uf", options: ufOptions() }],
+    available: (ctx, p) => (partyInFormationBy(ctx, p.id)?.formation?.stage === "APOIAMENTO" ? null : "Só durante a coleta de apoio para um partido."),
+    run: ({ ctx, p, st, params, rng, dr }) => {
+      const party = partyInFormationBy(ctx, p.id)!;
+      const uf = UF_BY_CODE[params.uf ?? ""] ? params.uf! : p.uf;
+      const got = addSignatures(party, uf, (1_500 + 25_000 * (st.reach[uf] ?? 0) + st.activism * 40) * dr(`mutirao:${uf}`) * rng.range(0.7, 1.2));
+      ctx.save("parties", party);
+      const prog = formationProgress(party.formation!);
+      return { ok: true, message: `Mutirão em ${UF_BY_CODE[uf].name}: ${got.toLocaleString("pt-BR")} apoios. Total: ${Math.round(prog.pct * 100)}% da meta.` };
+    },
+  },
+  {
+    id: "desistir_fundacao",
+    label: "Desistir da fundação do partido",
+    description: "Encerra a coleta. O dinheiro gasto não volta.",
+    category: "MEU_PARTIDO",
+    energy: 0,
+    available: (ctx, p) => (partyInFormationBy(ctx, p.id) ? null : "Você não está fundando um partido."),
+    run: ({ ctx, p }) => {
+      const party = partyInFormationBy(ctx, p.id)!;
+      party.formation!.stage = "FRACASSADA";
+      party.status = "EXTINTO";
+      ctx.save("parties", party);
+      return { ok: true, message: `A fundação do ${party.acronym} foi encerrada.` };
+    },
+  },
+  {
+    id: "filiar_meu_partido",
+    label: "Filiar-se ao seu partido",
+    description: "Para quem fundou o partido tendo mandato proporcional: fora da janela partidária, a troca custa o mandato.",
+    category: "MEU_PARTIDO",
+    energy: 5,
+    available: (ctx, p) => {
+      const party = partyFoundedBy(ctx, p.id);
+      if (!party) return "Você não fundou um partido registrado.";
+      return p.party_id === party.id ? "Você já é do seu partido." : null;
+    },
+    run: ({ ctx, p }) => ({ ok: true, message: joinOwnParty(ctx, p, partyFoundedBy(ctx, p.id)!) }),
+  },
+  {
+    id: "decidir_filiacao",
+    label: "Decidir pedido de filiação",
+    description: "Como presidente, você aprova ou recusa quem quer entrar no partido.",
+    category: "MEU_PARTIDO",
+    energy: 0,
+    params: [
+      { name: "request", label: "Pedido", type: "party_request" },
+      { name: "decision", label: "Decisão", type: "choice", options: [{ value: "ACEITAR", label: "Aprovar" }, { value: "RECUSAR", label: "Recusar" }] },
+    ],
+    available: (ctx, p) => {
+      const party = partyLedBy(ctx, p.id);
+      if (!party) return "Só para quem preside um partido.";
+      return [...ctx.t.affiliation_requests.values()].some((r) => r.party_id === party.id && r.kind === "PEDIDO" && r.status === "PENDENTE") ? null : "Nenhum pedido aguardando.";
+    },
+    run: ({ ctx, p, params }) => {
+      const party = partyLedBy(ctx, p.id)!;
+      const req = ctx.t.affiliation_requests.get(params.request);
+      if (!req || req.party_id !== party.id || req.status !== "PENDENTE" || req.kind !== "PEDIDO") return { ok: false, message: "Pedido inválido." };
+      return { ok: true, message: decideJoinRequest(ctx, p, req, params.decision === "ACEITAR") };
+    },
+  },
+  {
+    id: "convidar_filiacao",
+    label: "Convidar alguém para o partido",
+    description: "Convide políticos e quadros. A resposta depende da afinidade, do relacionamento com você e da fidelidade partidária.",
+    category: "MEU_PARTIDO",
+    energy: 10,
+    params: [{ name: "target", label: "Pessoa", type: "recruit" }],
+    available: (ctx, p) => (partyLedBy(ctx, p.id) ? null : "Só para quem preside um partido."),
+    run: ({ ctx, p, params }) => {
+      const party = partyLedBy(ctx, p.id)!;
+      const target = ctx.person(params.target);
+      if (!target || target.status !== "ACTIVE" || target.id === p.id) return { ok: false, message: "Pessoa indisponível." };
+      if (isReal(target.kind) && target.tier <= 1) return { ok: false, message: "Lideranças nacionais reais não mudam de partido por convite no jogo." };
+      return { ok: true, message: inviteToParty(ctx, p, party, target) };
+    },
+  },
+  // ------------------------------------------------------------------ FINANÇAS
+  {
+    id: "pegar_emprestimo",
+    label: "Pegar empréstimo",
+    description: "Crédito pessoal com juros mensais (Selic + 2,5% ao mês). O limite depende da sua renda e dos seus bens.",
+    category: "FINANCAS",
+    energy: 0,
+    params: [{ name: "amount", label: "Valor", type: "amount", amounts: [10_000, 50_000, 200_000] }],
+    available: () => null,
+    run: ({ ctx, st, params }) => {
+      const amount = pickAmount(ctx, params.amount, [10_000, 50_000, 200_000]);
+      if (!amount) return { ok: false, message: "Escolha um dos valores." };
+      const limit = Math.round(st.income_last_year * 0.5 + st.assets * 0.4);
+      if (st.debt + amount > limit) return { ok: false, message: `O banco recusou: seu limite de crédito é ${fmtMoney(limit)} e você já deve ${fmtMoney(st.debt)}.` };
+      st.money += amount;
+      st.debt += amount;
+      return { ok: true, message: `${fmtMoney(amount)} na conta. Dívida total: ${fmtMoney(st.debt)}.` };
+    },
+  },
+  {
+    id: "quitar_divida",
+    label: "Pagar a dívida",
+    description: "Use o saldo para abater o que deve e parar de pagar juros.",
+    category: "FINANCAS",
+    energy: 0,
+    params: [{ name: "share", label: "Quanto pagar", type: "choice", options: [{ value: "1", label: "Tudo o que der" }, { value: "0.5", label: "Metade da dívida" }, { value: "0.1", label: "10% da dívida" }] }],
+    available: (_c, _p, st) => (st.debt <= 0 ? "Você não tem dívidas." : st.money <= 0 ? "Sem saldo para pagar." : null),
+    run: ({ ctx, p, st, params }) => {
+      const share = Math.min(1, Math.max(0.1, Number(params.share) || 1));
+      const pay = Math.round(Math.min(st.money, st.debt * share));
+      st.money -= pay;
+      st.debt -= pay;
+      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id, "amortizacao"), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "AMORTIZACAO", amount: -pay, declared: true, game_date: ctx.date, description: "Pagamento de dívida" });
+      return { ok: true, message: `Você pagou ${fmtMoney(pay)}. Dívida restante: ${fmtMoney(st.debt)}.` };
+    },
+  },
 ];
+
+/** Ações de esquema padrão: oportunidade pelo catálogo, ganho em dinheiro não declarado. */
+function schemeAction(o: { id: string; kind: IllicitKind; label: string; description: string; energy: number; after?: (a: RunArgs) => void }): ActionDef {
+  return {
+    id: o.id,
+    label: o.label,
+    description: o.description,
+    category: "ESQUEMA",
+    crime: o.kind,
+    energy: o.energy,
+    available: (ctx, p) => {
+      const reason = crimeOpportunity(ctx, p, o.kind);
+      if (reason) return reason;
+      if (CRIMES[o.kind].recurring && [...ctx.t.illicit_acts.values()].some((a) => a.person_id === p.id && a.kind === o.kind && a.ongoing)) return "Esse esquema já está em andamento.";
+      return null;
+    },
+    run: (a) => {
+      const r = commitCrime(a.ctx, a.p, o.kind);
+      o.after?.(a);
+      if (r.monthly) return { ok: true, message: `Esquema montado com ${partnerText(r)}: cerca de ${fmtMoney(r.monthly)} por mês ${o.kind === "NEPOTISMO" ? "para a família" : "em dinheiro não declarado"}. Cada mês deixa mais rastro.` };
+      return { ok: true, message: `${fmtMoney(r.amount)} em dinheiro não declarado, com ${partnerText(r)}. ${CRIMES[o.kind].sphere === "ELEITORAL" ? "A Justiça Eleitoral pode cassar o registro." : "Há rastro: documentos e testemunhas."}` };
+    },
+  };
+}
+
+function partnerText(r: SchemeResult): string {
+  return r.partner ? `${r.partner.name} (${r.partner.role_label ?? "intermediário"})` : "ajuda de terceiros";
+}
+
+/** Atos comprovados por achados verificados do dossiê (ainda não descobertos pelas autoridades). */
+function provenActs(st: PersonStateRow, key: string): string[] {
+  return [...new Set((st.findings[key] ?? []).filter((f) => f.verified && f.act_id).map((f) => f.act_id!))];
+}
+
+function intelMessage(who: string, found: Array<{ text: string; verified: boolean; act_id: string | null; crime: IllicitKind | null }>, level: number): string {
+  const lines = found.map((f) => (f.act_id ? `Achado: ${f.text}.` : f.verified ? f.text : `Pista sem prova: ${f.text}`));
+  return `Dossiê sobre ${who} (${dossierLabel(level)}). ${lines.join(" ")}`;
+}
 
 export const ACTIONS_BY_ID: Record<string, ActionDef> = Object.fromEntries(ACTIONS.map((a) => [a.id, a]));
 
@@ -984,12 +1558,20 @@ function recordUse(st: PersonStateRow, key: string, tick: number): void {
   st.action_log[key] = { n: Math.round((decayed + 1) * 100) / 100, last_tick: tick };
 }
 
+/** Preso em regime fechado, só dá para cuidar da defesa e das finanças. */
+const JAIL_ALLOWED = new Set(["contratar_defesa", "colaborar", "nota_publica", "quitar_divida", "responder_convite", "decidir_filiacao"]);
+
+function jailReason(ctx: Ctx, st: PersonStateRow, id: string): string | null {
+  if (!isJailed(st, ctx.date) || JAIL_ALLOWED.has(id)) return null;
+  return `Você está em regime fechado até ${formatDatePt(st.jailed_until!)}.`;
+}
+
 export function availableActions(ctx: Ctx, personId: string): Array<{ def: ActionDef; reason: string | null }> {
   const p = ctx.person(personId);
   const st = ctx.pstate(personId);
   if (!p || !st) return [];
   return ACTIONS.map((def) => {
-    let reason = def.available(ctx, p, st);
+    let reason = jailReason(ctx, st, def.id) ?? def.available(ctx, p, st);
     if (!reason && st.energy < def.energy) reason = `Energia insuficiente (${def.energy}).`;
     return { def, reason };
   });
@@ -1002,7 +1584,7 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
   if (!p || !st || p.kind !== "PLAYER") return { ok: false, message: "Personagem não encontrado." };
   if (p.status !== "ACTIVE") return { ok: false, message: "Seu personagem está fora da vida pública." };
   if (!def) return { ok: false, message: "Ação desconhecida." };
-  const reason = def.available(ctx, p, st);
+  const reason = jailReason(ctx, st, def.id) ?? def.available(ctx, p, st);
   if (reason) return { ok: false, message: reason };
   if (st.energy < def.energy) return { ok: false, message: `Energia insuficiente: esta ação exige ${def.energy}.` };
   for (const param of def.params ?? []) {

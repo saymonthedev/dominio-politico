@@ -3,9 +3,20 @@ import { usePathname } from "next/navigation";
 import { Icon } from "../Icon";
 
 const GROUPS: Array<{ title: string; items: Array<[string, string, string]> }> = [
-  { title: "Você", items: [["", "Painel", "home"], ["/carreira", "Carreira", "user"], ["/campanha", "Campanha", "megaphone"], ["/governo", "Mandato", "landmark"], ["/relacoes", "Relações", "users"]] },
+  {
+    title: "Você",
+    items: [
+      ["", "Painel", "home"],
+      ["/carreira", "Carreira", "user"],
+      ["/financas", "Finanças", "coins"],
+      ["/campanha", "Campanha", "megaphone"],
+      ["/governo", "Mandato", "landmark"],
+      ["/meu-partido", "Meu partido", "star"],
+      ["/relacoes", "Relações", "users"],
+    ],
+  },
   { title: "O país", items: [["/noticias", "Notícias", "newspaper"], ["/eleicoes", "Eleições", "ballot"], ["/partidos", "Partidos", "flag"], ["/mapa", "Mapa", "map"], ["/economia", "Economia", "chart"]] },
-  { title: "Bastidores", items: [["/investigacoes", "Investigações", "search"], ["/notificacoes", "Notificações", "bell"]] },
+  { title: "Bastidores", items: [["/investigacoes", "Investigações", "search"], ["/esquemas", "Esquemas", "key"], ["/notificacoes", "Notificações", "bell"]] },
 ];
 
 export interface SideProfile {

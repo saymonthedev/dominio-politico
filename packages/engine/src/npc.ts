@@ -48,6 +48,8 @@ export interface NewPersonInput {
   visibility: number;
   traits: Traits;
   money: number;
+  /** bens declarados (imóveis, veículos); padrão: o dobro do dinheiro em caixa */
+  assets?: number;
   reach?: Record<string, number>;
   tier: number;
   roleLabel?: string | null;
@@ -113,6 +115,13 @@ export function buildPerson(input: NewPersonInput): { person: PersonRow; state: 
     last_action_tick: 0,
     action_seq: 0,
     dossiers: {},
+    findings: {},
+    dirty_money: 0,
+    debt: 0,
+    assets: input.assets ?? Math.round(input.money * 2),
+    ledger: { month: null, items: [], net: 0 },
+    jailed_until: null,
+    sentence: null,
   };
   return { person, state };
 }

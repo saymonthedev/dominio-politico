@@ -1,7 +1,9 @@
 import { makeIdeology, type Ideology } from "./ideology";
 import { moderateText } from "./news/moderation";
+import { priceLevel } from "./finance";
 import { buildPerson } from "./npc";
 import { origin, profession } from "./names";
+import { cityName } from "./cities";
 import { canonicalGeo, capitalId, isMunicipality, ufOfMunicipality, UF_BY_CODE } from "./geo";
 import type { Ctx } from "./state";
 import type { PersonRow } from "./types";
@@ -66,7 +68,8 @@ export function createCharacter(ctx: Ctx, input: CharacterInput): CharacterResul
       competence: Math.min(0.9, 0.45 + prof.competence + rng.range(0, 0.05)),
       charisma: Math.min(0.9, 0.45 + prof.charisma + rng.range(0, 0.05)),
     },
-    money: orig.savings,
+    money: Math.round(orig.savings * priceLevel(ctx.date)),
+    assets: Math.round(orig.assets * priceLevel(ctx.date)),
     reach: { [uf.code]: orig.reach },
     tier: 3,
     userId: input.userId,
@@ -75,14 +78,14 @@ export function createCharacter(ctx: Ctx, input: CharacterInput): CharacterResul
     worldId: ctx.world.id,
   });
   state.interests = input.interests.slice(0, 5);
-  state.income_last_year = prof.income * 12;
+  state.income_last_year = Math.round(prof.income * 12 * priceLevel(ctx.date));
   ctx.save("persons", person);
   ctx.save("person_states", state);
   ctx.emit("CHARACTER_CREATED", { actors: [person.id], geography: uf.code, payload: { municipality: city } });
   ctx.notify(
     person.id,
     "Bem-vindo(a) à vida pública",
-    `Você começa como cidadão(ã) em ${uf.capital} (${uf.code}). Acompanhe o noticiário, participe da vida local, conheça os partidos e construa sua carreira.`,
+    `Você começa como cidadão(ã) em ${cityName(ctx.s, city) ?? uf.capital} (${uf.code}). Acompanhe o noticiário, participe da vida local, conheça os partidos e construa sua carreira.`,
     "/jogo",
   );
   return { ok: true, person };

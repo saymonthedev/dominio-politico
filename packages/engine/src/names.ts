@@ -55,11 +55,11 @@ export function profession(id: string) {
 }
 
 export const ORIGINS = [
-  { id: "periferia", label: "periferia urbana", savings: 4000, reach: 0.02 },
-  { id: "classe_media", label: "classe média urbana", savings: 25000, reach: 0.02 },
-  { id: "interior", label: "interior do estado", savings: 12000, reach: 0.03 },
-  { id: "elite", label: "família tradicional da elite local", savings: 120000, reach: 0.05 },
-  { id: "rural", label: "zona rural", savings: 8000, reach: 0.02 },
+  { id: "periferia", label: "periferia urbana", savings: 4000, assets: 15000, reach: 0.02 },
+  { id: "classe_media", label: "classe média urbana", savings: 25000, assets: 280000, reach: 0.02 },
+  { id: "interior", label: "interior do estado", savings: 12000, assets: 150000, reach: 0.03 },
+  { id: "elite", label: "família tradicional da elite local", savings: 120000, assets: 1500000, reach: 0.05 },
+  { id: "rural", label: "zona rural", savings: 8000, assets: 200000, reach: 0.02 },
 ] as const;
 
 export function origin(id: string) {

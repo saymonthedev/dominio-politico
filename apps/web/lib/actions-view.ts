@@ -2,11 +2,18 @@ import {
   activeCandidacy,
   availableActions,
   canBeTargeted,
+  CRIMES,
   Ctx,
   currentElection,
+  isReal,
   OFFICES,
   officesForElection,
+  partyLedBy,
   POLICY_CATALOG,
+  scaledAmount,
+  SPHERE_LABEL,
+  UF_BY_CODE,
+  UF_CODES,
   type ActionCategory,
   type WorldState,
 } from "@dp/engine";
@@ -23,6 +30,8 @@ export interface ActionView {
   cost?: number;
   params: ActionParamView[];
   reason: string | null;
+  /** conduta ilícita: nome, natureza e base legal */
+  crime?: { label: string; sphere: string; law: string };
 }
 
 const PERSON_LIMIT = 150;
@@ -57,6 +66,15 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
         .map((p) => ({ value: p.id, label: describe(p) }))
     : [];
   const e = currentElection(ctx);
+  const year = Number(state.world.game_date.slice(0, 4));
+  const myParty = partyLedBy(ctx, personId);
+  const recruits = myParty
+    ? persons
+        .filter((p) => p.party_id !== myParty.id && !(isReal(p.kind) && p.tier <= 1) && (p.uf === me.uf || (myParty.territory[p.uf] ?? 0) >= 0.02 || p.kind === "PLAYER"))
+        .sort((a, b) => Number(!!b.office_code) - Number(!!a.office_code) || b.reputation - a.reputation)
+        .slice(0, PERSON_LIMIT)
+        .map((p) => ({ value: p.id, label: describe(p) }))
+    : [];
 
   const optionsFor = (actionId: string, type: string, def?: ActionOption[]): ActionOption[] | undefined => {
     switch (type) {
@@ -81,6 +99,25 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
         return [...state.t.affiliation_requests.values()]
           .filter((r) => r.person_id === personId && r.kind === "CONVITE" && r.status === "PENDENTE")
           .map((r) => ({ value: r.id, label: `Convite do ${state.t.parties.get(r.party_id)?.acronym}` }));
+      case "party_request":
+        return myParty
+          ? [...state.t.affiliation_requests.values()]
+              .filter((r) => r.party_id === myParty.id && r.kind === "PEDIDO" && r.status === "PENDENTE")
+              .map((r) => {
+                const who = state.t.persons.get(r.person_id);
+                return { value: r.id, label: who ? describe(who) : "Pedido" };
+              })
+          : [];
+      case "recruit":
+        return recruits;
+      case "scheme":
+        return [...state.t.illicit_acts.values()]
+          .filter((a) => a.person_id === personId && a.ongoing)
+          .map((a) => ({ value: a.id, label: `${CRIMES[a.kind].label} — ${fmtMoney(a.monthly_gain)}/mês, ${fmtMoney(a.amount)} no total` }));
+      case "uf":
+        return UF_CODES.map((u) => ({ value: u, label: `${u} — ${UF_BY_CODE[u].name}` }));
+      case "uf_br":
+        return [{ value: "BR", label: "Todo o país (proporcional ao eleitorado)" }, ...UF_CODES.map((u) => ({ value: u, label: `${u} — ${UF_BY_CODE[u].name}` }))];
       case "debate":
         return myCand
           ? [...state.t.debates.values()].filter((d) => d.status === "AGENDADO" && d.participants.includes(myCand.id)).map((d) => ({ value: d.id, label: `${d.outlet} — ${fmtDate(d.scheduled_on)}` }))
@@ -91,6 +128,11 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
         return def;
     }
   };
+  const amountOptions = (bases: number[] | undefined): ActionOption[] | undefined =>
+    bases?.map((b) => {
+      const v = scaledAmount(ctx, b);
+      return { value: String(v), label: fmtMoney(v) };
+    });
 
   return availableActions(ctx, personId)
     .filter(({ def }) => !categories || categories.includes(def.category))
@@ -100,8 +142,15 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
       description: def.description,
       category: def.category,
       energy: def.energy,
-      cost: def.cost,
+      cost: def.costFn ? def.costFn(ctx, me, st) : def.cost,
       reason,
-      params: (def.params ?? []).map((p) => ({ name: p.name, label: p.label, type: p.type, optional: p.optional, options: optionsFor(def.id, p.type, p.options) })),
+      crime: def.crime ? { label: CRIMES[def.crime].label, sphere: SPHERE_LABEL[CRIMES[def.crime].sphere], law: CRIMES[def.crime].law(year) } : undefined,
+      params: (def.params ?? []).map((p) => ({
+        name: p.name,
+        label: p.label,
+        type: p.type,
+        optional: p.optional,
+        options: p.type === "amount" ? amountOptions(p.amounts) : optionsFor(def.id, p.type, p.options),
+      })),
     }));
 }
