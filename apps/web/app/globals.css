@@ -890,3 +890,15 @@ td.num, th.num { text-align: right; }
 .cf-row--even { grid-template-columns: 1fr 1fr; }
 .cf-wait { padding: 13px 14px; border: 1.5px dashed var(--linha); border-radius: 12px; color: var(--apagado); font-size: .92rem; }
 @media (max-width: 640px) { .cf-row--even { grid-template-columns: 1fr; } }
+
+/* ===================== Avatar de pessoa ===================== */
+.pavatar { display: inline-grid; place-items: center; flex-shrink: 0; border-radius: 12px; background: var(--c); color: #fff; font-family: var(--f-display); font-weight: 800; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.pavatar.has-photo { background: var(--rebaixada); box-shadow: 0 0 0 2px var(--c); }
+.pavatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.photo-credit { display: block; font-size: .7rem; color: var(--apagado); margin-top: 6px; }
+.person-head { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 8px; }
+.person-head h1 { margin: 4px 0 6px; }
+.who-cell { display: inline-flex; align-items: center; gap: 10px; }
+.cm-mayor.with-photo { grid-template-columns: 56px minmax(0, 1fr); column-gap: 12px; }
+.cm-mayor.with-photo > :not(img) { grid-column: 2; }
+.cm-mayor-photo { grid-row: 1 / span 4; width: 56px; height: 70px; object-fit: cover; border-radius: 10px; box-shadow: 0 0 0 2px var(--c); }

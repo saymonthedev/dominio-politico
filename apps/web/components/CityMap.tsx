@@ -579,7 +579,11 @@ function CityPanel({
       <div className="cm-section">
         <div className="label">Prefeitura</div>
         {detail.mayor ? (
-          <div className="cm-mayor" style={{ ["--c" as string]: colorOf(detail.mayor.partyId, detail.mayor.color) }}>
+          <div className={`cm-mayor${detail.mayor.photo ? " with-photo" : ""}`} style={{ ["--c" as string]: colorOf(detail.mayor.partyId, detail.mayor.color) }}>
+            {detail.mayor.photo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="cm-mayor-photo" src={detail.mayor.photo} alt={`Foto de ${detail.mayor.name}`} width={56} height={70} title={`Foto: TSE, candidatura de ${detail.mayor.photoYear} (CC-BY)`} />
+            )}
             <div>
               {detail.mayor.href ? <a href={detail.mayor.href}>{detail.mayor.name}</a> : <b>{detail.mayor.name}</b>}
               <span className="cm-chip" style={{ ["--c" as string]: colorOf(detail.mayor.partyId, detail.mayor.color) }}>

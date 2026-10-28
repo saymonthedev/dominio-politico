@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { AXES, AXIS_INFO, OFFICES, geoName, type MandateRow, type NewsRow, type PersonRow } from "@dp/engine";
+import { PersonAvatar, PhotoCredit } from "@/components/PersonAvatar";
 import { NewsItem, PartyChip } from "@/components/ui";
+import { photoOf } from "@/lib/photos";
 import { fmtDate } from "@/lib/format";
 import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
 import { citiesFor } from "@/lib/sim";
@@ -23,16 +25,25 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
   const mandates = (mQ.data ?? []) as MandateRow[];
   const news = (nQ.data ?? []) as NewsRow[];
   const real = person.kind === "REAL_ACTIVE_AT_SNAPSHOT" || person.kind === "REAL_HISTORICAL";
+  const photo = photoOf(person);
   return (
     <div className="layout-main">
       <section>
-        <div className="label">{real ? "Pessoa real · dados públicos do TSE" : person.kind === "PLAYER" ? "Jogador(a)" : "Personagem gerado pelo jogo"}</div>
-        <h1>{person.name}</h1>
-        <p className="muted">
-          {person.office_code ? `${OFFICES[person.office_code].name} · ` : person.role_label ? `${person.role_label} · ` : ""}
-          {person.uf} · <PartyChip party={person.party_id ? pm[person.party_id] : null} />
-          {person.status !== "ACTIVE" && <> · {person.status_note}</>}
-        </p>
+        <div className="person-head">
+          <div>
+            <PersonAvatar name={person.name} color={person.party_id ? pm[person.party_id]?.color : null} photo={photo} size={photo ? 96 : 72} />
+            {photo && <PhotoCredit photo={photo} />}
+          </div>
+          <div>
+            <div className="label">{real ? "Pessoa real · dados públicos do TSE" : person.kind === "PLAYER" ? "Jogador(a)" : "Personagem gerado pelo jogo"}</div>
+            <h1>{person.name}</h1>
+            <p className="muted">
+              {person.office_code ? `${OFFICES[person.office_code].name} · ` : person.role_label ? `${person.role_label} · ` : ""}
+              {person.uf} · <PartyChip party={person.party_id ? pm[person.party_id] : null} />
+              {person.status !== "ACTIVE" && <> · {person.status_note}</>}
+            </p>
+          </div>
+        </div>
         {real && (
           <div className="card flat" style={{ fontSize: ".85rem" }}>
             Fatos do snapshot vêm do TSE. Depois da data de início, a atuação desta pessoa no jogo é <span className="badge sim">Simulação</span>. O jogo não

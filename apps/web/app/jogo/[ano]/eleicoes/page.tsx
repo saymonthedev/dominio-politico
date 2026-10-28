@@ -1,5 +1,7 @@
 import { OFFICES, UF_BY_CODE, canonicalGeo, capitalId, eraRules, geoName, isMunicipality, type CandidacyRow, type ElectionRow, type PollRow, type RaceRow } from "@dp/engine";
 import { NavSelect } from "@/components/NavSelect";
+import { PersonAvatar } from "@/components/PersonAvatar";
+import { photoOf, type Photo } from "@/lib/photos";
 import { PartyChip } from "@/components/ui";
 import { fmtDate, fmtNum, fmtPct } from "@/lib/format";
 import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
@@ -37,6 +39,16 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     races = ((r.data ?? []) as RaceRow[]).sort((a, b) => OFFICES[b.office_code].rank - OFFICES[a.office_code].rank);
     cands = (c.data ?? []) as CandidacyRow[];
     polls = (p.data ?? []) as PollRow[];
+  }
+  // fotos de quem aparece nos resultados (pessoas reais)
+  const resultIds = [...new Set(races.flatMap((r) => [...(r.results.first?.candidates ?? []), ...(r.results.runoff?.candidates ?? [])].slice(0, 16).map((c) => c.person_id)))].filter(Boolean);
+  const photos = new Map<string, Photo>();
+  if (resultIds.length) {
+    const { data } = await sb.from("persons").select("id,kind,external_ref").eq("world_id", me.worldId).in("id", resultIds);
+    for (const p of data ?? []) {
+      const ph = photoOf(p);
+      if (ph) photos.set(p.id, ph);
+    }
   }
   const names = new Map<string, string>();
   if (cands.length) {
@@ -88,7 +100,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                       <tbody>
                         {round.candidates.slice(0, 8).map((c) => (
                           <tr key={c.candidacy_id}>
-                            <td>{c.person_id ? <a href={`/jogo/${year}/pessoa/${c.person_id}`}>{c.name}</a> : c.name} {race.results.elected?.includes(c.person_id) && <span className="badge real plain">eleito(a)</span>}</td>
+                            <td><span className="who-cell"><PersonAvatar name={c.name} color={pm[c.party_id]?.color} photo={photos.get(c.person_id)} size={28} />{c.person_id ? <a href={`/jogo/${year}/pessoa/${c.person_id}`}>{c.name}</a> : c.name}</span> {race.results.elected?.includes(c.person_id) && <span className="badge real plain">eleito(a)</span>}</td>
                             <td><PartyChip party={pm[c.party_id]} /></td>
                             <td className="num mono">{fmtNum(c.votes)}</td>
                             <td className="num mono">{fmtPct(c.share, 2)}</td>

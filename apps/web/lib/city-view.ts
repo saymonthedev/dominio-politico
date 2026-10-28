@@ -1,5 +1,6 @@
 import { canonicalGeo, cityNow, partyResolver, profileFor, UFS, type CityNow, type WorldState } from "@dp/engine";
 import { MAP_OTHERS, MAP_PALETTE } from "./map-colors";
+import { photoOf } from "./photos";
 import { START_POINTS } from "./startpoints";
 
 export interface MapParty {
@@ -113,7 +114,7 @@ export interface CityDetail {
   uf: string;
   capital: boolean;
   electorate: number;
-  mayor: (NonNullable<CityNow["mayor"]> & { color: string; href: string | null }) | null;
+  mayor: (NonNullable<CityNow["mayor"]> & { color: string; href: string | null; photo: string | null; photoYear: number | null }) | null;
   mayorElect: (NonNullable<CityNow["mayorElect"]> & { color: string }) | null;
   replaced: { name: string; party: string; reason: string } | null;
   council: Array<{ partyId: string | null; label: string; color: string; seats: number }>;
@@ -140,7 +141,12 @@ export function cityDetail(state: WorldState, year: number, id: string): CityDet
     uf: c.uf,
     capital: c.capital,
     electorate: c.electorate,
-    mayor: c.mayor ? { ...c.mayor, color: colorOf(c.mayor.partyId, c.mayor.partyLabel), href: c.mayor.personId ? `/jogo/${year}/pessoa/${c.mayor.personId}` : null } : null,
+    mayor: c.mayor
+      ? (() => {
+          const ph = photoOf(c.mayor.personId ? state.t.persons.get(c.mayor.personId) : null);
+          return { ...c.mayor, color: colorOf(c.mayor.partyId, c.mayor.partyLabel), href: c.mayor.personId ? `/jogo/${year}/pessoa/${c.mayor.personId}` : null, photo: ph?.src ?? null, photoYear: ph?.year ?? null };
+        })()
+      : null,
     mayorElect: c.mayorElect ? { ...c.mayorElect, color: colorOf(c.mayorElect.partyId, c.mayorElect.partyLabel) } : null,
     replaced: c.mayor && !c.mayor.simulated && c.mayor.electedIn === year - 2 ? baseMayor?.replaced ?? null : null,
     council: c.council.map((x) => ({ partyId: x.partyId, label: x.label, color: colorOf(x.partyId, x.label), seats: x.seats })),

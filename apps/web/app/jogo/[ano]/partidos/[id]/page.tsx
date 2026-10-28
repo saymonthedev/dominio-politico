@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { AXES, AXIS_INFO, ENTRY_CULTURE_LABEL, OFFICES, UFS, type FactionRow, type PersonRow } from "@dp/engine";
+import { PersonAvatar } from "@/components/PersonAvatar";
 import { Meter, PartyChip, Stat } from "@/components/ui";
+import { photoOf } from "@/lib/photos";
 import { fmtMoney, fmtNum } from "@/lib/format";
 import { getParties, getSession, requireMe } from "@/lib/game";
 
@@ -39,7 +41,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
             <tbody>
               {people.map((p) => (
                 <tr key={p.id}>
-                  <td><a href={`/jogo/${year}/pessoa/${p.id}`}>{p.name}</a> {p.kind === "FICTIONAL_GENERATED" ? <span className="badge plain">personagem do jogo</span> : p.kind === "PLAYER" ? <span className="badge gold plain">jogador</span> : <span className="badge real plain">pessoa real</span>}</td>
+                  <td><span className="who-cell"><PersonAvatar name={p.name} color={party.color} photo={photoOf(p)} size={30} /><a href={`/jogo/${year}/pessoa/${p.id}`}>{p.name}</a></span> {p.kind === "FICTIONAL_GENERATED" ? <span className="badge plain">personagem do jogo</span> : p.kind === "PLAYER" ? <span className="badge gold plain">jogador</span> : <span className="badge real plain">pessoa real</span>}</td>
                   <td className="muted">{p.office_code ? OFFICES[p.office_code].name : p.role_label ?? "—"}</td>
                   <td>{p.uf}</td>
                   <td className="num mono">{Math.round(p.reputation)}</td>
