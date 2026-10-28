@@ -174,7 +174,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
     for (const a of data ?? []) actKind.set(a.id, a.kind as IllicitKind);
   }
   const invs = raw.map((i) => (i.crimes.length || !i.act_ids?.length ? i : { ...i, crimes: [...new Set(i.act_ids.map((id) => actKind.get(id)).filter((k): k is IllicitKind => !!k && k in CRIMES))] }));
-  const st = state.t.person_states.get(me.person.id) ?? me.state;
+  const st = me.state;
   const findings = st.findings ?? {};
   const ids = [...new Set([...invs.map((i) => i.person_id).filter((x): x is string => !!x), ...Object.keys(findings).filter((k) => !k.startsWith("party:"))])];
   const people = new Map<string, PersonRow>();

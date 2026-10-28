@@ -19,7 +19,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
     sb.from("illicit_acts").select("*").eq("world_id", me.worldId).eq("person_id", me.person.id).order("created_on", { ascending: false }).limit(60),
   ]);
   const ctx = new Ctx(state, "view");
-  const st = state.t.person_states.get(me.person.id) ?? me.state;
+  const st = me.state;
   const fromDb = (actsQ.data ?? []) as IllicitActRow[];
   // o estado do motor é mais recente para atos em andamento
   const acts = fromDb.map((a) => state.t.illicit_acts.get(a.id) ?? a);

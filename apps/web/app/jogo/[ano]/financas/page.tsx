@@ -55,8 +55,9 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
     cachedState(me.worldId),
     sb.from("finance_transactions").select("*").eq("world_id", me.worldId).eq("person_id", me.person.id).order("game_date", { ascending: false }).limit(240),
   ]);
-  const person = state.t.persons.get(me.person.id) ?? me.person;
-  const st = state.t.person_states.get(me.person.id) ?? me.state;
+  // dados do personagem direto do banco (o estado do mundo em cache pode estar alguns segundos atrás)
+  const person = me.person;
+  const st = me.state;
   const txs = (txQ.data ?? []) as FinanceRow[];
   const preview = monthlyStatement(new Ctx(state, "view"), person, st);
   const ledger = st.ledger ?? { month: null, items: [], net: 0 };

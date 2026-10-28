@@ -23,7 +23,7 @@ import { PersonAvatar } from "@/components/PersonAvatar";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney, fmtNum } from "@/lib/format";
 import { daysBetween } from "@/lib/game-view";
-import { requireMe } from "@/lib/game";
+import { getSession, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
 import { cachedState } from "@/lib/sim";
 
@@ -41,9 +41,13 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const me = await requireMe(year);
   const state = await cachedState(me.worldId);
   const ctx = new Ctx(state, "view");
-  const person = state.t.persons.get(me.person.id) ?? me.person;
-  const forming = partyInFormationBy(ctx, person.id);
-  const founded = partyFoundedBy(ctx, person.id);
+  const person = me.person;
+  // o partido vem direto do banco: a coleta e o registro mudam a cada ação
+  const { sb } = await getSession();
+  const { data: own } = await sb.from("parties").select("*").eq("world_id", me.worldId).eq("founder_id", person.id);
+  const ownParties = (own ?? []) as PartyRow[];
+  const forming = ownParties.find((p) => p.status === "EM_FORMACAO") ?? partyInFormationBy(ctx, person.id);
+  const founded = ownParties.find((p) => p.status === "ATIVO") ?? partyFoundedBy(ctx, person.id);
   const actions = actionsFor(state, person.id, ["MEU_PARTIDO"]);
   const today = state.world.game_date;
 

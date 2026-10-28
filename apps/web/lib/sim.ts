@@ -135,10 +135,10 @@ export async function loadState(worldId: string): Promise<WorldState> {
 
 const cache = new Map<string, { state: WorldState; at: number }>();
 
-/** Estado recente (até 20 s) para telas que só leem disponibilidade de ações. */
+/** Estado recente (até 8 s) para telas que só leem disponibilidade de ações. */
 export async function cachedState(worldId: string): Promise<WorldState> {
   const hit = cache.get(worldId);
-  if (hit && Date.now() - hit.at < 20_000) return hit.state;
+  if (hit && Date.now() - hit.at < 8_000) return hit.state;
   const state = await loadState(worldId);
   cache.set(worldId, { state, at: Date.now() });
   return state;
