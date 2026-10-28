@@ -99,6 +99,8 @@ export interface ActionDef {
   costFn?: (ctx: Ctx, p: PersonRow, st: PersonStateRow) => number;
   /** conduta ilícita que a ação representa (a tela mostra a lei e o aviso) */
   crime?: IllicitKind;
+  /** pede confirmação antes de executar (ações irreversíveis) */
+  confirm?: string;
   params?: ActionParam[];
   /** null = disponível; string = motivo da indisponibilidade */
   available: (ctx: Ctx, p: PersonRow, st: PersonStateRow) => string | null;
@@ -441,6 +443,7 @@ export const ACTIONS: ActionDef[] = [
   },
   {
     id: "desfiliar",
+    confirm: "Você vai deixar o partido. Com mandato proporcional, fora da janela partidária, perde o cargo.",
     label: "Desfiliar-se do partido",
     description: "Sair do partido. Fora da janela partidária, parlamentares podem perder o mandato por infidelidade.",
     category: "PARTIDO",
@@ -1035,6 +1038,7 @@ export const ACTIONS: ActionDef[] = [
   },
   {
     id: "colaborar",
+    confirm: "A colaboração é definitiva: sua reputação cai e seus parceiros viram alvo.",
     label: "Fazer colaboração premiada",
     description: "Confessar e entregar cúmplices. A pena cai, a reputação despenca e os parceiros viram alvo.",
     category: "INVESTIGACAO",
@@ -1398,6 +1402,7 @@ export const ACTIONS: ActionDef[] = [
   },
   {
     id: "desistir_fundacao",
+    confirm: "A fundação será encerrada e todo o dinheiro gasto até aqui fica perdido.",
     label: "Desistir da fundação do partido",
     description: "Encerra a coleta. O dinheiro gasto não volta.",
     category: "MEU_PARTIDO",
@@ -1413,6 +1418,7 @@ export const ACTIONS: ActionDef[] = [
   },
   {
     id: "filiar_meu_partido",
+    confirm: "Se você tem mandato proporcional e está fora da janela partidária, a troca custa o mandato.",
     label: "Filiar-se ao seu partido",
     description: "Para quem fundou o partido tendo mandato proporcional: fora da janela partidária, a troca custa o mandato.",
     category: "MEU_PARTIDO",

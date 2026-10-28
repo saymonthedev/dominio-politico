@@ -35,8 +35,31 @@ const CAT: Record<string, { icon: string; label: string; cls: string }> = {
 };
 const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR")}`;
 
+function ConfirmDialog({ title, text, onCancel, onConfirm, pending }: { title: string; text: string; onCancel: () => void; onConfirm: () => void; pending: boolean }) {
+  return (
+    <div className="ui-overlay" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+      <div className="ui-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+        <span className="ui-dialog__icon">
+          <Icon name="alert" size={24} />
+        </span>
+        <h2 id="confirm-title">{title}?</h2>
+        <p>{text}</p>
+        <div className="ui-dialog__actions">
+          <Button type="button" tone="ghost" onClick={onCancel}>
+            Cancelar
+          </Button>
+          <Button type="button" tone="danger" loading={pending} onClick={onConfirm}>
+            Confirmar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ActionCard({ year, a }: { year: number; a: ActionView }) {
   const [open, setOpen] = useState(false);
+  const [asking, setAsking] = useState<Record<string, string> | null>(null);
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
@@ -47,8 +70,10 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
       const r = await quickAction(year, a.id, params);
       toast({ tone: r.ok ? "ok" : "err", title: r.ok ? a.label : "Não deu certo", body: r.message });
       if (r.ok) setOpen(false);
+      setAsking(null);
       router.refresh();
     });
+  const attempt = (params: Record<string, string>) => (a.confirm ? setAsking(params) : run(params));
   return (
     <article className={`acard${locked ? " is-locked" : ""}${open ? " is-open" : ""}`}>
       <div className="acard__top">
@@ -79,7 +104,7 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
           <Icon name="lock" size={14} /> {a.reason}
         </div>
       ) : !needsForm ? (
-        <Button tone="primary" size="sm" icon="play" loading={pending} onClick={() => run({})}>
+        <Button tone={a.confirm ? "danger" : "primary"} size="sm" icon="play" loading={pending} onClick={() => attempt({})}>
           Fazer agora
         </Button>
       ) : !open ? (
@@ -95,7 +120,7 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
             e.preventDefault();
             const params: Record<string, string> = {};
             for (const [k, v] of new FormData(e.currentTarget).entries()) if (typeof v === "string" && v !== "") params[k] = v;
-            run(params);
+            attempt(params);
           }}
         >
           {a.params.map((p) =>
@@ -115,6 +140,7 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
           </div>
         </form>
       )}
+      {asking && a.confirm && <ConfirmDialog title={a.label} text={a.confirm} pending={pending} onCancel={() => setAsking(null)} onConfirm={() => run(asking)} />}
     </article>
   );
 }

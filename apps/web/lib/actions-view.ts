@@ -32,6 +32,8 @@ export interface ActionView {
   reason: string | null;
   /** conduta ilícita: nome, natureza e base legal */
   crime?: { label: string; sphere: string; law: string };
+  /** texto de confirmação para ações irreversíveis */
+  confirm?: string;
 }
 
 const PERSON_LIMIT = 150;
@@ -145,6 +147,7 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
       cost: def.costFn ? def.costFn(ctx, me, st) : def.cost,
       reason,
       crime: def.crime ? { label: CRIMES[def.crime].label, sphere: SPHERE_LABEL[CRIMES[def.crime].sphere], law: CRIMES[def.crime].law(year) } : undefined,
+      confirm: def.confirm,
       params: (def.params ?? []).map((p) => ({
         name: p.name,
         label: p.label,
