@@ -1,12 +1,21 @@
 import { AUTHORITY_LABEL, STAGE_LABEL, type IllicitActRow, type InvestigationRow, type PersonRow } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
-import { Meter, PartyChip } from "@/components/ui";
+import { Empty, GameHeader, MeterRow, Panel, Pill } from "@/components/game/Page";
+import { QuickAction } from "@/components/game/QuickAction";
+import { Icon } from "@/components/Icon";
+import { PersonAvatar } from "@/components/PersonAvatar";
+import { PartyChip } from "@/components/ui";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney } from "@/lib/format";
 import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
+import { photoOf } from "@/lib/photos";
 import { cachedState } from "@/lib/sim";
 
-const OUTCOME: Record<string, string> = { CONDENADO: "condenado(a)", ABSOLVIDO: "absolvido(a)", ARQUIVADO: "arquivado" };
+const OUTCOME: Record<string, { label: string; tone: "bad" | "ok" | "neutral" }> = {
+  CONDENADO: { label: "condenado(a)", tone: "bad" },
+  ABSOLVIDO: { label: "absolvido(a)", tone: "ok" },
+  ARQUIVADO: { label: "arquivado", tone: "neutral" },
+};
 
 export default async function Page({ params }: { params: Promise<{ ano: string }> }) {
   const year = Number((await params).ano);
@@ -27,99 +36,168 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
     const { data } = await sb.from("persons").select("*").eq("world_id", me.worldId).in("id", ids);
     for (const p of (data ?? []) as PersonRow[]) people.set(p.id, p);
   }
-  const mine = invs.filter((i) => i.person_id === me.person.id);
-  const reported = invs.filter((i) => i.opened_by === me.person.id);
+  const mine = invs.filter((i) => i.person_id === me.person.id && !i.outcome);
+  const others = invs.filter((i) => i.person_id !== me.person.id);
   const actions = actionsFor(state, me.person.id, ["INVESTIGACAO"]);
+  const offerAction = actions.find((a) => a.id === "responder_oferta");
+  const restActions = actions.filter((a) => a.id !== "responder_oferta");
+  const offers = me.state.offers;
   const dirty = [...parties].sort((a, b) => a.integrity - b.integrity).slice(0, 6);
+  const dossiers = Object.entries(me.state.dossiers).sort((a, b) => b[1] - a[1]);
+
   return (
-    <div className="layout-main">
-      <section>
-        <h1>Investigações</h1>
-        <p className="muted" style={{ maxWidth: 720 }}>
-          Crimes funcionam por <b>risco e evidência</b>: valor, participantes, testemunhas, rastro documental, recorrência, exposição e lealdade dos cúmplices.
-          Os envolvidos são sempre jogadores ou personagens do jogo — pessoas reais nunca são acusadas.
-        </p>
-        {me.state.offers.length > 0 && (
-          <div className="card" style={{ borderColor: "var(--urgente)" }}>
-            <div className="label" style={{ color: "var(--urgente)" }}>Oferta pendente</div>
-            {me.state.offers.map((o) => (
-              <p key={o.id} className="mt" style={{ margin: 0 }}>
-                {o.kind === "PROPINA" ? "Propina" : "Caixa dois"} de <b>{fmtMoney(o.amount)}</b> oferecido por {state.t.persons.get(o.from)?.name ?? "intermediário"}. Use “Responder a uma oferta ilícita”.
-              </p>
+    <>
+      <GameHeader
+        kicker="Bastidores"
+        icon="gavel"
+        title="Investigações"
+        lede="Polícia Federal, Ministério Público, CPIs e imprensa. Crimes funcionam por risco e evidência; os envolvidos são sempre jogadores ou personagens do jogo."
+      />
+
+      <div className="hint-band">
+        <Icon name="shield" size={18} />
+        <span>
+          Pessoas reais <b>nunca</b> são acusadas no jogo. Ofertas, casos e condenações envolvem apenas personagens fictícios e jogadores.
+        </span>
+      </div>
+
+      {offers.length > 0 && (
+        <Panel title="Oferta ilícita na mesa" icon="alert" tone="alert" className="mb">
+          <div className="reqs">
+            {offers.map((o) => (
+              <div key={o.id} className="pend">
+                <div className="pend__text">
+                  <b>
+                    {o.kind === "PROPINA" ? "Propina" : "Caixa dois"} de {fmtMoney(o.amount)}
+                  </b>
+                  <span className="muted small" style={{ display: "block" }}>
+                    Oferecido por {state.t.persons.get(o.from)?.name ?? "um intermediário"}. Aceitar deixa rastro; recusar ou denunciar protege sua ficha.
+                  </span>
+                </div>
+                {offerAction && !offerAction.reason && (
+                  <div className="pend__actions">
+                    <QuickAction year={year} action="responder_oferta" params={{ offer: o.id, decision: "RECUSAR" }} label="Recusar" tone="ghost" />
+                    <QuickAction year={year} action="responder_oferta" params={{ offer: o.id, decision: "DENUNCIAR" }} label="Denunciar à PF" tone="primary" icon="shield" />
+                    <QuickAction year={year} action="responder_oferta" params={{ offer: o.id, decision: "ACEITAR" }} label="Aceitar" tone="danger" />
+                  </div>
+                )}
+              </div>
             ))}
           </div>
-        )}
-        <div className="rule-title"><h2>Polícia, MP, CPI e defesa</h2></div>
-        <ActionPanel year={year} actions={actions} />
+        </Panel>
+      )}
 
-        <div className="rule-title"><h2>Casos em andamento no país</h2></div>
-        <div className="table-wrap card flat">
-          <table>
-            <thead><tr><th>Investigado(a)</th><th>Conduzido por</th><th>Etapa</th><th>Provas</th><th>Aberto</th></tr></thead>
-            <tbody>
-              {invs.map((i) => {
-                const p = people.get(i.person_id);
-                return (
-                  <tr key={i.id}>
-                    <td>
-                      <a href={`/jogo/${year}/pessoa/${i.person_id}`}>{p?.name ?? "—"}</a> {p?.party_id && <PartyChip party={pm[p.party_id]} />}
-                      {i.person_id === me.person.id && <span className="badge bad plain">você</span>}
-                      {i.opened_by === me.person.id && <span className="badge gold plain">sua denúncia</span>}
-                    </td>
-                    <td>{AUTHORITY_LABEL[i.authority]}</td>
-                    <td>{i.outcome ? <span className={`badge ${i.outcome === "CONDENADO" ? "bad" : "real"}`}>{OUTCOME[i.outcome]}</span> : STAGE_LABEL[i.stage]}</td>
-                    <td style={{ minWidth: 90 }}><Meter value={i.evidence * 100} tone="bad" /></td>
-                    <td className="mono">{fmtDate(i.opened_on)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {!invs.length && <p className="muted">Nenhum caso aberto por enquanto.</p>}
+      <div className="ggrid ggrid--main">
+        <div className="gstack">
+          {mine.length > 0 && (
+            <Panel title="Investigações contra você" icon="alert" tone="alert">
+              {mine.map((i) => (
+                <div key={i.id} className="case">
+                  <div className="case__head">
+                    <b>{AUTHORITY_LABEL[i.authority]}</b>
+                    <Pill tone="warn">{STAGE_LABEL[i.stage]}</Pill>
+                    <span className="mono muted small">próximo passo {fmtDate(i.next_step_on)}</span>
+                  </div>
+                  <MeterRow label="Provas reunidas" value={i.evidence * 100} tone="bad" />
+                  <MeterRow label="Força da sua defesa" value={i.defense * 100} tone="ok" />
+                </div>
+              ))}
+              {me.state.ineligible_until && <p className="form-msg err">Inelegível até {fmtDate(me.state.ineligible_until)}.</p>}
+            </Panel>
+          )}
+
+          <Panel title="Polícia, MP, CPI e defesa" icon="play">
+            <ActionPanel year={year} actions={restActions} />
+          </Panel>
+
+          <Panel title="Casos no país" icon="newspaper" aside={<span className="muted small">{others.length} caso(s)</span>}>
+            {others.length ? (
+              <div className="cases">
+                {others.map((i) => {
+                  const p = people.get(i.person_id);
+                  const party = p?.party_id ? pm[p.party_id] : undefined;
+                  return (
+                    <a key={i.id} className="caserow" href={`/jogo/${year}/pessoa/${i.person_id}`}>
+                      <PersonAvatar name={p?.name ?? "?"} color={party?.color} photo={p ? photoOf(p) : undefined} size={36} />
+                      <div className="caserow__who">
+                        <b>{p?.name ?? "—"}</b>
+                        <span>
+                          {AUTHORITY_LABEL[i.authority]} · desde {fmtDate(i.opened_on)}
+                        </span>
+                        <span className="pcard__tags">
+                          {party && <PartyChip party={party} />}
+                          {i.opened_by === me.person.id && <Pill tone="gold">sua denúncia</Pill>}
+                        </span>
+                      </div>
+                      <div className="caserow__state">
+                        {i.outcome ? <Pill tone={OUTCOME[i.outcome].tone}>{OUTCOME[i.outcome].label}</Pill> : <Pill tone="warn">{STAGE_LABEL[i.stage]}</Pill>}
+                        <i>
+                          <em style={{ width: `${i.evidence * 100}%` }} />
+                        </i>
+                        <small className="mono">provas {Math.round(i.evidence * 100)}%</small>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            ) : (
+              <Empty icon="gavel" title="Nenhum caso aberto por enquanto" />
+            )}
+          </Panel>
         </div>
-      </section>
-      <aside className="stack">
-        <div className="card">
-          <div className="label">Contra você</div>
-          {mine.length ? mine.map((i) => (
-            <div key={i.id} className="mt" style={{ fontSize: ".86rem" }}>
-              <b>{STAGE_LABEL[i.stage]}</b> · {AUTHORITY_LABEL[i.authority]}
-              <div className="row between muted"><span>Provas</span><span className="mono">{Math.round(i.evidence * 100)}%</span></div>
-              <Meter value={i.evidence * 100} tone="bad" />
-              <div className="row between muted"><span>Defesa</span><span className="mono">{Math.round(i.defense * 100)}%</span></div>
-              <Meter value={i.defense * 100} tone="ok" />
-            </div>
-          )) : <p className="muted mt">Nenhuma investigação contra você.</p>}
-          {me.state.ineligible_until && <p className="form-msg err">Inelegível até {fmtDate(me.state.ineligible_until)}.</p>}
+
+        <div className="gstack">
+          {mine.length === 0 && (
+            <Panel title="Sua ficha" icon="shield">
+              <p className="small" style={{ margin: 0 }}>
+                Nenhuma investigação aberta contra você.
+                {me.state.ineligible_until ? ` Inelegível até ${fmtDate(me.state.ineligible_until)}.` : ""}
+              </p>
+            </Panel>
+          )}
+
+          <Panel title="Seus segredos" icon="lock">
+            {myActs.length ? (
+              <ul className="agenda">
+                {myActs.map((a) => (
+                  <li key={a.id} className="req">
+                    <div>
+                      <b>
+                        {a.description} · {fmtMoney(a.amount)}
+                      </b>
+                      <span>{a.discovered ? "já descoberto" : `rastro ${Math.round(a.paper_trail * 100)}% · ${a.witnesses} testemunha(s)`}</span>
+                    </div>
+                    <Pill tone={a.discovered ? "bad" : "warn"}>{a.discovered ? "exposto" : "oculto"}</Pill>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted small" style={{ margin: 0 }}>
+                Ficha limpa, por enquanto.
+              </p>
+            )}
+          </Panel>
+
+          <Panel title="Seus dossiês" icon="file">
+            {dossiers.length ? (
+              dossiers.map(([pid, v]) => <MeterRow key={pid} label={state.t.persons.get(pid)?.name ?? "pessoa"} value={v * 100} tone="sim" />)
+            ) : (
+              <p className="muted small" style={{ margin: 0 }}>
+                Use “Levantar informações” para montar dossiês sobre adversários.
+              </p>
+            )}
+          </Panel>
+
+          <Panel title="Integridade dos partidos" icon="scale">
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Os seis com a menor integridade agora. O índice muda com os escândalos da partida.
+            </p>
+            {dirty.map((p) => (
+              <MeterRow key={p.id} label={p.acronym} value={p.integrity * 100} tone={p.integrity < 0.4 ? "bad" : "ok"} />
+            ))}
+          </Panel>
         </div>
-        <div className="card">
-          <div className="label">Seus segredos</div>
-          {myActs.length ? myActs.map((a) => (
-            <div key={a.id} className="mt" style={{ fontSize: ".85rem" }}>
-              <b>{a.description}</b> · {fmtMoney(a.amount)}
-              <div className="muted">{a.discovered ? "Descoberto" : `Ainda oculto · rastro ${Math.round(a.paper_trail * 100)}% · ${a.witnesses} testemunha(s)`}</div>
-            </div>
-          )) : <p className="muted mt">Ficha limpa — por enquanto.</p>}
-        </div>
-        <div className="card">
-          <div className="label">Seus dossiês</div>
-          {Object.entries(me.state.dossiers).length ? Object.entries(me.state.dossiers).sort((a, b) => b[1] - a[1]).map(([pid, v]) => (
-            <div key={pid} className="mt" style={{ fontSize: ".85rem" }}>
-              <div className="row between"><span>{state.t.persons.get(pid)?.name ?? pid}</span><span className="mono">{Math.round(v * 100)}%</span></div>
-              <Meter value={v * 100} tone="sim" />
-            </div>
-          )) : <p className="muted mt">Use “Levantar informações” para montar dossiês.</p>}
-        </div>
-        <div className="card">
-          <div className="label">Integridade dos partidos (emergente)</div>
-          {dirty.map((p) => (
-            <div key={p.id} className="mt" style={{ fontSize: ".82rem" }}>
-              <div className="row between"><PartyChip party={p} /><span className="mono">{Math.round(p.integrity * 100)}</span></div>
-              <Meter value={p.integrity * 100} tone={p.integrity < 0.4 ? "bad" : "ok"} />
-            </div>
-          ))}
-        </div>
-      </aside>
-    </div>
+      </div>
+    </>
   );
 }

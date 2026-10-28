@@ -1,14 +1,22 @@
-import { OFFICES, geoName, type CandidacyRow, type DebateRow, type PollRow } from "@dp/engine";
+import { OFFICES, geoName, type CandidacyRow, type DebateRow, type ElectionRow, type PollRow } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
-import { Meter, Stat } from "@/components/ui";
+import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
+import { Icon } from "@/components/Icon";
 import { actionsFor } from "@/lib/actions-view";
-import { fmtDate, fmtMoney, fmtPct } from "@/lib/format";
+import { fmtDate, fmtMoney, fmtNum, fmtPct } from "@/lib/format";
+import { daysBetween } from "@/lib/game-view";
 import { getSession, requireMe } from "@/lib/game";
 import { cachedState, citiesFor } from "@/lib/sim";
 
-const STATUS: Record<string, string> = {
-  PRE: "Pré-candidatura (aguardando convenção)", HOMOLOGADA: "Candidatura homologada", SEGUNDO_TURNO: "No 2º turno", ELEITO: "Eleito(a)",
-  NAO_ELEITO: "Não eleito(a)", SUPLENTE: "Suplente", INDEFERIDA: "Indeferida", DESISTENTE: "Não indicada pelo partido",
+const STATUS: Record<string, { label: string; tone: "neutral" | "ok" | "bad" | "warn" | "gold" | "sim" }> = {
+  PRE: { label: "pré-candidatura · aguardando convenção", tone: "warn" },
+  HOMOLOGADA: { label: "candidatura homologada", tone: "ok" },
+  SEGUNDO_TURNO: { label: "no 2º turno", tone: "gold" },
+  ELEITO: { label: "eleito(a)", tone: "ok" },
+  NAO_ELEITO: { label: "não eleito(a)", tone: "bad" },
+  SUPLENTE: { label: "suplente", tone: "sim" },
+  INDEFERIDA: { label: "candidatura indeferida", tone: "bad" },
+  DESISTENTE: { label: "não indicada pelo partido", tone: "neutral" },
 };
 
 export default async function Page({ params }: { params: Promise<{ ano: string }> }) {
@@ -20,8 +28,11 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
     cachedState(me.worldId),
     sb.from("candidacies").select("*").eq("world_id", me.worldId).eq("person_id", me.person.id).order("election_id", { ascending: false }).limit(5),
   ]);
+  const today = state.world.game_date;
   const cands = (cQ.data ?? []) as CandidacyRow[];
   const current = cands[0];
+  const election = current ? (state.t.elections.get(current.election_id) as ElectionRow | undefined) : undefined;
+  const upcoming = [...state.t.elections.values()].filter((e) => e.status !== "ENCERRADA").sort((a, b) => a.year - b.year)[0];
   let polls: PollRow[] = [];
   let debates: DebateRow[] = [];
   if (current) {
@@ -35,79 +46,177 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const campaignActions = actionsFor(state, me.person.id, ["CAMPANHA"]);
   const pre = actionsFor(state, me.person.id, ["PARTIDO"]).filter((a) => a.id === "pre_candidatura");
   const c = current?.campaign;
+  const st = current ? STATUS[current.status] : undefined;
+  const latest = polls[0];
+  const myPct = latest?.results.find((r) => r.id === current?.id)?.pct;
+  const leader = latest?.results[0];
+  const decisive = election ? (current?.status === "SEGUNDO_TURNO" ? election.runoff : election.first_round) : undefined;
+
   return (
-    <div className="layout-main">
-      <section>
-        <h1>Campanha</h1>
-        {current ? (
-          <div className="card dark">
-            <div className="label">{STATUS[current.status] ?? current.status}</div>
-            <h2 style={{ margin: "6px 0" }}>{OFFICES[current.office_code].name} · {geoName(current.geo, { cities })}</h2>
-            <p style={{ color: "#d5deeb", margin: 0 }}>
-              Número {current.ballot_number}
-              {current.votes ? ` · ${current.votes.toLocaleString("pt-BR")} votos (${fmtPct(current.vote_share, 2)})` : ""}
-              {current.note ? ` · ${current.note}` : ""}
-            </p>
-          </div>
-        ) : (
-          <div className="empty">
-            Você não tem candidatura. No ano eleitoral, filiado(a) dentro do prazo, lance sua pré-candidatura — a convenção do partido decide.
-          </div>
-        )}
-        {pre.length > 0 && (
-          <>
-            <div className="rule-title"><h2>Pré-candidatura</h2></div>
-            <ActionPanel year={year} actions={pre} />
-          </>
-        )}
-        <div className="rule-title"><h2>Ações de campanha</h2></div>
-        <ActionPanel year={year} actions={campaignActions} empty="Ações de campanha liberam com candidatura homologada e campanha oficial aberta." />
-      </section>
-      <aside className="stack">
-        {c && (
-          <div className="card">
-            <div className="label">Recursos</div>
-            <div className="grid mt" style={{ gridTemplateColumns: "1fr 1fr" }}>
-              <Stat label="Orçamento" value={fmtMoney(c.budget)} />
-              <Stat label="Gasto" value={fmtMoney(c.spent)} />
-              <Stat label="FEFC" value={fmtMoney(c.fefc)} />
-              <Stat label="Doações" value={fmtMoney(c.donations)} />
-              <Stat label="Voluntários" value={c.volunteers} />
-              <Stat label="Equipe" value={Object.values(c.team).reduce((a, b) => a + b, 0)} />
+    <>
+      <GameHeader kicker="Você" icon="megaphone" title="Campanha" lede="Pré-candidatura, convenção, rua e urna. Aqui ficam seus recursos, as pesquisas da sua disputa e os debates." />
+
+      {current ? (
+        <Panel className="mb" tone="dark">
+          <div className="ehero">
+            <div>
+              <div className="ehero__tags">
+                {st && <Pill tone={st.tone}>{st.label}</Pill>}
+                <Pill>nº {current.ballot_number}</Pill>
+              </div>
+              <h2>
+                {OFFICES[current.office_code].name} · {geoName(current.geo, { cities })}
+              </h2>
+              <p>
+                {current.votes
+                  ? `${fmtNum(current.votes)} votos (${fmtPct(current.vote_share, 2)}).`
+                  : myPct !== undefined
+                    ? `Última pesquisa: você tem ${fmtPct(myPct)}${leader && leader.id !== current.id ? `; quem lidera tem ${fmtPct(leader.pct)}` : " e lidera"}.`
+                    : "Ainda sem pesquisa divulgada para a sua disputa."}
+                {current.note ? ` ${current.note}` : ""}
+              </p>
             </div>
-            <div className="mt" style={{ fontSize: ".82rem" }}>Momento da campanha</div>
-            <Meter value={(c.momentum + 1) * 50} tone={c.momentum >= 0 ? "ok" : "bad"} />
-            <div className="mt" style={{ fontSize: ".82rem" }}>Dano de boatos</div>
-            <Meter value={c.rumor_damage * 5} tone="bad" />
+            {decisive && decisive >= today && (
+              <div className="ehero__count">
+                <b>{daysBetween(today, decisive)}</b>
+                <span>dias para {current.status === "SEGUNDO_TURNO" ? "o 2º turno" : "o 1º turno"}</span>
+              </div>
+            )}
           </div>
-        )}
-        <div className="card">
-          <div className="label">Pesquisas</div>
-          {polls.length ? (
-            polls.map((p) => (
-              <div key={p.id} className="mt" style={{ fontSize: ".85rem" }}>
-                <b>{p.institute}</b> <span className="mono muted">{fmtDate(p.game_date)}</span> {p.private_for && <span className="badge gold plain">interna</span>}
-                {p.results.slice(0, 4).map((r) => (
-                  <div key={r.id} className="row between"><span>{r.name} ({r.party})</span><span className="mono">{fmtPct(r.pct)}</span></div>
+        </Panel>
+      ) : (
+        <Panel className="mb">
+          <Empty icon="megaphone" title="Você não tem candidatura">
+            <p>
+              No ano eleitoral, filiado(a) dentro do prazo, lance sua pré-candidatura. A convenção do partido decide quem disputa.
+              {upcoming ? ` Próxima eleição: ${upcoming.year}, com pré-campanha a partir de ${fmtDate(upcoming.calendar.preCampaignStart)}.` : ""}
+            </p>
+            <a className="ui-btn ui-btn--ghost ui-btn--sm" href={`/jogo/${year}/eleicoes`}>
+              <span>Ver calendário eleitoral</span> <Icon name="arrow" size={14} />
+            </a>
+          </Empty>
+        </Panel>
+      )}
+
+      <div className="ggrid ggrid--main">
+        <div className="gstack">
+          {pre.length > 0 && (
+            <Panel title="Pré-candidatura" icon="flag" tone="gold">
+              <ActionPanel year={year} actions={pre} />
+            </Panel>
+          )}
+          <Panel title="Ações de campanha" icon="play">
+            <ActionPanel year={year} actions={campaignActions} empty="As ações de campanha liberam com a candidatura homologada e a campanha oficial aberta." />
+          </Panel>
+        </div>
+
+        <div className="gstack">
+          {c && (
+            <Panel title="Recursos" icon="coins">
+              <div className="kpis">
+                <Kpi label="Disponível" value={fmtMoney(c.budget - c.spent)} hint={`de ${fmtMoney(c.budget)}`} tone={c.budget - c.spent < 20_000 ? "warn" : undefined} />
+                <Kpi label="Fundo eleitoral" value={fmtMoney(c.fefc)} />
+                <Kpi label="Doações" value={fmtMoney(c.donations)} />
+                <Kpi label="Voluntários" value={fmtNum(c.volunteers)} hint={`equipe: ${Object.values(c.team).reduce((a, b) => a + b, 0)}`} />
+              </div>
+              <div className="mt">
+                <MeterRow label="Momento da campanha" value={(c.momentum + 1) * 50} tone={c.momentum >= 0 ? "ok" : "bad"} hint={c.momentum >= 0 ? "em alta" : "perdendo fôlego"} />
+                <MeterRow label="Dano de boatos" value={Math.min(100, c.rumor_damage * 5)} tone="bad" />
+              </div>
+              {c.proposals.length > 0 && (
+                <div className="mt">
+                  <p className="muted small" style={{ margin: "0 0 6px" }}>Plataforma</p>
+                  <div className="pcard__tags">
+                    {c.proposals.map((p, i) => (
+                      <Pill key={i} tone="sim">
+                        {p.title}
+                      </Pill>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Panel>
+          )}
+
+          <Panel title="Pesquisas" icon="chart">
+            {polls.length ? (
+              <div className="polls">
+                {polls.map((p) => (
+                  <div key={p.id} className="poll">
+                    <div className="poll__head">
+                      <b>{p.institute}</b>
+                      <span className="mono">{fmtDate(p.game_date)}</span>
+                      {p.private_for && <Pill tone="gold">interna</Pill>}
+                    </div>
+                    {p.results.slice(0, 4).map((r) => (
+                      <div key={r.id} className={`poll__row${r.id === current?.id ? " is-me" : ""}`}>
+                        <span>
+                          {r.name} <small>{r.party}</small>
+                        </span>
+                        <i>
+                          <em style={{ width: `${Math.min(100, r.pct * 2)}%` }} />
+                        </i>
+                        <b className="mono">{fmtPct(r.pct)}</b>
+                      </div>
+                    ))}
+                  </div>
                 ))}
               </div>
-            ))
-          ) : (
-            <p className="muted mt">Sem pesquisas divulgadas para a sua disputa.</p>
+            ) : (
+              <p className="muted small" style={{ margin: 0 }}>
+                Sem pesquisas divulgadas para a sua disputa. Com a campanha aberta, você pode encomendar uma pesquisa interna.
+              </p>
+            )}
+          </Panel>
+
+          {debates.length > 0 && (
+            <Panel title="Debates" icon="users">
+              <ul className="agenda">
+                {debates.map((d) => {
+                  const choice = d.player_choices[current!.id];
+                  return (
+                    <li key={d.id} className="req">
+                      <div>
+                        <b>{d.outlet}</b>
+                        <span className="mono">{fmtDate(d.scheduled_on)}</span>
+                      </div>
+                      {d.status === "REALIZADO" ? (
+                        <Pill tone="ok">realizado</Pill>
+                      ) : choice ? (
+                        <Pill tone="sim">
+                          {choice.theme} · {String(choice.stance).toLowerCase()}
+                        </Pill>
+                      ) : (
+                        <Pill tone="warn">sem estratégia</Pill>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              {debates.some((d) => d.status !== "REALIZADO" && !d.player_choices[current!.id]) && (
+                <p className="muted small mt" style={{ marginBottom: 0 }}>
+                  Defina a estratégia em “Definir estratégia para o próximo debate”, nas ações de campanha.
+                </p>
+              )}
+            </Panel>
+          )}
+
+          {cands.length > 1 && (
+            <Panel title="Candidaturas anteriores" icon="clock">
+              <ol className="tline">
+                {cands.slice(1).map((x) => (
+                  <li key={x.id}>
+                    <span className="tline__date mono">{x.election_id.replace(/\D/g, "").slice(0, 4) || "—"}</span>
+                    <span>
+                      <b>{OFFICES[x.office_code].name}</b> · {geoName(x.geo, { cities })} <Pill tone={STATUS[x.status]?.tone}>{STATUS[x.status]?.label ?? x.status}</Pill>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </Panel>
           )}
         </div>
-        {debates.length > 0 && (
-          <div className="card">
-            <div className="label">Debates</div>
-            {debates.map((d) => (
-              <div key={d.id} className="row between mt" style={{ fontSize: ".85rem" }}>
-                <span>{d.outlet} · {fmtDate(d.scheduled_on)}</span>
-                <span className={`badge ${d.status === "REALIZADO" ? "real" : "warn"} plain`}>{d.status === "REALIZADO" ? "realizado" : d.player_choices[current!.id] ? "estratégia definida" : "sem estratégia"}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </aside>
-    </div>
+      </div>
+    </>
   );
 }

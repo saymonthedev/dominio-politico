@@ -61,10 +61,21 @@ export async function doAction(_: ActionState, form: FormData): Promise<ActionSt
   }
 }
 
-export async function markAllRead(form: FormData): Promise<void> {
-  const { sb } = await getSession();
+/** Marca as notificações como lidas (ao abrir a página ou o sino). */
+export async function markNotificationsRead(year: number): Promise<void> {
+  const { sb, user } = await getSession();
+  if (!user) return;
   await sb.rpc("mark_notifications_read", { p_ids: null });
-  revalidatePath(`/jogo/${Number(form.get("__year"))}`, "layout");
+  if (isStartYear(year)) revalidatePath(`/jogo/${year}`, "layout");
+}
+
+/** Atalho: executa uma ação do jogo com parâmetros já definidos (ex.: aceitar um convite). */
+export async function quickAction(year: number, actionId: string, params: Record<string, string> = {}): Promise<ActionState> {
+  const form = new FormData();
+  form.set("__year", String(year));
+  form.set("__action", actionId);
+  for (const [k, v] of Object.entries(params)) form.set(k, v);
+  return doAction({ ok: true, message: "" }, form);
 }
 
 export async function deleteMyData(): Promise<void> {

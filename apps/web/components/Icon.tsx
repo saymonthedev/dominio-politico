@@ -43,6 +43,10 @@ const PATHS: Record<string, string> = {
   play: "M6 4l14 8-14 8z",
   plus: "M12 5v14 M5 12h14",
   calendar: "M3 5h18v16H3z M3 10h18 M8 3v4 M16 3v4",
+  bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0",
+  zap: "M13 2L4 14h7l-1 8 9-12h-7z",
+  trending: "M3 17l6-6 4 4 8-8 M14 7h7v7",
+  inbox: "M22 12h-6l-2 3h-4l-2-3H2 M5.5 5.1L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z",
   newspaper: "M4 4h13v16H6a2 2 0 0 1-2-2z M17 8h3v10a2 2 0 0 1-2 2 M8 8h5 M8 12h5 M8 16h5",
 };
 

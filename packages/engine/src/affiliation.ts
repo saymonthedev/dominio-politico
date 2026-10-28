@@ -203,8 +203,9 @@ export function partyInvitations(ctx: Ctx): void {
       const interest = acceptanceProbability(b.total) * Math.min(1, person.reputation / 50) * (rel.score > 30 ? 1 : 0.3);
       if (!rng.chance(interest * 0.15)) continue;
       const inviter = rel.withId ? ctx.person(rel.withId) : undefined;
+      const inviteId = ctx.id("inv", person.id, party.id);
       ctx.save("affiliation_requests", {
-        id: ctx.id("inv", person.id, party.id),
+        id: inviteId,
         world_id: ctx.world.id,
         person_id: person.id,
         party_id: party.id,
@@ -215,7 +216,7 @@ export function partyInvitations(ctx: Ctx): void {
         breakdown: { ...b },
         reason: inviter ? `Convite feito por ${inviter.name}${inviter.role_label ? ` (${inviter.role_label})` : ""}.` : `Convite da direção estadual do ${party.acronym}.`,
       });
-      ctx.notify(person.id, `Convite de filiação: ${party.acronym}`, `${inviter ? inviter.name : `A direção do ${party.acronym}`} convidou você para se filiar. O convite vale por 30 dias.`, "/jogo/partidos");
+      ctx.notify(person.id, `Convite de filiação: ${party.acronym}`, `${inviter ? inviter.name : `A direção do ${party.acronym}`} convidou você para se filiar. O convite vale por 30 dias.`, `convite:${inviteId}`);
       ctx.publish("PARTY_INVITATION", { facts: { party: party.acronym, uf: person.uf, municipality: cityName(ctx.s, person.municipality) ?? UF_BY_CODE[person.uf]?.capital ?? person.uf }, geography: person.uf });
       break;
     }

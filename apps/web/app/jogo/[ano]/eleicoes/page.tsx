@@ -1,15 +1,42 @@
 import { OFFICES, UF_BY_CODE, canonicalGeo, capitalId, eraRules, geoName, isMunicipality, type CandidacyRow, type ElectionRow, type PollRow, type RaceRow } from "@dp/engine";
+import { Empty, GameHeader, Panel, Pill } from "@/components/game/Page";
+import { Icon } from "@/components/Icon";
 import { NavSelect } from "@/components/NavSelect";
 import { PersonAvatar } from "@/components/PersonAvatar";
-import { photoOf, type Photo } from "@/lib/photos";
 import { PartyChip } from "@/components/ui";
 import { fmtDate, fmtNum, fmtPct } from "@/lib/format";
+import { daysBetween } from "@/lib/game-view";
 import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
+import { photoOf, type Photo } from "@/lib/photos";
 import { citiesFor } from "@/lib/sim";
 
-const STATUS: Record<string, string> = {
-  AGENDADA: "Agendada", PRE_CAMPANHA: "Pré-campanha", CONVENCOES: "Convenções", CAMPANHA: "Campanha", SEGUNDO_TURNO: "2º turno", ENCERRADA: "Encerrada",
+const STATUS: Record<string, { label: string; tone: "neutral" | "ok" | "warn" | "gold" | "sim" }> = {
+  AGENDADA: { label: "agendada", tone: "neutral" },
+  PRE_CAMPANHA: { label: "pré-campanha", tone: "sim" },
+  CONVENCOES: { label: "convenções", tone: "warn" },
+  CAMPANHA: { label: "campanha", tone: "gold" },
+  SEGUNDO_TURNO: { label: "2º turno", tone: "gold" },
+  ENCERRADA: { label: "encerrada", tone: "ok" },
 };
+
+const CAND_STATUS: Record<string, string> = {
+  PRE: "pré-candidato(a)", HOMOLOGADA: "homologada", SEGUNDO_TURNO: "no 2º turno", ELEITO: "eleito(a)", NAO_ELEITO: "não eleito(a)",
+  SUPLENTE: "suplente", INDEFERIDA: "indeferida", DESISTENTE: "não indicada",
+};
+
+/** Marcos do calendário eleitoral, na ordem em que acontecem. */
+function milestones(e: ElectionRow, switchWindow: boolean) {
+  const c = e.calendar;
+  return [
+    { key: "pre", label: "Pré-campanha", date: c.preCampaignStart },
+    ...(switchWindow ? [{ key: "janela", label: "Janela partidária", date: c.partySwitchWindowStart, end: c.partySwitchWindowEnd }] : []),
+    { key: "filiacao", label: "Prazo de filiação", date: c.filiationDeadline },
+    { key: "convencoes", label: "Convenções", date: c.conventionStart, end: c.conventionEnd },
+    { key: "campanha", label: "Campanha na rua", date: c.campaignStart },
+    { key: "t1", label: "1º turno", date: e.first_round },
+    { key: "t2", label: "2º turno", date: e.runoff },
+  ].filter((m) => m.date);
+}
 
 export default async function Page({ params, searchParams }: { params: Promise<{ ano: string }>; searchParams: Promise<{ e?: string; uf?: string }> }) {
   const year = Number((await params).ano);
@@ -20,9 +47,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const cities = await citiesFor(year);
   const geoLabel = (geo: string) => (geo === "BR" ? "Brasil" : geoName(geo, { cities }));
   const myCity = canonicalGeo(me.person.municipality);
-  const { data: elData } = await sb.from("elections").select("*").eq("world_id", me.worldId).order("year");
+  const [{ data: elData }, { data: world }] = await Promise.all([
+    sb.from("elections").select("*").eq("world_id", me.worldId).order("year"),
+    sb.from("worlds").select("game_date").eq("id", me.worldId).maybeSingle(),
+  ]);
+  const today: string = world?.game_date ?? `${year}-01-01`;
   const elections = (elData ?? []) as ElectionRow[];
-  const current = elections.find((e) => e.status !== "AGENDADA" && e.status !== "ENCERRADA");
+  const current = elections.find((e) => e.status !== "AGENDADA" && e.status !== "ENCERRADA") ?? elections.find((e) => e.status === "AGENDADA");
   const selected = elections.find((e) => e.id === sp.e) ?? current ?? [...elections].reverse().find((e) => e.status === "ENCERRADA") ?? elections[0];
   const pm = partyMap(await getParties(me.worldId));
   let races: RaceRow[] = [];
@@ -40,128 +71,277 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     cands = (c.data ?? []) as CandidacyRow[];
     polls = (p.data ?? []) as PollRow[];
   }
-  // fotos de quem aparece nos resultados (pessoas reais)
-  const resultIds = [...new Set(races.flatMap((r) => [...(r.results.first?.candidates ?? []), ...(r.results.runoff?.candidates ?? [])].slice(0, 16).map((c) => c.person_id)))].filter(Boolean);
+  // fotos e nomes de quem aparece (resultados e candidaturas)
+  const ids = [
+    ...new Set([...races.flatMap((r) => [...(r.results.runoff?.candidates ?? []), ...(r.results.first?.candidates ?? [])].slice(0, 16).map((c) => c.person_id)), ...cands.map((c) => c.person_id)]),
+  ].filter(Boolean);
   const photos = new Map<string, Photo>();
-  if (resultIds.length) {
-    const { data } = await sb.from("persons").select("id,kind,external_ref").eq("world_id", me.worldId).in("id", resultIds);
+  const names = new Map<string, string>();
+  if (ids.length) {
+    const { data } = await sb.from("persons").select("id,name,kind,external_ref").eq("world_id", me.worldId).in("id", ids);
     for (const p of data ?? []) {
+      names.set(p.id, p.name);
       const ph = photoOf(p);
       if (ph) photos.set(p.id, ph);
     }
   }
-  const names = new Map<string, string>();
-  if (cands.length) {
-    const { data } = await sb.from("persons").select("id,name").eq("world_id", me.worldId).in("id", cands.map((c) => c.person_id));
-    for (const p of data ?? []) names.set(p.id, p.name);
-  }
   const era = selected ? eraRules(selected.year) : null;
+  const marks = selected && era ? milestones(selected, era.partySwitchWindow) : [];
+  const nextMark = marks.find((m) => (m.end ?? m.date) >= today);
+  const factual = Boolean(selected?.summary?.factual);
+
   return (
     <>
-      <h1>Eleições</h1>
-      <div className="row" style={{ marginBottom: 14 }}>
+      <GameHeader
+        kicker="O país"
+        icon="ballot"
+        title="Eleições"
+        lede="Calendário, regras e resultados. Eleições anteriores ao ponto de partida mostram o resultado oficial do TSE; as seguintes são disputadas dentro do jogo."
+      />
+
+      <nav className="chips mb" aria-label="Eleições">
         {elections.map((e) => (
-          <a key={e.id} className={`btn small ${e.id === selected?.id ? "" : "ghost"}`} href={`?e=${e.id}&uf=${uf}`}>
-            {e.year} · {STATUS[e.status]}
-            {e.summary?.factual ? " · real" : ""}
+          <a key={e.id} className={e.id === selected?.id ? "on" : ""} href={`?e=${e.id}&uf=${uf}`}>
+            {e.year} · {e.kind === "GERAL" ? "gerais" : "municipais"}
+            {e.id === current?.id && e.status !== "AGENDADA" ? " · agora" : ""}
           </a>
         ))}
-      </div>
-      {selected && (
-        <div className="layout-main">
-          <section>
-            <div className="row between">
-              <h2 style={{ margin: 0 }}>Eleições {selected.kind === "GERAL" ? "gerais" : "municipais"} de {selected.year}</h2>
-              {selected.summary?.factual ? <span className="badge real">Resultado oficial (TSE)</span> : <span className="badge sim">Simulação</span>}
-            </div>
-            <div className="mt" style={{ maxWidth: 320 }}>
-              <NavSelect
-                label="Estado"
-                value={uf}
-                options={Object.values(UF_BY_CODE).map((u) => ({ value: u.code, label: u.name }))}
-                hrefFor={Object.fromEntries(Object.values(UF_BY_CODE).map((u) => [u.code, `?e=${selected.id}&uf=${u.code}`]))}
-              />
-            </div>
-            {!races.length && <div className="empty mt">As disputas são abertas no início do ano eleitoral ({fmtDate(selected.calendar.preCampaignStart)}).</div>}
-            {races.map((race) => {
-              const rule = OFFICES[race.office_code];
-              const rc = cands.filter((c) => c.race_id === race.id);
-              const round = race.results.runoff ?? race.results.first;
-              const poll = polls.find((p) => p.race_id === race.id);
-              return (
-                <div key={race.id} className="card mt">
-                  <div className="row between">
-                    <h3 style={{ margin: 0 }}>{rule.name} · {geoLabel(race.geo)}</h3>
-                    <span className="label">{race.seats} vaga(s) · {fmtNum(race.electorate)} eleitores</span>
-                  </div>
-                  {round && round.candidates.length > 0 && (
-                    <table className="mt">
-                      <thead><tr><th>Candidato(a)</th><th>Partido</th><th className="num">Votos</th><th className="num">% válidos</th></tr></thead>
-                      <tbody>
-                        {round.candidates.slice(0, 8).map((c) => (
-                          <tr key={c.candidacy_id}>
-                            <td><span className="who-cell"><PersonAvatar name={c.name} color={pm[c.party_id]?.color} photo={photos.get(c.person_id)} size={28} />{c.person_id ? <a href={`/jogo/${year}/pessoa/${c.person_id}`}>{c.name}</a> : c.name}</span> {race.results.elected?.includes(c.person_id) && <span className="badge real plain">eleito(a)</span>}</td>
-                            <td><PartyChip party={pm[c.party_id]} /></td>
-                            <td className="num mono">{fmtNum(c.votes)}</td>
-                            <td className="num mono">{fmtPct(c.share, 2)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                  {race.results.first?.parties && (
-                    <table className="mt">
-                      <thead><tr><th>Partido</th><th className="num">Votos</th><th className="num">%</th><th className="num">Cadeiras</th></tr></thead>
-                      <tbody>
-                        {race.results.first.parties.filter((p) => p.seats > 0).map((p) => (
-                          <tr key={p.party_id}><td><PartyChip party={pm[p.party_id]} /></td><td className="num mono">{fmtNum(p.votes)}</td><td className="num mono">{fmtPct(p.share)}</td><td className="num mono">{p.seats}</td></tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                  {!round && rc.length > 0 && (
-                    <div className="mt">
-                      {rc.map((c) => (
-                        <div key={c.id} className="row between" style={{ padding: "4px 0", borderBottom: "1px solid var(--linha)" }}>
-                          <span>
-                            <a href={`/jogo/${year}/pessoa/${c.person_id}`}>{names.get(c.person_id) ?? "—"}</a> <PartyChip party={pm[c.party_id]} /> {c.is_player && <span className="badge gold plain">jogador</span>}
-                          </span>
-                          <span className="mono">{poll?.results.find((r) => r.id === c.id)?.pct !== undefined ? fmtPct(poll.results.find((r) => r.id === c.id)!.pct) : c.status.toLowerCase()}</span>
-                        </div>
-                      ))}
-                      {poll && <p className="muted mt" style={{ fontSize: ".78rem" }}>{poll.institute}, {fmtDate(poll.game_date)} · {poll.sample} entrevistas · margem ±{fmtPct(poll.margin)} · indecisos {poll.undecided}%</p>}
-                    </div>
-                  )}
-                  {!round && !rc.length && <p className="muted mt">Candidaturas definidas nas convenções ({fmtDate(selected.calendar.conventionStart)} a {fmtDate(selected.calendar.conventionEnd)}).</p>}
+      </nav>
+
+      {!selected ? (
+        <Panel>
+          <Empty icon="ballot" title="Nenhuma eleição no calendário" />
+        </Panel>
+      ) : (
+        <>
+          <Panel className="mb" tone="dark">
+            <div className="ehero">
+              <div>
+                <div className="ehero__tags">
+                  <Pill tone={STATUS[selected.status]?.tone}>{STATUS[selected.status]?.label ?? selected.status}</Pill>
+                  {factual ? <Pill tone="ok">resultado oficial · TSE</Pill> : <Pill tone="sim">simulação</Pill>}
                 </div>
-              );
-            })}
-          </section>
-          <aside className="stack">
-            <div className="card">
-              <div className="label">Calendário</div>
-              <dl className="kv mt">
-                <dt>Pré-campanha</dt><dd className="mono">{fmtDate(selected.calendar.preCampaignStart)}</dd>
-                <dt>Prazo de filiação</dt><dd className="mono">{fmtDate(selected.calendar.filiationDeadline)}</dd>
-                {era?.partySwitchWindow && (<><dt>Janela partidária</dt><dd className="mono">{fmtDate(selected.calendar.partySwitchWindowStart)} → {fmtDate(selected.calendar.partySwitchWindowEnd)}</dd></>)}
-                <dt>Convenções</dt><dd className="mono">{fmtDate(selected.calendar.conventionStart)} → {fmtDate(selected.calendar.conventionEnd)}</dd>
-                <dt>Campanha</dt><dd className="mono">{fmtDate(selected.calendar.campaignStart)}</dd>
-                <dt>1º turno</dt><dd className="mono">{fmtDate(selected.first_round)}</dd>
-                <dt>2º turno</dt><dd className="mono">{fmtDate(selected.runoff)}</dd>
-              </dl>
-            </div>
-            {era && (
-              <div className="card">
-                <div className="label">Regras desta eleição</div>
-                <ul style={{ paddingLeft: 18, fontSize: ".86rem" }}>
-                  <li>Filiação: {era.filiationMonths} meses antes; domicílio: {era.domicileMonths} meses.</li>
-                  <li>{era.fichaLimpa ? "Ficha Limpa em vigor: condenação colegiada = 8 anos inelegível." : "Antes da Ficha Limpa: inelegibilidade de 3 anos após trânsito em julgado."}</li>
-                  {era.notes.map((n) => <li key={n}>{n}</li>)}
-                </ul>
+                <h2>
+                  Eleições {selected.kind === "GERAL" ? "gerais" : "municipais"} de {selected.year}
+                </h2>
+                <p>
+                  {selected.kind === "GERAL" ? "Presidente, governadores, senadores e deputados." : "Prefeitos(as) e vereadores(as) dos 5.570 municípios."} 1º turno em{" "}
+                  <b>{fmtDate(selected.first_round)}</b>.
+                </p>
               </div>
-            )}
-          </aside>
-        </div>
+              {nextMark && selected.status !== "ENCERRADA" && (
+                <div className="ehero__count">
+                  <b>{Math.max(0, daysBetween(today, nextMark.date))}</b>
+                  <span>{daysBetween(today, nextMark.date) <= 0 ? `dia(s) · ${nextMark.label} em curso` : `dias para ${nextMark.label.toLowerCase()}`}</span>
+                </div>
+              )}
+            </div>
+            <ol className="ecal">
+              {marks.map((m) => {
+                const done = (m.end ?? m.date) < today;
+                const now = m.date <= today && (m.end ?? m.date) >= today;
+                return (
+                  <li key={m.key} className={done ? "is-done" : now ? "is-now" : m === nextMark ? "is-next" : ""}>
+                    <i />
+                    <b>{m.label}</b>
+                    <span className="mono">
+                      {fmtDate(m.date)}
+                      {m.end ? ` → ${fmtDate(m.end)}` : ""}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </Panel>
+
+          <div className="ggrid ggrid--main">
+            <div className="gstack">
+              <div className="efilter">
+                <NavSelect
+                  label="Estado"
+                  value={uf}
+                  options={Object.values(UF_BY_CODE).map((u) => ({ value: u.code, label: u.name }))}
+                  hrefFor={Object.fromEntries(Object.values(UF_BY_CODE).map((u) => [u.code, `?e=${selected.id}&uf=${u.code}`]))}
+                />
+                <p className="muted small">
+                  Mostrando a disputa nacional, a do estado e a da capital{isMunicipality(myCity) && uf === me.person.uf ? `, além de ${geoLabel(myCity)}` : ""}. Outras cidades estão no{" "}
+                  <a href={`/jogo/${year}/mapa`}>mapa</a>.
+                </p>
+              </div>
+
+              {!races.length && (
+                <Panel>
+                  <Empty icon="clock" title="As disputas ainda não foram abertas">
+                    Elas abrem com a pré-campanha, em {fmtDate(selected.calendar.preCampaignStart)}.
+                  </Empty>
+                </Panel>
+              )}
+
+              {races.map((race) => {
+                const rule = OFFICES[race.office_code];
+                const rc = cands.filter((c) => c.race_id === race.id);
+                const round = race.results.runoff ?? race.results.first;
+                const poll = polls.find((p) => p.race_id === race.id);
+                const top = round?.candidates.slice(0, 8) ?? [];
+                const max = Math.max(1, ...top.map((c) => c.share));
+                const seats = race.results.first?.parties?.filter((p) => p.seats > 0) ?? [];
+                const totalSeats = seats.reduce((s, p) => s + p.seats, 0);
+                const mine = rc.some((c) => c.is_player);
+                return (
+                  <Panel
+                    key={race.id}
+                    title={
+                      <>
+                        {rule.name} <span className="muted">· {geoLabel(race.geo)}</span>
+                      </>
+                    }
+                    icon={race.geo === "BR" ? "flag" : isMunicipality(race.geo) ? "home" : "map"}
+                    aside={
+                      <span className="muted small mono">
+                        {race.seats} vaga{race.seats > 1 ? "s" : ""} · {fmtNum(race.electorate)} eleitores {mine && <Pill tone="gold">sua disputa</Pill>}
+                      </span>
+                    }
+                  >
+                    {top.length > 0 && (
+                      <>
+                        {race.results.runoff && <p className="muted small" style={{ marginTop: 0 }}>Resultado do 2º turno</p>}
+                        <div className="vbars">
+                          {top.map((c) => {
+                            const party = pm[c.party_id];
+                            const won = race.results.elected?.includes(c.person_id);
+                            return (
+                              <div key={c.candidacy_id} className={`vbar${won ? " is-won" : ""}`} style={{ ["--c" as string]: party?.color ?? "var(--apagado)" }}>
+                                <PersonAvatar name={c.name} color={party?.color} photo={photos.get(c.person_id)} size={34} />
+                                <div className="vbar__body">
+                                  <div className="vbar__top">
+                                    <span>
+                                      {c.person_id ? <a href={`/jogo/${year}/pessoa/${c.person_id}`}>{c.name}</a> : c.name} <PartyChip party={party} />
+                                      {won && <Pill tone="ok">eleito(a)</Pill>}
+                                    </span>
+                                    <b className="mono">{fmtPct(c.share, 2)}</b>
+                                  </div>
+                                  <div className="vbar__track">
+                                    <span style={{ width: `${(c.share / max) * 100}%` }} />
+                                  </div>
+                                  <small className="mono">{fmtNum(c.votes)} votos</small>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {seats.length > 0 && (
+                      <div className={top.length ? "mt" : ""}>
+                        <div className="seatbar" aria-label="Cadeiras por partido">
+                          {seats.map((p) => (
+                            <span key={p.party_id} style={{ flex: p.seats, background: pm[p.party_id]?.color ?? "var(--apagado)" }} title={`${pm[p.party_id]?.acronym ?? "?"}: ${p.seats}`} />
+                          ))}
+                        </div>
+                        <div className="seatlist">
+                          {seats.map((p) => (
+                            <span key={p.party_id}>
+                              <PartyChip party={pm[p.party_id]} /> <b className="mono">{p.seats}</b>
+                              <small className="mono">{fmtPct((p.seats / totalSeats) * 100, 0)}</small>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {!round && rc.length > 0 && (
+                      <>
+                        <div className="vbars">
+                          {rc
+                            .map((c) => ({ c, pct: poll?.results.find((r) => r.id === c.id)?.pct }))
+                            .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1))
+                            .map(({ c, pct }) => {
+                              const party = pm[c.party_id];
+                              return (
+                                <div key={c.id} className={`vbar${c.is_player ? " is-me" : ""}`} style={{ ["--c" as string]: party?.color ?? "var(--apagado)" }}>
+                                  <PersonAvatar name={names.get(c.person_id) ?? "?"} color={party?.color} photo={photos.get(c.person_id)} size={34} />
+                                  <div className="vbar__body">
+                                    <div className="vbar__top">
+                                      <span>
+                                        <a href={`/jogo/${year}/pessoa/${c.person_id}`}>{names.get(c.person_id) ?? "—"}</a> <PartyChip party={party} />
+                                        {c.is_player && <Pill tone="gold">você</Pill>}
+                                      </span>
+                                      <b className="mono">{pct !== undefined ? fmtPct(pct) : CAND_STATUS[c.status] ?? c.status.toLowerCase()}</b>
+                                    </div>
+                                    {pct !== undefined && (
+                                      <div className="vbar__track">
+                                        <span style={{ width: `${Math.min(100, pct * 2)}%` }} />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                        {poll ? (
+                          <p className="muted small mt">
+                            <Icon name="chart" size={13} /> {poll.institute}, {fmtDate(poll.game_date)} · {fmtNum(poll.sample)} entrevistas · margem ±{fmtPct(poll.margin)} · indecisos {poll.undecided}%
+                          </p>
+                        ) : (
+                          <p className="muted small mt">Ainda sem pesquisa divulgada para esta disputa.</p>
+                        )}
+                      </>
+                    )}
+
+                    {!round && !rc.length && (
+                      <p className="muted small" style={{ marginTop: 0 }}>
+                        As candidaturas saem das convenções, de {fmtDate(selected.calendar.conventionStart)} a {fmtDate(selected.calendar.conventionEnd)}.
+                      </p>
+                    )}
+                  </Panel>
+                );
+              })}
+            </div>
+
+            <div className="gstack">
+              {era && (
+                <Panel title="Regras desta eleição" icon="shield">
+                  <ul className="rules">
+                    <li>
+                      <b>Filiação</b>
+                      <span>até {era.filiationMonths} meses antes do 1º turno ({fmtDate(selected.calendar.filiationDeadline)}).</span>
+                    </li>
+                    <li>
+                      <b>Domicílio eleitoral</b>
+                      <span>{era.domicileMonths} meses na circunscrição.</span>
+                    </li>
+                    <li>
+                      <b>{era.fichaLimpa ? "Ficha Limpa" : "Inelegibilidade"}</b>
+                      <span>{era.fichaLimpa ? "condenação por órgão colegiado deixa 8 anos inelegível." : "3 anos após condenação definitiva (antes da Ficha Limpa)."}</span>
+                    </li>
+                    {era.partySwitchWindow && (
+                      <li>
+                        <b>Janela partidária</b>
+                        <span>
+                          troca de partido sem perder mandato de {fmtDate(selected.calendar.partySwitchWindowStart)} a {fmtDate(selected.calendar.partySwitchWindowEnd)}.
+                        </span>
+                      </li>
+                    )}
+                    {era.notes.map((n) => (
+                      <li key={n}>
+                        <span>{n}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
+              )}
+              <Panel title="Como disputar" icon="flag" tone="gold">
+                <p className="small" style={{ marginTop: 0 }}>
+                  Para entrar numa disputa você precisa estar filiado(a) até o prazo, lançar a pré-candidatura e ser escolhido(a) na convenção do seu partido.
+                </p>
+                <a className="ui-btn ui-btn--gold ui-btn--sm" href={`/jogo/${year}/campanha`}>
+                  <span>Ir para a campanha</span> <Icon name="arrow" size={14} />
+                </a>
+              </Panel>
+            </div>
+          </div>
+        </>
       )}
     </>
   );

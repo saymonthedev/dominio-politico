@@ -1,4 +1,5 @@
 import { CityMap } from "@/components/CityMap";
+import { GameHeader } from "@/components/game/Page";
 import { mapPayload } from "@/lib/city-view";
 import { requireMe } from "@/lib/game";
 import { cachedState } from "@/lib/sim";
@@ -10,15 +11,12 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const data = mapPayload(state, year, me.person.municipality || null);
   return (
     <>
-      <div className="cm-head">
-        <div>
-          <h1>Mapa político</h1>
-          <p className="muted">
-            Os 5.570 municípios com prefeito e câmara. No ponto de partida, os dados são reais (TSE); depois, cada eleição municipal muda o mapa. Aproxime para ver
-            as cidades.
-          </p>
-        </div>
-      </div>
+      <GameHeader
+        kicker="O país"
+        icon="map"
+        title="Mapa político"
+        lede="Os 5.570 municípios com prefeito(a) e câmara. No ponto de partida os dados são reais (TSE); depois, cada eleição municipal redesenha o mapa. Aproxime para ver as cidades e clique para detalhes."
+      />
       <CityMap data={data} />
     </>
   );

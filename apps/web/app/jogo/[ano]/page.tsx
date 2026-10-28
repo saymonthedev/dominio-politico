@@ -1,128 +1,231 @@
-import type { EconomyRow, ElectionRow, NewsRow, NotificationRow, PersonRow } from "@dp/engine";
-import { NewsItem, PartyChip, STAGE_LABEL, Stat } from "@/components/ui";
-import { fmtDate, fmtDec, fmtPct } from "@/lib/format";
-import { getParties, getSession, getWorld, partyMap, requireMe } from "@/lib/game";
+import type { EconomyRow, NewsRow, PartyRow } from "@dp/engine";
+import { CareerTrack } from "@/components/game/CareerTrack";
+import { NewsList } from "@/components/game/NewsList";
+import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
+import { QuickAction } from "@/components/game/QuickAction";
+import { Icon } from "@/components/Icon";
+import { PersonAvatar } from "@/components/PersonAvatar";
+import { STAGE_LABEL } from "@/components/ui";
+import { fmtDate, fmtDec, fmtMoney, fmtPct } from "@/lib/format";
+import { agenda, careerSteps, pending, type Step } from "@/lib/game-view";
+import { getSession, requireMe } from "@/lib/game";
+import { photoOf } from "@/lib/photos";
+import { cachedState } from "@/lib/sim";
 
-const NEXT_STEP: Record<string, string> = {
-  CIDADAO: "Participe de eventos comunitários e de voluntariado para virar ativista.",
-  ATIVISTA: "Vá a reuniões abertas de partidos e converse com lideranças.",
-  APROXIMACAO: "Peça filiação ao partido com que você tem mais afinidade e relacionamento.",
-  FILIADO: "Faça trabalho de base para ganhar prestígio interno e virar quadro.",
-  QUADRO: "No ano eleitoral, lance sua pré-candidatura antes das convenções.",
-  PRE_CANDIDATO: "Ganhe a convenção: prestígio, reputação e apoio de uma ala.",
-  CANDIDATO: "Campanha na rua: comícios, propostas, debates e arrecadação.",
-  MANDATO: "Vote, legisle, destine emendas — e prepare o próximo degrau.",
-};
+function delta(now: number, prev: number | undefined, digits = 2, invert = false) {
+  if (prev === undefined) return { hint: undefined, tone: undefined };
+  const d = now - prev;
+  if (Math.abs(d) < 10 ** -digits / 2) return { hint: "estável", tone: undefined };
+  const good = invert ? d < 0 : d > 0;
+  return { hint: `${d > 0 ? "▲" : "▼"} ${fmtDec(Math.abs(d), digits)} p.p.`, tone: good ? ("up" as const) : ("down" as const) };
+}
 
 export default async function Painel({ params }: { params: Promise<{ ano: string }> }) {
   const year = Number((await params).ano);
   const me = await requireMe(year);
   const { sb } = await getSession();
-  const world = await getWorld(year);
-  const [newsQ, ecoQ, electionsQ, notifQ, parties] = await Promise.all([
-    sb.from("news_articles").select("*").eq("world_id", me.worldId).order("tick", { ascending: false }).order("importance", { ascending: false }).limit(24),
+  const [state, newsQ, ecoQ] = await Promise.all([
+    cachedState(me.worldId),
+    sb.from("news_articles").select("*").eq("world_id", me.worldId).order("tick", { ascending: false }).order("importance", { ascending: false }).limit(14),
     sb.from("economy_snapshots").select("*").eq("world_id", me.worldId).order("month", { ascending: false }).limit(2),
-    sb.from("elections").select("*").eq("world_id", me.worldId).neq("status", "ENCERRADA").order("year").limit(1),
-    sb.from("notifications").select("*").eq("world_id", me.worldId).order("tick", { ascending: false }).limit(5),
-    getParties(me.worldId),
   ]);
+  // o estado em cache pode estar alguns segundos atrás: o personagem vem do banco
+  const meNow = state.t.persons.get(me.person.id) ?? me.person;
+  const st = me.state;
+  const steps = careerSteps(state, me.person, st, year);
+  const todo = pending(state, meNow, st);
+  const cal = agenda(state, me.person, 7);
   const news = (newsQ.data ?? []) as NewsRow[];
-  const [eco, ecoPrev] = (ecoQ.data ?? []) as EconomyRow[];
-  const election = (electionsQ.data ?? [])[0] as ElectionRow | undefined;
-  const notifs = (notifQ.data ?? []) as NotificationRow[];
-  const pm = partyMap(parties);
-  const presId = world?.gov.president_id;
-  const { data: pres } = presId ? await sb.from("persons").select("*").eq("world_id", me.worldId).eq("id", presId).maybeSingle() : { data: null };
-  const president = pres as PersonRow | null;
-  const lead = [...news].sort((a, b) => b.importance - a.importance || b.tick - a.tick)[0];
-  const rest = news.filter((n) => n.id !== lead?.id);
-  const camara = [...parties].sort((a, b) => (b.seats.camara ?? 0) - (a.seats.camara ?? 0)).slice(0, 6);
-  const daysTo = election && world ? Math.round((Date.parse(election.first_round) - Date.parse(world.game_date)) / 86_400_000) : null;
+  const [eco, prev] = (ecoQ.data ?? []) as EconomyRow[];
+  const pres = state.world.gov.president_id ? state.t.persons.get(state.world.gov.president_id) : undefined;
+  const presParty = pres?.party_id ? state.t.parties.get(pres.party_id) : undefined;
+  const parties = [...state.t.parties.values()].filter((p) => (p.seats.camara ?? 0) > 0).sort((a, b) => (b.seats.camara ?? 0) - (a.seats.camara ?? 0));
+  const top = parties.slice(0, 8);
+  const others = parties.slice(8).reduce((s, p) => s + (p.seats.camara ?? 0), 0);
+  const firstName = me.person.name.split(" ")[0];
+  const pendCount = todo.invites.length + todo.offers.length + todo.investigations;
 
   return (
-    <div className="layout-main">
-      <section>
-        <div className="rule-title" style={{ marginTop: 0 }}>
-          <h2>Manchetes</h2>
-          <a href={`/jogo/${year}/noticias`}>Todas as notícias →</a>
-        </div>
-        {lead ? <NewsItem n={lead} lead /> : <div className="empty">O noticiário ainda está sendo impresso.</div>}
-        {rest.slice(0, 10).map((n) => (
-          <NewsItem key={n.id} n={n} />
-        ))}
-      </section>
+    <>
+      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""} · ${fmtDate(state.world.game_date)}. Veja o que fazer agora e o que está acontecendo no país.`}>
+        <a className="ui-btn ui-btn--gold" href={`/jogo/${year}/carreira`}>
+          <Icon name="play" size={16} /> <span>Agir na carreira</span>
+        </a>
+      </GameHeader>
 
-      <aside className="stack">
-        <div className="card dark">
-          <div className="label">Sua carreira</div>
-          <h3 className="mt" style={{ fontSize: "1.3rem" }}>{STAGE_LABEL[me.person.stage]}</h3>
-          <p style={{ color: "#d5deeb", fontSize: ".9rem" }}>{NEXT_STEP[me.person.stage]}</p>
-          <a className="btn gold small" href={`/jogo/${year}/carreira`}>Agir agora</a>
-          {me.person.party_id === null && (
-            <p className="mt" style={{ color: "#b8c4d8", fontSize: ".8rem" }}>
-              Você ainda não participa formalmente da política. <a href={`/jogo/${year}/partidos`} style={{ color: "#f4d58d" }}>Explorar partidos</a>
-            </p>
-          )}
-        </div>
-
-        <div className="card">
-          <div className="label">Painel nacional</div>
-          <div className="row between mt">
-            <div>
-              <div className="muted" style={{ fontSize: ".78rem" }}>Presidência</div>
-              <b>{president?.name ?? "—"}</b> {president?.party_id && <PartyChip party={pm[president.party_id]} />}
+      <div className="ggrid ggrid--main">
+        <div className="gstack">
+          <Panel title="Seu momento" icon="star" tone="dark">
+            <CareerTrack stage={me.person.stage} dark />
+            <div className="steps2">
+              {steps.map((s, i) => (
+                <StepCard key={i} step={s} year={year} first={i === 0} />
+              ))}
             </div>
-            <Stat label="Aprovação" value={fmtPct(world?.gov.approval ?? 0, 0)} />
-          </div>
-          {eco && (
-            <div className="grid grid-4 mt" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
-              <Stat label="Selic" value={fmtPct(eco.selic, 2)} hint={ecoPrev ? `antes ${fmtDec(ecoPrev.selic, 2)}` : undefined} />
-              <Stat label="IPCA 12m" value={fmtPct(eco.inflation_12m)} />
-              <Stat label="Desemprego" value={fmtPct(eco.unemployment)} />
-              <Stat label="PIB (ritmo)" value={fmtPct(eco.gdp_growth)} tone={eco.gdp_growth >= 0 ? "up" : "down"} />
-            </div>
-          )}
-          <a className="muted" href={`/jogo/${year}/economia`} style={{ fontSize: ".82rem" }}>Ver economia →</a>
+          </Panel>
+
+          <Panel title="Manchetes" icon="newspaper" href={`/jogo/${year}/noticias`} hrefLabel="Todas as notícias">
+            {news.length ? <NewsList news={news.slice(0, 8)} compact lead /> : <Empty icon="newspaper" title="O noticiário ainda está sendo impresso" />}
+          </Panel>
         </div>
 
-        {election && (
-          <div className="card">
-            <div className="label">Próxima eleição</div>
-            <h3 className="mt">Eleições {election.kind === "GERAL" ? "gerais" : "municipais"} de {election.year}</h3>
-            <p className="mono" style={{ fontSize: "1.6rem", margin: 0 }}>{daysTo !== null && daysTo > 0 ? `${daysTo} dias` : "em andamento"}</p>
-            <p className="muted" style={{ fontSize: ".85rem" }}>
-              1º turno em {fmtDate(election.first_round)} · filiação até {fmtDate(election.calendar.filiationDeadline)}
-            </p>
-            <a className="muted" href={`/jogo/${year}/eleicoes`} style={{ fontSize: ".82rem" }}>Calendário e disputas →</a>
-          </div>
-        )}
-
-        <div className="card">
-          <div className="label">Câmara dos Deputados</div>
-          <div className="stack mt">
-            {camara.map((p) => (
-              <div key={p.id} className="row between">
-                <PartyChip party={p} href={`/jogo/${year}/partidos/${p.id}`} />
-                <span className="mono">{p.seats.camara ?? 0}</span>
+        <div className="gstack">
+          <Panel title="Pendências" icon="inbox" tone={pendCount ? "gold" : undefined} aside={pendCount ? <Pill tone="gold">{pendCount}</Pill> : undefined}>
+            {todo.invites.map((inv) => (
+              <div key={inv.id} className="pend">
+                <div className="pend__text">
+                  <b>
+                    Convite do <PartyDot party={inv.party} />
+                  </b>
+                  <span>{inv.reason ?? "Convite de filiação"} · vale {inv.days} dias</span>
+                </div>
+                <div className="pend__actions">
+                  <QuickAction year={year} action="responder_convite" params={{ request: inv.id, decision: "ACEITAR" }} label="Aceitar" tone="gold" icon="check" />
+                  <QuickAction year={year} action="responder_convite" params={{ request: inv.id, decision: "RECUSAR" }} label="Recusar" tone="ghost" />
+                </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="label">Notificações</div>
-          {notifs.length ? (
-            notifs.map((n) => (
-              <div key={n.id} className="mt" style={{ fontSize: ".88rem" }}>
-                <b>{n.title}</b>
-                <div className="muted">{n.body}</div>
+            {todo.requests.map((r) => (
+              <div key={r.id} className="pend">
+                <div className="pend__text">
+                  <b>
+                    Pedido de filiação ao <PartyDot party={r.party} />
+                  </b>
+                  <span>Resposta até {fmtDate(r.until)} ({r.days} dias)</span>
+                </div>
               </div>
-            ))
-          ) : (
-            <p className="muted mt">Nada por enquanto.</p>
-          )}
+            ))}
+            {todo.offers.map((o) => (
+              <div key={o.id} className="pend pend--bad">
+                <div className="pend__text">
+                  <b>
+                    {o.kind} de {fmtMoney(o.amount)}
+                  </b>
+                  <span>Oferecido por {o.from}. Aceitar, recusar ou denunciar?</span>
+                </div>
+                <a className="ui-btn ui-btn--danger ui-btn--sm" href={`/jogo/${year}/investigacoes`}>
+                  <span>Decidir</span>
+                </a>
+              </div>
+            ))}
+            {todo.investigations > 0 && (
+              <div className="pend pend--bad">
+                <div className="pend__text">
+                  <b>{todo.investigations === 1 ? "Uma investigação contra você" : `${todo.investigations} investigações contra você`}</b>
+                  <span>Contrate defesa e acompanhe as provas.</span>
+                </div>
+                <a className="ui-btn ui-btn--ghost ui-btn--sm" href={`/jogo/${year}/investigacoes`}>
+                  <span>Ver</span>
+                </a>
+              </div>
+            )}
+            {!todo.invites.length && !todo.requests.length && !todo.offers.length && !todo.investigations && <p className="muted small">Nada esperando por você agora.</p>}
+          </Panel>
+
+          <Panel title="Agenda" icon="calendar" href={`/jogo/${year}/eleicoes`} hrefLabel="Calendário">
+            {cal.length ? (
+              <ul className="agenda">
+                {cal.map((a, i) => (
+                  <li key={i} className={`agenda__item agenda__item--${a.tone}`}>
+                    <span className="agenda__days">
+                      <b>{a.days === 0 ? "hoje" : a.days}</b>
+                      {a.days > 0 && <small>{a.days === 1 ? "dia" : "dias"}</small>}
+                    </span>
+                    <div>
+                      <b>{a.title}</b>
+                      <span>
+                        {fmtDate(a.date)} · {a.detail}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted small">Sem datas marcadas.</p>
+            )}
+          </Panel>
+
+          <Panel title="Brasil hoje" icon="landmark" href={`/jogo/${year}/economia`} hrefLabel="Economia">
+            {pres && (
+              <div className="presbox">
+                <PersonAvatar name={pres.name} color={presParty?.color} photo={photoOf(pres)} size={44} />
+                <div>
+                  <small>Presidência</small>
+                  <b>
+                    <a href={`/jogo/${year}/pessoa/${pres.id}`}>{pres.name}</a>
+                  </b>
+                  <span>{presParty?.acronym ?? ""}</span>
+                </div>
+              </div>
+            )}
+            <MeterRow label="Aprovação do governo" value={state.world.gov.approval} tone={state.world.gov.approval >= 50 ? "ok" : state.world.gov.approval < 35 ? "bad" : undefined} />
+            {eco && (
+              <div className="kpis mt">
+                <Kpi label="Selic" value={fmtPct(eco.selic, 2)} {...delta(eco.selic, prev?.selic, 2, true)} />
+                <Kpi label="IPCA 12m" value={fmtPct(eco.inflation_12m)} {...delta(eco.inflation_12m, prev?.inflation_12m, 1, true)} />
+                <Kpi label="Desemprego" value={fmtPct(eco.unemployment)} {...delta(eco.unemployment, prev?.unemployment, 1, true)} />
+                <Kpi label="PIB (ritmo)" value={fmtPct(eco.gdp_growth)} {...delta(eco.gdp_growth, prev?.gdp_growth, 1)} />
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="Câmara dos Deputados" icon="users" href={`/jogo/${year}/partidos`} hrefLabel="Partidos">
+            <div className="seatbar" aria-label="Composição da Câmara">
+              {top.map((p) => (
+                <span key={p.id} style={{ flex: p.seats.camara, background: p.color }} title={`${p.acronym}: ${p.seats.camara}`} />
+              ))}
+              {others > 0 && <span style={{ flex: others, background: "var(--linha)" }} title={`Outros: ${others}`} />}
+            </div>
+            <div className="seatlegend">
+              {top.map((p) => (
+                <a key={p.id} href={`/jogo/${year}/partidos/${p.id}`}>
+                  <i className="dot" style={{ background: p.color }} />
+                  {p.acronym} <b className="mono">{p.seats.camara}</b>
+                </a>
+              ))}
+              {others > 0 && (
+                <span>
+                  <i className="dot" style={{ background: "var(--linha)" }} />
+                  outros <b className="mono">{others}</b>
+                </span>
+              )}
+            </div>
+          </Panel>
         </div>
-      </aside>
+      </div>
+    </>
+  );
+}
+
+function PartyDot({ party }: { party: PartyRow }) {
+  return (
+    <span className="pdot">
+      <i className="dot" style={{ background: party.color }} />
+      {party.acronym}
+    </span>
+  );
+}
+
+function StepCard({ step, year, first }: { step: Step; year: number; first: boolean }) {
+  return (
+    <div className={`step2${first ? " step2--main" : ""}`}>
+      <div className="step2__text">
+        <b>{step.title}</b>
+        <p>{step.detail}</p>
+        {step.progress && (
+          <div className="step2__progress">
+            <MeterRow label={step.progress.label} value={step.progress.value} max={step.progress.goal} goal={step.progress.goal} tone="gold" />
+          </div>
+        )}
+      </div>
+      <div className="step2__cta">
+        {step.action && <QuickAction year={year} action={step.action.id} params={step.action.params} label={step.action.label} tone={first ? "gold" : "on-dark"} icon="play" />}
+        {step.href && (
+          <a className={`ui-btn ui-btn--sm ${first && !step.action ? "ui-btn--gold" : "ui-btn--on-dark"}`} href={step.href.to}>
+            <span>{step.href.label}</span> <Icon name="arrow" size={14} />
+          </a>
+        )}
+      </div>
     </div>
   );
 }

@@ -178,6 +178,14 @@ export async function advanceWorld(year: number, maxTicks = MAX_CATCHUP): Promis
   return ticks;
 }
 
+export interface PersonSnapshot {
+  stage: string;
+  energy: number;
+  money: number;
+  reputation: number;
+  party: string | null;
+}
+
 export interface FastForwardResult {
   ok: boolean;
   message: string;
@@ -185,35 +193,42 @@ export interface FastForwardResult {
   from?: string;
   to?: string;
   headlines?: Array<{ headline: string; category: string; date: string; factual: boolean }>;
-  notifications?: Array<{ title: string; body: string }>;
+  notifications?: Array<{ title: string; body: string; link: string | null }>;
+  /** seu personagem antes e depois do período */
+  before?: PersonSnapshot | null;
+  after?: PersonSnapshot | null;
 }
 
-export const FAST_FORWARD_COOLDOWN_MS = 60_000;
-const ALLOWED_DAYS = new Set([1, 7, 15]);
+const ALLOWED_DAYS = new Set([1, 7, 15, 30]);
+
+function snapshotOf(state: WorldState, userId: string): PersonSnapshot | null {
+  const p = [...state.t.persons.values()].find((x) => x.user_id === userId && x.status === "ACTIVE");
+  const st = p ? state.t.person_states.get(p.id) : undefined;
+  if (!p || !st) return null;
+  return { stage: p.stage, energy: Math.round(st.energy), money: Math.round(st.money), reputation: Math.round(p.reputation), party: p.party_id ? state.t.parties.get(p.party_id)?.acronym ?? null : null };
+}
 
 /**
  * "Avançar o tempo": processa N dias imediatamente e reancora o relógio real
  * no novo dia (o relógio automático continua dali). Vale para todo o mundo.
+ * Não há intervalo mínimo: o lease do mundo já impede dois avanços ao mesmo tempo.
  */
 export async function fastForward(year: number, days: number, userId: string): Promise<FastForwardResult> {
-  if (!ALLOWED_DAYS.has(days)) return { ok: false, message: "Escolha 1, 7 ou 15 dias.", days };
+  if (!ALLOWED_DAYS.has(days)) return { ok: false, message: "Escolha 1, 7, 15 ou 30 dias.", days };
   const worldId = worldIdFor(year);
   const holder = crypto.randomUUID();
   if (!(await acquire(worldId, holder))) return { ok: false, message: "O mundo está processando outro avanço. Tente em instantes.", days };
   try {
     const state = await loadState(worldId);
-    const last = Number(state.world.stats.last_fast_forward_at ?? 0);
-    const wait = FAST_FORWARD_COOLDOWN_MS - (Date.now() - last);
-    if (wait > 0) return { ok: false, message: `Aguarde ${Math.ceil(wait / 1000)} s para avançar de novo neste mundo.`, days };
+    const before = snapshotOf(state, userId);
     const expected = state.world.tick;
     const from = state.world.game_date;
     const now = new Date().toISOString();
     const caughtUp = targetTick(state, now);
     const target = Math.max(caughtUp, state.world.tick) + days;
-    const { ctx, ticks } = runTicks(state, { target, maxTicks: MAX_CATCHUP + days, budgetMs: 25_000, now: () => Date.now() });
+    const { ctx, ticks } = runTicks(state, { target, maxTicks: MAX_CATCHUP + days, budgetMs: 40_000, now: () => Date.now() });
     state.world.anchor_tick = state.world.tick;
     state.world.anchor_real_at = now;
-    state.world.stats = { ...state.world.stats, last_fast_forward_at: Date.now() };
     ctx.saveWorld();
     await persist(worldId, ctx.changes, expected);
     cache.set(worldId, { state, at: Date.now() });
@@ -225,8 +240,8 @@ export async function fastForward(year: number, days: number, userId: string): P
     const notifications = ctx.changes
       .get("notifications")
       .filter((n) => n.user_id === userId)
-      .map((n) => ({ title: n.title, body: n.body }));
-    return { ok: true, message: `${ticks} dia(s) processado(s).`, days: ticks, from, to: state.world.game_date, headlines, notifications };
+      .map((n) => ({ title: n.title, body: n.body, link: n.link }));
+    return { ok: true, message: `${ticks} dia(s) processado(s).`, days: ticks, from, to: state.world.game_date, headlines, notifications, before, after: snapshotOf(state, userId) };
   } finally {
     await rpc("sim_release", { p_world: worldId, p_holder: holder }).catch(() => undefined);
   }

@@ -1,14 +1,22 @@
 import { after } from "next/server";
+import { canonicalGeo, geoName, type NotificationRow } from "@dp/engine";
 import { AdvanceTime } from "@/components/AdvanceTime";
-import { GameNav } from "@/components/GameNav";
+import { GameSidebar } from "@/components/game/GameSidebar";
+import { NotificationBell } from "@/components/game/NotificationBell";
+import { Toaster } from "@/components/game/Toaster";
+import { UserMenu } from "@/components/game/UserMenu";
 import { LogoMark } from "@/components/Logo";
-import { DISCLAIMER } from "@/components/SiteChrome";
 import { STAGE_LABEL } from "@/components/ui";
-import { fmtDateLong, fmtMoney } from "@/lib/format";
+import { fmtMoney, initials } from "@/lib/format";
 import { getSession, getWorld, requireMe } from "@/lib/game";
-import { advanceWorld, ensureWorld } from "@/lib/sim";
+import { advanceWorld, citiesFor, ensureWorld } from "@/lib/sim";
 
 export const dynamic = "force-dynamic";
+/** avançar 30 dias pode levar alguns segundos */
+export const maxDuration = 60;
+
+const WEEKDAY = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+const MONTH = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 export default async function GameLayout({ children, params }: { children: React.ReactNode; params: Promise<{ ano: string }> }) {
   const year = Number((await params).ano);
@@ -16,7 +24,14 @@ export default async function GameLayout({ children, params }: { children: React
   const world = await getWorld(year);
   if (!world) await ensureWorld(year);
   const { sb, user } = await getSession();
-  const { count } = await sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("world_id", me.worldId).is("read_at", null);
+  const [unreadQ, recentQ, invitesQ, cities] = await Promise.all([
+    sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("world_id", me.worldId).is("read_at", null),
+    sb.from("notifications").select("*").eq("user_id", user!.id).eq("world_id", me.worldId).order("tick", { ascending: false }).limit(8),
+    sb.from("affiliation_requests").select("id").eq("world_id", me.worldId).eq("person_id", me.person.id).eq("kind", "CONVITE").eq("status", "PENDENTE"),
+    citiesFor(year),
+  ]);
+  const unread = unreadQ.count ?? 0;
+  const invites = (invitesQ.data ?? []).map((r) => r.id as string);
 
   // O mundo segue andando: se o relógio está atrasado, avança em segundo plano
   if (world) {
@@ -24,54 +39,64 @@ export default async function GameLayout({ children, params }: { children: React
     const behind = world.anchor_tick + Math.floor(hours * world.game_days_per_real_hour) - world.tick;
     if (behind > 0) after(() => advanceWorld(year).catch(() => undefined));
   }
+  const d = world ? new Date(`${world.game_date}T12:00:00Z`) : null;
+  const city = canonicalGeo(me.person.municipality);
+  const place = /^\d{7}$/.test(city) ? geoName(city, { cities }) : me.person.uf;
 
   return (
-    <>
-      <header className="masthead">
-        <div className="container inner">
-          <a className="brand" href="/jogo" title="Seus mundos">
-            <LogoMark size={36} />
-            <span className="word">
-              Domínio <span>Político</span>
-              <em>mundo pós-{year}</em>
+    <Toaster>
+      <header className="gtop">
+        <div className="gtop__inner">
+          <a className="gtop__brand" href="/jogo" title="Seus mundos">
+            <LogoMark size={34} />
+            <span>
+              <b>
+                Domínio <em>Político</em>
+              </b>
+              <small>Brasil pós-{year}</small>
             </span>
           </a>
-          <span className="spacer" />
-          <div className="edition">
-            <b>{world ? fmtDateLong(world.game_date) : "Montando o mundo…"}</b>
-            linha do tempo simulada
+          <div className="gtop__date" title="O tempo corre sozinho: 2 dias de jogo por hora real">
+            {d ? (
+              <>
+                <small>{WEEKDAY[d.getUTCDay()]}</small>
+                <b>
+                  {d.getUTCDate()} de {MONTH[d.getUTCMonth()]} de {d.getUTCFullYear()}
+                </b>
+              </>
+            ) : (
+              <b>Montando o mundo…</b>
+            )}
           </div>
+          <span className="gtop__spacer" />
           <AdvanceTime year={year} />
-          <a className="bell" href={`/jogo/${year}/notificacoes`} aria-label={`${count ?? 0} notificações não lidas`}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-            </svg>
-            {count ? <span className="count">{count}</span> : null}
-          </a>
+          <NotificationBell
+            year={year}
+            unread={unread}
+            openInvites={invites}
+            items={((recentQ.data ?? []) as NotificationRow[]).map((n) => ({ id: n.id, title: n.title, body: n.body, date: n.game_date, link: n.link, unread: !n.read_at }))}
+          />
+          <UserMenu initials={initials(me.person.name)} />
         </div>
       </header>
-      <GameNav year={year} />
-      <div className="ribbon">
-        <div className="container row between">
-          <span>
-            <b>{me.person.name}</b> · {STAGE_LABEL[me.person.stage] ?? me.person.stage} · {me.person.municipality} ({me.person.uf})
-            {me.party ? ` · ${me.party.acronym}` : ""}
-          </span>
-          <span className="mono">
-            Energia <b>{Math.round(me.state.energy)}</b> · Caixa <b>{fmtMoney(me.state.money)}</b> · Reputação <b>{Math.round(me.person.reputation)}</b>
-          </span>
-        </div>
+      <div className="gshell">
+        <GameSidebar
+          year={year}
+          badges={{ "/notificacoes": unread, "": invites.length }}
+          profile={{
+            name: me.person.name,
+            stage: STAGE_LABEL[me.person.stage] ?? me.person.stage,
+            place,
+            party: me.party ? { acronym: me.party.acronym, color: me.party.color } : null,
+            photo: null,
+            initials: initials(me.person.name),
+            energy: Math.round(me.state.energy),
+            money: fmtMoney(me.state.money),
+            reputation: Math.round(me.person.reputation),
+          }}
+        />
+        <main className="gmain">{children}</main>
       </div>
-      <main className="container">{children}</main>
-      <footer className="footer">
-        <div className="container">
-          <p>{DISCLAIMER}</p>
-          <p>
-            <a href="/manual">Manual</a> · <a href="/fontes">Fontes</a> · <a href="/conta">Minha conta</a>
-          </p>
-        </div>
-      </footer>
-    </>
+    </Toaster>
   );
 }
