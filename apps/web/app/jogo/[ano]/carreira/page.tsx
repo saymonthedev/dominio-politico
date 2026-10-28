@@ -52,7 +52,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
   return (
     <>
-      <GameHeader kicker="Você" icon="user" title="Minha carreira" lede="Seu personagem, suas ações e o caminho até o próximo degrau. Cada ação gasta energia; avance o tempo para recuperar." />
+      <GameHeader kicker="Você" icon="user" title="Minha carreira" lede="Seu personagem, suas ações e o caminho até o próximo degrau. Cada ação gasta energia; passe o tempo no Painel para recuperar." />
 
       <Panel className="mb">
         <div className="profile">

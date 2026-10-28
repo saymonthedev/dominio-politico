@@ -186,13 +186,26 @@ export interface PersonSnapshot {
   party: string | null;
 }
 
+/** Termômetro do país antes e depois do período. */
+export interface CountrySnapshot {
+  approval: number;
+  selic: number | null;
+  inflation: number | null;
+  unemployment: number | null;
+  gdp: number | null;
+  fx: number | null;
+}
+
 export interface FastForwardResult {
   ok: boolean;
   message: string;
   days: number;
   from?: string;
   to?: string;
-  headlines?: Array<{ headline: string; category: string; date: string; factual: boolean }>;
+  headlines?: Array<{ headline: string; lede: string; category: string; date: string; factual: boolean; importance: number }>;
+  /** quantas notícias públicas o período produziu */
+  newsCount?: number;
+  country?: { before: CountrySnapshot; after: CountrySnapshot };
   notifications?: Array<{ title: string; body: string; link: string | null }>;
   /** seu personagem antes e depois do período */
   before?: PersonSnapshot | null;
@@ -200,6 +213,23 @@ export interface FastForwardResult {
 }
 
 const ALLOWED_DAYS = new Set([1, 7, 15, 30]);
+
+const firstSentence = (t: string) => {
+  const m = t.match(/^.{20,220}?[.!?](\s|$)/);
+  return (m ? m[0] : t.slice(0, 200)).trim();
+};
+
+function countryOf(state: WorldState): CountrySnapshot {
+  const eco: EconomyRow | null | undefined = state.economy;
+  return {
+    approval: state.world.gov.approval,
+    selic: eco?.selic ?? null,
+    inflation: eco?.inflation_12m ?? null,
+    unemployment: eco?.unemployment ?? null,
+    gdp: eco?.gdp_growth ?? null,
+    fx: eco?.fx ?? null,
+  };
+}
 
 function snapshotOf(state: WorldState, userId: string): PersonSnapshot | null {
   const p = [...state.t.persons.values()].find((x) => x.user_id === userId && x.status === "ACTIVE");
@@ -221,6 +251,7 @@ export async function fastForward(year: number, days: number, userId: string): P
   try {
     const state = await loadState(worldId);
     const before = snapshotOf(state, userId);
+    const countryBefore = countryOf(state);
     const expected = state.world.tick;
     const from = state.world.game_date;
     const now = new Date().toISOString();
@@ -235,13 +266,13 @@ export async function fastForward(year: number, days: number, userId: string): P
     const news = ctx.changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
     const headlines = news
       .sort((a, b) => b.importance - a.importance || b.tick - a.tick)
-      .slice(0, 12)
-      .map((n) => ({ headline: n.headline, category: n.category, date: n.game_date, factual: n.factual }));
+      .slice(0, 16)
+      .map((n) => ({ headline: n.headline, lede: firstSentence(n.body), category: n.category, date: n.game_date, factual: n.factual, importance: n.importance }));
     const notifications = ctx.changes
       .get("notifications")
       .filter((n) => n.user_id === userId)
       .map((n) => ({ title: n.title, body: n.body, link: n.link }));
-    return { ok: true, message: `${ticks} dia(s) processado(s).`, days: ticks, from, to: state.world.game_date, headlines, notifications, before, after: snapshotOf(state, userId) };
+    return { ok: true, message: `${ticks} dia(s) processado(s).`, days: ticks, from, to: state.world.game_date, headlines, newsCount: news.length, notifications, before, after: snapshotOf(state, userId), country: { before: countryBefore, after: countryOf(state) } };
   } finally {
     await rpc("sim_release", { p_world: worldId, p_holder: holder }).catch(() => undefined);
   }

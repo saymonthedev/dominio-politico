@@ -1,6 +1,5 @@
 import { after } from "next/server";
 import { canonicalGeo, geoName, type NotificationRow } from "@dp/engine";
-import { AdvanceTime } from "@/components/AdvanceTime";
 import { GameSidebar } from "@/components/game/GameSidebar";
 import { NotificationBell } from "@/components/game/NotificationBell";
 import { Toaster } from "@/components/game/Toaster";
@@ -56,7 +55,7 @@ export default async function GameLayout({ children, params }: { children: React
               <small>Brasil pós-{year}</small>
             </span>
           </a>
-          <div className="gtop__date" title="O tempo corre sozinho: 2 dias de jogo por hora real">
+          <a className="gtop__date" href={`/jogo/${year}#tempo`} title="Passar o tempo no painel">
             {d ? (
               <>
                 <small>{WEEKDAY[d.getUTCDay()]}</small>
@@ -67,9 +66,8 @@ export default async function GameLayout({ children, params }: { children: React
             ) : (
               <b>Montando o mundo…</b>
             )}
-          </div>
+          </a>
           <span className="gtop__spacer" />
-          <AdvanceTime year={year} />
           <NotificationBell
             year={year}
             unread={unread}

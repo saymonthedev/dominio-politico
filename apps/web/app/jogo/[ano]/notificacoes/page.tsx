@@ -87,7 +87,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           </div>
         ) : (
           <Empty icon="bell" title="Nenhuma notificação ainda">
-            Avance o tempo e tome decisões: pedidos de filiação, convites, eleições e investigações aparecem aqui.
+            Passe o tempo no Painel e tome decisões: pedidos de filiação, convites, eleições e investigações aparecem aqui.
           </Empty>
         )}
       </Panel>

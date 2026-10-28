@@ -3,6 +3,7 @@ import { CareerTrack } from "@/components/game/CareerTrack";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
+import { TimeMachine } from "@/components/game/TimeMachine";
 import { Icon } from "@/components/Icon";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { STAGE_LABEL } from "@/components/ui";
@@ -47,11 +48,15 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
 
   return (
     <>
-      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""} · ${fmtDate(state.world.game_date)}. Veja o que fazer agora e o que está acontecendo no país.`}>
+      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""}. Veja o que fazer agora, passe o tempo e acompanhe o país.`}>
         <a className="ui-btn ui-btn--gold" href={`/jogo/${year}/carreira`}>
           <Icon name="play" size={16} /> <span>Agir na carreira</span>
         </a>
       </GameHeader>
+
+      <div id="tempo" className="mb">
+        <TimeMachine year={year} date={state.world.game_date} energy={me.state.energy} next={cal[0] ? { label: cal[0].title, date: cal[0].date } : null} />
+      </div>
 
       <div className="ggrid ggrid--main">
         <div className="gstack">

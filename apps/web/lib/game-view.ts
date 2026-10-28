@@ -91,7 +91,7 @@ export function careerSteps(state: WorldState, me: PersonRow, st: PersonStateRow
     steps.push({ title: "Conheça gente", detail: "Converse com lideranças da sua região: convites de filiação vêm de quem gosta de você.", href: { label: "Ver relações", to: `${base}/relacoes` } });
   }
   if (st.energy < 20) {
-    steps.push({ title: "Recupere energia", detail: "Você recupera 25 de energia por dia de jogo. Avance o tempo no topo da tela para descansar." });
+    steps.push({ title: "Recupere energia", detail: "Você recupera 25 de energia por dia de jogo. Passe o tempo no Painel para descansar.", href: { label: "Passar o tempo", to: `${base}#tempo` } });
   }
   if (st.money < 2_000) {
     steps.push({ title: "Reforce o caixa", detail: "Trabalhar na sua profissão traz renda para bancar as próximas ações.", action: { id: "trabalhar", label: "Trabalhar" } });

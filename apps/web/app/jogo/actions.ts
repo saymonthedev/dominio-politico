@@ -96,6 +96,6 @@ export async function advanceTime(_: FastForwardResult | null, form: FormData): 
     if (res.ok) revalidatePath(`/jogo/${year}`, "layout");
     return res;
   } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Erro ao avançar o tempo.", days: 0 };
+    return { ok: false, message: e instanceof Error ? e.message : "Erro ao passar o tempo.", days: 0 };
   }
 }
