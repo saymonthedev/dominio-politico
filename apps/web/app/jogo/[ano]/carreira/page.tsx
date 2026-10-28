@@ -1,4 +1,5 @@
 import { AXES, AXIS_INFO, ENTRY_CULTURE_LABEL, geoName, canonicalGeo, profession, type AffiliationRequestRow, type WorldEventRow } from "@dp/engine";
+import { PartyMark } from "@/components/PartyMark";
 import { ActionPanel } from "@/components/ActionPanel";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
@@ -166,7 +167,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           {me.party && (
             <Panel title="Seu partido" icon="flag" href={`/jogo/${year}/partidos/${me.party.id}`} hrefLabel="Abrir">
               <div className="myparty" style={{ ["--c" as string]: me.party.color }}>
-                <span className="invite__mark">{me.party.acronym}</span>
+                <PartyMark party={me.party} year={year} size={52} />
                 <div>
                   <b>{me.party.name}</b>
                   <span>{ENTRY_CULTURE_LABEL[me.party.entry_culture]}</span>

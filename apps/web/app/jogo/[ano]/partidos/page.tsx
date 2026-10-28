@@ -1,4 +1,5 @@
 import { ENTRY_CULTURE_LABEL, spectrumLabel } from "@dp/engine";
+import { PartyMark } from "@/components/PartyMark";
 import { GameHeader, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
 import { Icon } from "@/components/Icon";
@@ -62,7 +63,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             <article key={p.id} className={`pcard${mine ? " is-mine" : ""}`} style={{ ["--c" as string]: p.color }}>
               <div className="pcard__band" />
               <div className="pcard__head">
-                <span className="pcard__mark">{p.acronym}</span>
+                <PartyMark party={p} year={year} size={54} />
                 <div>
                   <a href={`/jogo/${year}/partidos/${p.id}`} className="pcard__name">
                     {p.name}

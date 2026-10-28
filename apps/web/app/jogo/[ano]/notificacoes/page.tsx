@@ -1,4 +1,5 @@
 import type { AffiliationRequestRow, NotificationRow, PartyRow } from "@dp/engine";
+import { PartyMark } from "@/components/PartyMark";
 import { Icon } from "@/components/Icon";
 import { Empty, GameHeader, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
@@ -99,7 +100,7 @@ function InviteCard({ year, req, party }: { year: number; req: AffiliationReques
   return (
     <div className="invite" style={{ ["--c" as string]: party?.color ?? "var(--planalto)" }}>
       <div className="invite__party">
-        <span className="invite__mark">{party?.acronym ?? "?"}</span>
+        <PartyMark party={party} year={year} size={52} />
         <div>
           <b>{party?.name ?? "Partido"}</b>
           <span>{req.reason ?? "Convite de filiação"}</span>

@@ -64,8 +64,15 @@ Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE.
   - condenação com inelegibilidade e perda de mandato.
 
   Só personagens fictícios ou de jogadores cometem crimes. Eles podem ser filiados a partidos reais, e a reputação do partido muda pelo que eles fazem.
-- **Avançar o tempo:** além do relógio automático, qualquer jogador pode avançar 1, 7 ou 15 dias (com intervalo de 60 s por mundo). O painel mostra o que aconteceu no país e o que chegou para você.
-- **Mapa real** do 2º turno por estado, com o resultado de cada candidato ao passar o mouse.
+- **Passar o tempo:** além do relógio automático, o Painel tem um lugar único para pular 1 dia, 1 semana, 15 dias ou 1 mês, sem espera entre um salto e outro. Ao fim, um resumo mostra o que aconteceu no Brasil (aprovação, Selic, inflação, desemprego, dólar e manchetes) e o que mudou para você, com atalho para responder convites.
+- **Mapa político dos 5.570 municípios,** com prefeito(a) e câmara de cada cidade no ponto de partida (TSE) e zoom do país até o município. Capitais e a cidade do jogador têm disputa completa; as demais são simuladas de forma determinística a cada eleição municipal.
+- **Fotos e logos reais:** fotos oficiais de candidatura do TSE (CC-BY) para 5.702 candidaturas de pessoas reais, sempre com o ano, e logos dos partidos do Wikimedia Commons, só de arquivos em domínio público ou com licença livre, com autor e licença na página de Fontes.
+- **Interface do jogo:**
+  - painel com próximos passos, pendências, agenda com contagem de dias e um resumo do país;
+  - ações com um clique e resultado na hora;
+  - notificações lidas ao abrir e convites de filiação aceitos direto do sino;
+  - eleições com calendário visual e resultados em barras;
+  - votação de projetos, resposta a ofertas ilícitas e conversas direto das listas.
 - **LGPD:** exportação dos dados em JSON e exclusão da conta. Na exclusão, o personagem sai da política sem nenhum evento negativo.
 
 ### Componentes próprios
@@ -92,6 +99,17 @@ Os campos reais continuam acessíveis a leitores de tela, e os valores seguem pa
 | ![Manual](docs/screenshots/manual.png) | <img src="docs/screenshots/celular.png" alt="Página inicial no celular" width="260"> |
 | **Manual.** Índice lateral e seções numeradas. | **Celular.** Menu compacto, sem rolagem horizontal. |
 
+### Dentro do jogo
+
+| | |
+| --- | --- |
+| ![Eleições](docs/screenshots/jogo-eleicoes.png) | ![Governo e Congresso](docs/screenshots/jogo-governo.png) |
+| **Eleições.** Calendário com contagem regressiva e o resultado oficial de 2026 com fotos do TSE. | **Governo e Congresso.** Base do governo, pauta da Câmara e votações recentes. |
+
+![Resumo do período](docs/screenshots/jogo-periodo.png)
+
+**Resumo do período** (dados de exemplo): indicadores do país antes e depois, manchetes e o que mudou para o jogador.
+
 ## Pessoas e partidos reais
 
 Para quem existe de verdade, o jogo só mostra fatos com fonte e desempenho simulado em cargos e eleições. A política de conteúdo é verificada depois de cada texto gerado:
@@ -111,14 +129,19 @@ Veículos de imprensa e institutos de pesquisa do jogo são fictícios, para que
 apps/web/              site Next.js (App Router, Server Actions)
   app/                 páginas públicas, conta e o jogo em /jogo/[ano]
   components/          kit de formulário, mapa, cabeçalho e rodapé, blocos legais
+  components/game/     casca do jogo: barra lateral, sino, passar o tempo, ações rápidas
   lib/sim.ts           ponte motor ↔ banco: carrega, avança o relógio, aplica ações e grava
+  lib/game-view.ts     leituras para as telas: próximos passos, agenda e pendências
+  lib/photos.json      fotos do TSE por pessoa (arquivos em public/fotos)
+  lib/logos.json       logos dos partidos com licença e autor (arquivos em public/logos)
 packages/engine/       motor da simulação em TypeScript puro (sem React, sem banco)
   src/                 eleições, partidos, economia, governo, crime, notícias, relógio
   test/                testes dos pontos de partida e simulação longa
 packages/data/         carrega os snapshots por ano
 data/                  snapshots reais (snapshot-2002.json … snapshot-2026.json)
+                       e municípios por ano (municipios-2002.json … municipios-2026.json)
 scripts/
-  import-snapshot/     importadores do TSE e do Banco Central
+  import-snapshot/     importadores do TSE e do Banco Central, municípios e fotos
   build-startpoints.mjs  gera os fatos dos pontos de partida
   build-icons.mjs        gera favicon e ícones a partir do logo
 supabase/migrations/   esquema, RLS e funções do motor
@@ -199,19 +222,22 @@ Os arquivos do TSE ficam em cache em `.cache/tse/` (fora do Git).
 
 | Verificação | Resultado |
 | --- | --- |
-| `npm test`: os 7 pontos de partida reproduzem o eleito real, 513 cadeiras na Câmara e 81 no Senado; simulação de 2026 até depois da eleição de 2030 | 15 de 15 |
+| `npm test`: os 7 pontos de partida reproduzem o eleito real, 513 cadeiras na Câmara e 81 no Senado; municípios e eleições municipais; simulação de 2026 até depois da eleição de 2030 | 18 de 18 |
 | `npm run test:integration`: criação do mundo, personagem, ações e avanço de 15 dias contra o Supabase real | aprovado |
 | Totais do 2º turno contra o TSE (ex.: Lula 2002 com 52.793.364 votos, Lula 2022 com 60.345.999) | iguais |
 | `npm run typecheck` e `npm run build` | sem erros |
-| Rolagem horizontal em 390 e 1360 px nas páginas públicas | nenhuma |
+| Rolagem horizontal em 390 e 1360 px nas páginas públicas e do jogo, temas claro e escuro | nenhuma |
 
 **Limites conhecidos:**
 
-- O mapa por município (as malhas do IBGE já estão em `apps/web/public/geo/`) ainda não está ligado ao jogo; hoje o mapa mostra os estados.
+- Nem toda candidatura tem foto: o TSE só publica fotos a partir de 2004, e parte dos arquivos não existe.
+- Os logos seguem a sigla e a época do ponto de partida, mas nem toda sigla antiga tem logo com licença livre (PSDC e PT do B, por exemplo); essas aparecem pela sigla e cor.
 - O envio de e-mails de confirmação usa o SMTP padrão do Supabase, que tem limite baixo de envios por hora.
 
 ## Créditos
 
-Dados: [Tribunal Superior Eleitoral](https://dadosabertos.tse.jus.br) (CC-BY), [Banco Central do Brasil](https://www3.bcb.gov.br/sgspub) (SGS) e malhas do [IBGE](https://www.ibge.gov.br) via [geodata-br](https://github.com/tbrugz/geodata-br).
+Dados: [Tribunal Superior Eleitoral](https://dadosabertos.tse.jus.br) (CC-BY, incluindo as fotos de candidatura), [Banco Central do Brasil](https://www3.bcb.gov.br/sgspub) (SGS) e malhas do [IBGE](https://www.ibge.gov.br) via [geodata-br](https://github.com/tbrugz/geodata-br).
+
+Logos dos partidos: [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Logos_of_political_parties_in_Brazil), cada um com a licença e o autor listados na página [Fontes](https://dominio-politico.vercel.app/fontes). As marcas pertencem aos partidos; o uso é só de identificação, sem relação com eles.
 
 Design e código: [Saymon Oliveira](https://saymonthedev.com).

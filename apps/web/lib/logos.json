@@ -1,0 +1,533 @@
+{
+ "AGIR": {
+  "src": "/logos/agir.webp",
+  "w": 192,
+  "h": 42,
+  "file": "Logotipo do partido Agir.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Logotipo_do_partido_Agir.svg",
+  "license": "Public domain",
+  "author": "Partido Agir"
+ },
+ "AVANTE": {
+  "src": "/logos/avante.webp",
+  "w": 192,
+  "h": 69,
+  "file": "Avante 70 (Brasil) logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Avante_70_(Brasil)_logo.svg",
+  "license": "Public domain",
+  "author": "Avante"
+ },
+ "CIDADANIA": {
+  "src": "/logos/cidadania.webp",
+  "w": 192,
+  "h": 66,
+  "file": "Cidadania (Brasil) logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Cidadania_(Brasil)_logo.svg",
+  "license": "Public domain",
+  "author": "Partido Cidadania (Brasil)"
+ },
+ "DC": {
+  "src": "/logos/dc.webp",
+  "w": 192,
+  "h": 118,
+  "file": "Logomarca Democracia Cristã.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Logomarca_Democracia_Crist%C3%A3.svg",
+  "license": "Public domain",
+  "author": "wikipedia:Christian Democracy (Brazil)"
+ },
+ "DEM": {
+  "src": "/logos/dem.webp",
+  "w": 178,
+  "h": 192,
+  "file": "Democratas (Brazil) logo (2007-2018) (tree only).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Democratas_(Brazil)_logo_(2007-2018)_(tree_only).svg",
+  "license": "Public domain",
+  "author": "Democratas"
+ },
+ "DEMOCRATA": {
+  "src": "/logos/democrata.webp",
+  "w": 173,
+  "h": 192,
+  "file": "Logomarca O Democrata 35.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logomarca_O_Democrata_35.png",
+  "license": "Public domain",
+  "author": "Democrata 35"
+ },
+ "MDB": {
+  "src": "/logos/mdb.webp",
+  "w": 192,
+  "h": 137,
+  "file": "Movimento Democrático Brasileiro (2017).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Movimento_Democr%C3%A1tico_Brasileiro_(2017).svg",
+  "license": "Public domain",
+  "author": "Movimento Democrático Brasileiro"
+ },
+ "MISSÃO": {
+  "src": "/logos/missao.webp",
+  "w": 192,
+  "h": 47,
+  "file": "Bandeira Missão (cropped).png",
+  "page": "https://commons.wikimedia.org/wiki/File:Bandeira_Miss%C3%A3o_(cropped).png",
+  "license": "CC0",
+  "author": "Gabriel de C M Fortes"
+ },
+ "MOBILIZA": {
+  "src": "/logos/mobiliza.webp",
+  "w": 192,
+  "h": 177,
+  "file": "Logomarca Partido Mobiliza.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logomarca_Partido_Mobiliza.png",
+  "license": "Public domain",
+  "author": "MOBLIZA"
+ },
+ "NOVO": {
+  "src": "/logos/novo.webp",
+  "w": 192,
+  "h": 63,
+  "file": "Partido Novo logo (2023).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_Novo_logo_(2023).svg",
+  "license": "Public domain",
+  "author": "Partido Novo"
+ },
+ "PAN": {
+  "src": "/logos/pan.webp",
+  "w": 192,
+  "h": 75,
+  "file": "Logotipo do Partido dos Aposentados da Nação.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logotipo_do_Partido_dos_Aposentados_da_Na%C3%A7%C3%A3o.png",
+  "license": "Public domain",
+  "author": "Partido dos Aposentados da Nação"
+ },
+ "PATRIOTA": {
+  "src": "/logos/patriota.webp",
+  "w": 192,
+  "h": 27,
+  "file": "Logotipo do partido Patriota.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Logotipo_do_partido_Patriota.svg",
+  "license": "Public domain",
+  "author": "Partido Patriota"
+ },
+ "PCB": {
+  "src": "/logos/pcb.webp",
+  "w": 160,
+  "h": 192,
+  "file": "PCB logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PCB_logo.svg",
+  "license": "CC BY-SA 2.5 br",
+  "author": "Partido Comunista Brasileiro"
+ },
+ "PCDOB": {
+  "src": "/logos/pcdob.webp",
+  "w": 192,
+  "h": 84,
+  "file": "PCdoB logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PCdoB_logo.svg",
+  "license": "Public domain",
+  "author": "autor desconhecido"
+ },
+ "PCO": {
+  "src": "/logos/pco.webp",
+  "w": 192,
+  "h": 93,
+  "file": "Logo PCO Institucional.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Logo_PCO_Institucional.svg",
+  "license": "CC BY-SA 4.0",
+  "author": "Calloshccp"
+ },
+ "PDT": {
+  "src": "/logos/pdt.webp",
+  "w": 192,
+  "h": 67,
+  "file": "PDT logo 2026.png",
+  "page": "https://commons.wikimedia.org/wiki/File:PDT_logo_2026.png",
+  "license": "Public domain",
+  "author": "Partido Democrático Trabalhista"
+ },
+ "PDT@2022": {
+  "src": "/logos/pdt-2022.webp",
+  "w": 122,
+  "h": 192,
+  "file": "PDT logo(1978-2018).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PDT_logo(1978-2018).svg",
+  "license": "Public domain",
+  "author": "PDT"
+ },
+ "PFL": {
+  "src": "/logos/pfl.webp",
+  "w": 192,
+  "h": 173,
+  "file": "Partido da Frente Liberal logo (1985-2005).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_da_Frente_Liberal_logo_(1985-2005).svg",
+  "license": "Public domain",
+  "author": "Partido da Frente Liberal"
+ },
+ "PGT": {
+  "src": "/logos/pgt.webp",
+  "w": 192,
+  "h": 87,
+  "file": "Partido PGT logo.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_PGT_logo.png",
+  "license": "CC BY-SA 4.0",
+  "author": "João Vitor Bachini"
+ },
+ "PHS": {
+  "src": "/logos/phs.webp",
+  "w": 192,
+  "h": 52,
+  "file": "Logo - Partido Humanista da Solidariedade.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logo_-_Partido_Humanista_da_Solidariedade.png",
+  "license": "Public domain",
+  "author": "Partido Humanista da Solidariedade"
+ },
+ "PL": {
+  "src": "/logos/pl.webp",
+  "w": 155,
+  "h": 192,
+  "file": "Liberal Party (Brazil) logo (2022).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Liberal_Party_(Brazil)_logo_(2022).svg",
+  "license": "Public domain",
+  "author": "Partido Liberal"
+ },
+ "PL@2006": {
+  "src": "/logos/pl-2006.webp",
+  "w": 165,
+  "h": 178,
+  "file": "Logotipo do Partido Liberal (1985-2004).png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logotipo_do_Partido_Liberal_(1985-2004).png",
+  "license": "CC BY-SA 4.0",
+  "author": "Mateus Leite"
+ },
+ "PMB": {
+  "src": "/logos/pmb.webp",
+  "w": 192,
+  "h": 192,
+  "file": "PMB logo (Brasil).png",
+  "page": "https://commons.wikimedia.org/wiki/File:PMB_logo_(Brasil).png",
+  "license": "CC BY-SA 4.0",
+  "author": "João Vitor Bachini"
+ },
+ "PMDB": {
+  "src": "/logos/pmdb.webp",
+  "w": 192,
+  "h": 160,
+  "file": "Partido do Movimento Democrático Brasileiro logo (2000–2017).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_do_Movimento_Democr%C3%A1tico_Brasileiro_logo_(2000%E2%80%932017).svg",
+  "license": "Public domain",
+  "author": "Partido do Movimento Democrático Brasileiro"
+ },
+ "PMN": {
+  "src": "/logos/pmn.webp",
+  "w": 157,
+  "h": 192,
+  "file": "PMN logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PMN_logo.svg",
+  "license": "Public domain",
+  "author": "Partido da Mobilização Nacional"
+ },
+ "PODE": {
+  "src": "/logos/pode.webp",
+  "w": 192,
+  "h": 84,
+  "file": "Podemos (Brasil) logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Podemos_(Brasil)_logo.svg",
+  "license": "Public domain",
+  "author": "Podemos (Brasil)"
+ },
+ "PP": {
+  "src": "/logos/pp.webp",
+  "w": 192,
+  "h": 119,
+  "file": "Progressistas (Brazil) logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Progressistas_(Brazil)_logo.svg",
+  "license": "Public domain",
+  "author": "Progressistas"
+ },
+ "PP@2014": {
+  "src": "/logos/pp-2014.webp",
+  "w": 192,
+  "h": 148,
+  "file": "Partido Progressista logo (2003).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_Progressista_logo_(2003).svg",
+  "license": "Public domain",
+  "author": "Partido Progressista"
+ },
+ "PPB": {
+  "src": "/logos/ppb.webp",
+  "w": 192,
+  "h": 123,
+  "file": "Logotipo do Partido Progressista Brasileiro (1995).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Logotipo_do_Partido_Progressista_Brasileiro_(1995).svg",
+  "license": "Public domain",
+  "author": "Partido Progressista"
+ },
+ "PPL": {
+  "src": "/logos/ppl.webp",
+  "w": 192,
+  "h": 104,
+  "file": "Logotipo - Partido Pátria Livre (Brasil).png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logotipo_-_Partido_P%C3%A1tria_Livre_(Brasil).png",
+  "license": "Public domain",
+  "author": "Partido Pátria Livre"
+ },
+ "PPS": {
+  "src": "/logos/pps.webp",
+  "w": 192,
+  "h": 85,
+  "file": "Logomarca do Partido Popular Socialista.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logomarca_do_Partido_Popular_Socialista.png",
+  "license": "Public domain",
+  "author": "Partido Popular Socialista"
+ },
+ "PR": {
+  "src": "/logos/pr.webp",
+  "w": 156,
+  "h": 192,
+  "file": "Logomarca do Partido da República.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logomarca_do_Partido_da_Rep%C3%BAblica.png",
+  "license": "Public domain",
+  "author": "Partido Liberal"
+ },
+ "PRB": {
+  "src": "/logos/prb.webp",
+  "w": 192,
+  "h": 69,
+  "file": "Logomarca do Partido Republicano Brasileiro (2005–2012).png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logomarca_do_Partido_Republicano_Brasileiro_(2005%E2%80%932012).png",
+  "license": "Public domain",
+  "author": "autor desconhecido"
+ },
+ "PRD": {
+  "src": "/logos/prd.webp",
+  "w": 192,
+  "h": 56,
+  "file": "Partido Renovação Democrática logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_Renova%C3%A7%C3%A3o_Democr%C3%A1tica_logo.svg",
+  "license": "Public domain",
+  "author": "Partido Renovação Democrática"
+ },
+ "PRONA": {
+  "src": "/logos/prona.webp",
+  "w": 192,
+  "h": 131,
+  "file": "Partido de Reedificação da Ordem Nacional logo (2004–2006).png",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_de_Reedifica%C3%A7%C3%A3o_da_Ordem_Nacional_logo_(2004%E2%80%932006).png",
+  "license": "Public domain",
+  "author": "Partido de Reedificação da Ordem Nacional"
+ },
+ "PROS": {
+  "src": "/logos/pros.webp",
+  "w": 192,
+  "h": 137,
+  "file": "Logomarca do Partido Republicano da Ordem Social (PROS), do Brasil.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logomarca_do_Partido_Republicano_da_Ordem_Social_(PROS),_do_Brasil.png",
+  "license": "Public domain",
+  "author": "PROS"
+ },
+ "PRP": {
+  "src": "/logos/prp.webp",
+  "w": 147,
+  "h": 192,
+  "file": "PRP antigo LOGO em svg.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PRP_antigo_LOGO_em_svg.svg",
+  "license": "CC BY-SA 4.0",
+  "author": "Mulan11111"
+ },
+ "PRTB": {
+  "src": "/logos/prtb.webp",
+  "w": 192,
+  "h": 74,
+  "file": "PRTB-LOGO-04-1024x393.png",
+  "page": "https://commons.wikimedia.org/wiki/File:PRTB-LOGO-04-1024x393.png",
+  "license": "Public domain",
+  "author": "PRTB"
+ },
+ "PSB": {
+  "src": "/logos/psb.webp",
+  "w": 192,
+  "h": 104,
+  "file": "Partido Socialista Brasileiro logo.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_Socialista_Brasileiro_logo.png",
+  "license": "Public domain",
+  "author": "Partido Socialista Brasileiro"
+ },
+ "PSC": {
+  "src": "/logos/psc.webp",
+  "w": 192,
+  "h": 43,
+  "file": "PSC logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PSC_logo.svg",
+  "license": "Public domain",
+  "author": "Social Christian Party (Brazil)"
+ },
+ "PSD": {
+  "src": "/logos/psd.webp",
+  "w": 192,
+  "h": 91,
+  "file": "PSD Brazil logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PSD_Brazil_logo.svg",
+  "license": "Public domain",
+  "author": "Partido Social Democrático"
+ },
+ "PSD@2002": {
+  "src": "/logos/psd-2002.webp",
+  "w": 192,
+  "h": 98,
+  "file": "Partido Social Democrático (Brasil) logo (1987–2003).png",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_Social_Democr%C3%A1tico_(Brasil)_logo_(1987%E2%80%932003).png",
+  "license": "Public domain",
+  "author": "Partido Social Democrático"
+ },
+ "PSDB": {
+  "src": "/logos/psdb.webp",
+  "w": 192,
+  "h": 66,
+  "file": "Logo of the Brazilian Social Democracy Party (2023).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Logo_of_the_Brazilian_Social_Democracy_Party_(2023).svg",
+  "license": "Public domain",
+  "author": "autor desconhecido"
+ },
+ "PSDB@2022": {
+  "src": "/logos/psdb-2022.webp",
+  "w": 192,
+  "h": 44,
+  "file": "Logomarca do Partido da Social Democracia Brasileira.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logomarca_do_Partido_da_Social_Democracia_Brasileira.png",
+  "license": "Public domain",
+  "author": "Partido da Social Democracia Brasileira"
+ },
+ "PSL": {
+  "src": "/logos/psl.webp",
+  "w": 192,
+  "h": 109,
+  "file": "Partido Social Liberal logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_Social_Liberal_logo.svg",
+  "license": "Public domain",
+  "author": "Partido Social Liberal"
+ },
+ "PSOL": {
+  "src": "/logos/psol.webp",
+  "w": 184,
+  "h": 192,
+  "file": "Logo PSOL roxo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Logo_PSOL_roxo.svg",
+  "license": "Public domain",
+  "author": "Partido Socialismo e Liberdade / Ziraldo"
+ },
+ "PST": {
+  "src": "/logos/pst.webp",
+  "w": 192,
+  "h": 108,
+  "file": "Partido Social Trabalhista (1988).png",
+  "page": "https://commons.wikimedia.org/wiki/File:Partido_Social_Trabalhista_(1988).png",
+  "license": "CC BY-SA 4.0",
+  "author": "João Vitor Bachini"
+ },
+ "PSTU": {
+  "src": "/logos/pstu.webp",
+  "w": 139,
+  "h": 85,
+  "file": "Logo PSTU.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logo_PSTU.png",
+  "license": "Attribution",
+  "author": "PSTU"
+ },
+ "PT": {
+  "src": "/logos/pt.webp",
+  "w": 192,
+  "h": 184,
+  "file": "PT (Brazil) logo 2021.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PT_(Brazil)_logo_2021.svg",
+  "license": "Public domain",
+  "author": "Workers' Party (Brazil) (PT)"
+ },
+ "PT@2018": {
+  "src": "/logos/pt-2018.webp",
+  "w": 192,
+  "h": 183,
+  "file": "PT (Brazil) logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PT_(Brazil)_logo.svg",
+  "license": "Public domain",
+  "author": "Workers' Party (Brazil) (PT)"
+ },
+ "PTB": {
+  "src": "/logos/ptb.webp",
+  "w": 189,
+  "h": 192,
+  "file": "PTB logo(1981-2019).png",
+  "page": "https://commons.wikimedia.org/wiki/File:PTB_logo(1981-2019).png",
+  "license": "CC0",
+  "author": "PTB"
+ },
+ "PTC": {
+  "src": "/logos/ptc.webp",
+  "w": 192,
+  "h": 104,
+  "file": "Ptc-logo.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Ptc-logo.png",
+  "license": "CC BY-SA 4.0",
+  "author": "Mateusfutebs"
+ },
+ "PTN": {
+  "src": "/logos/ptn.webp",
+  "w": 192,
+  "h": 77,
+  "file": "PTN logo (Recriação).svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PTN_logo_(Recria%C3%A7%C3%A3o).svg",
+  "license": "CC0",
+  "author": "Octozzz"
+ },
+ "PV": {
+  "src": "/logos/pv.webp",
+  "w": 192,
+  "h": 178,
+  "file": "PV Logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:PV_Logo.svg",
+  "license": "Public domain",
+  "author": "Partido Verde"
+ },
+ "REDE": {
+  "src": "/logos/rede.webp",
+  "w": 192,
+  "h": 35,
+  "file": "Rede Sustentabilidade logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Rede_Sustentabilidade_logo.svg",
+  "license": "Public domain",
+  "author": "Rede Sustentabilidade"
+ },
+ "REPUBLICANOS": {
+  "src": "/logos/republicanos.webp",
+  "w": 192,
+  "h": 30,
+  "file": "Logo of Republicanos.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Logo_of_Republicanos.png",
+  "license": "Public domain",
+  "author": "Republicanos"
+ },
+ "SOLIDARIEDADE": {
+  "src": "/logos/solidariedade.webp",
+  "w": 192,
+  "h": 70,
+  "file": "Logo of the Solidariedade.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Logo_of_the_Solidariedade.svg",
+  "license": "Public domain",
+  "author": "Solidariedade (Brasil)"
+ },
+ "UNIÃO": {
+  "src": "/logos/uniao.webp",
+  "w": 192,
+  "h": 102,
+  "file": "União Brasil logo.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Uni%C3%A3o_Brasil_logo.svg",
+  "license": "Public domain",
+  "author": "União Brasil"
+ },
+ "UP": {
+  "src": "/logos/up.webp",
+  "w": 192,
+  "h": 192,
+  "file": "Unidade Popular wordmark.svg",
+  "page": "https://commons.wikimedia.org/wiki/File:Unidade_Popular_wordmark.svg",
+  "license": "Public domain",
+  "author": "Unidade Popular"
+ }
+}

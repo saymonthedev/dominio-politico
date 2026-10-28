@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PartyMark } from "@/components/PartyMark";
 import { AXES, AXIS_INFO, ENTRY_CULTURE_LABEL, OFFICES, spectrumLabel, UFS, type FactionRow, type PersonRow } from "@dp/engine";
 import { Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
@@ -37,7 +38,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
   return (
     <>
       <div className="phero" style={{ ["--c" as string]: party.color }}>
-        <span className="phero__mark">{party.acronym}</span>
+        <PartyMark party={party} year={year} size={84} />
         <div className="phero__text">
           <div className="ghead__kicker">Partido · nº {party.number}</div>
           <h1>{party.name}</h1>

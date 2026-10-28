@@ -1,4 +1,5 @@
 import { Callout, ContentPage } from "@/components/ContentPage";
+import { LOGO_CREDITS } from "@/lib/logos";
 
 export const metadata = { title: "Fontes" };
 
@@ -39,10 +40,38 @@ export default function Page() {
           title: "Marcas e imagens",
           icon: "lock",
           body: (
-            <Callout tone="info" title="Sem logotipos, fotos ou marcas de mídia">
-              Partidos aparecem só por sigla e cor. Veículos de imprensa e institutos de pesquisa são fictícios. Ativos reais só entram após registro de licença
-              liberada.
+            <Callout tone="info" title="Logos dos partidos com licença registrada">
+              Os logos vêm do Wikimedia Commons, só de arquivos em domínio público ou com licença livre (CC0, CC BY, CC BY-SA), com autor e licença listados
+              abaixo. As marcas continuam pertencendo aos partidos e o uso aqui é só de identificação, num projeto de estudo, sem relação com eles e sem
+              endosso. Veículos de imprensa e institutos de pesquisa do jogo são fictícios.
             </Callout>
+          ),
+        },
+        {
+          id: "logos",
+          title: "Créditos dos logos",
+          icon: "flag",
+          body: (
+            <div className="logo-credits">
+              {LOGO_CREDITS.map((l) => (
+                <div key={l.label} className="logo-credit">
+                  <span className="pmark pmark--logo" style={{ width: 56, height: 56 }}>
+                    <img src={l.src} alt={`Logo do ${l.acronym}`} width={l.w} height={l.h} loading="lazy" decoding="async" />
+                  </span>
+                  <div>
+                    <b>{l.label}</b>
+                    <span>
+                      {l.license} · {l.author}
+                    </span>
+                    <span>
+                      <a href={l.page} target="_blank" rel="noopener noreferrer">
+                        {l.file}
+                      </a>
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           ),
         },
       ]}
