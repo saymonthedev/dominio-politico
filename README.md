@@ -182,9 +182,9 @@ supabase/templates/    e-mails de autenticação no visual do jogo
 
 **Relógio preguiçoso.** O mundo não precisa de um processo rodando: ao abrir uma página ou executar uma ação, o servidor calcula quantos dias deveriam ter passado e processa a diferença. A rota `/api/cron/tick` faz o mesmo para os mundos compartilhados e roda todo dia pelo Vercel Cron (`apps/web/vercel.json`), para que o mundo ande mesmo sem ninguém abrindo o jogo. Mundos próprios têm velocidade zero: só andam quando o dono avança.
 
-**Manutenção diária.** A mesma tarefa chama `sim_maintenance`, que poda o que já não serve: notícias com mais de dois anos de jogo (menos as de importância 3, os fatos com fonte e tudo o que envolve jogadores), eventos antigos sem jogadores e notificações lidas com mais de um ano de jogo. Ela também cuida dos mundos próprios parados: aos 83 dias sem uso, o dono recebe um aviso por e-mail (pela API da Resend, se `RESEND_API_KEY` estiver configurada); aos 90, o mundo é apagado.
+**Manutenção diária.** A mesma tarefa chama `sim_maintenance`, que poda o que já não serve: notícias com mais de dois anos de jogo (menos as de importância 3, os fatos com fonte e tudo o que envolve jogadores), eventos antigos sem jogadores e notificações lidas com mais de um ano de jogo. Ela também cuida dos mundos próprios parados: aos 83 dias sem uso, o dono recebe um aviso por e-mail (pela API da Resend, com uma chave própria, separada da usada no SMTP do Supabase; ligado em produção); aos 90, o mundo é apagado.
 
-**Erros e métricas.** Erros de páginas, ações e da tarefa diária ficam guardados por 14 dias (fora da API pública) e aparecem no painel `/admin`. As visitas são contadas pelo Vercel Web Analytics, sem cookies.
+**Erros e métricas.** Erros de páginas, ações e da tarefa diária ficam guardados por 14 dias (fora da API pública) e aparecem no painel `/admin`. As visitas são contadas pelo Vercel Web Analytics (ligado no projeto, aba Analytics), sem cookies.
 
 **Mundos próprios.** O id diz o tipo: `br2026` (compartilhado), `br2026p…` (só meu) e `br2026f…` (fictício), com o começo do id da conta. No fictício, a troca de nomes é determinística (semente do mundo + nome real), então os dados estáticos dos municípios são convertidos de novo a cada carga, sem guardar uma tabela de nomes; o mundo guarda só o número de cada sigla real, para achar o partido correspondente. A função `sim_drop_world` apaga um mundo próprio inteiro e recusa os compartilhados.
 
@@ -271,7 +271,7 @@ Em `apps/web/.env.local` (fora do Git):
 ### Backup e CI
 
 - **CI** (`.github/workflows/ci.yml`): a cada push e pull request, roda `typecheck`, os testes do motor e o build.
-- **Testes das telas** (`.github/workflows/e2e.yml`): sobe o site contra o projeto Supabase **de testes** (`dominio-politico-testes`, com o mesmo esquema da produção e sem anti-robô) e, com o Playwright, confere as páginas públicas e a 404, entra com uma conta de teste, cria um personagem num mundo só dela, confere os logos dos partidos, passa um mês, responde um convite se aparecer e apaga o mundo. Precisa dos segredos `E2E_SIM_SECRET` e `E2E_PASSWORD`; sem eles, só a parte pública roda. Localmente: `npx next build && npx playwright test` em `apps/web`, com as mesmas variáveis.
+- **Testes das telas** (`.github/workflows/e2e.yml`): sobe o site contra o projeto Supabase **de testes** (`dominio-politico-testes`, com o mesmo esquema da produção e sem anti-robô) e, com o Playwright, confere as páginas públicas e a 404, entra com uma conta de teste, cria um personagem num mundo só dela, confere os logos dos partidos, passa um mês, responde um convite se aparecer e apaga o mundo. Precisa dos segredos `E2E_SIM_SECRET` e `E2E_PASSWORD` (cadastrados no repositório; valem só para o banco de testes, onde o hash do segredo fica em `private.app_secrets` com o nome `ci-e2e`); sem eles, só a parte pública roda. Localmente: `npx next build && npx playwright test` em `apps/web`, com as mesmas variáveis.
 - **Backup diário** (`.github/workflows/backup.yml`): `pg_dump` do banco, criptografado com GPG e guardado por 30 dias como artefato do GitHub Actions. Precisa de dois segredos no repositório: `SUPABASE_DB_URL` (a string de conexão do pooler de sessão, em Supabase → Connect) e `BACKUP_PASSPHRASE` (a senha do arquivo). Para restaurar: baixe o artefato, rode `gpg -d dominio-politico-AAAA-MM-DD.dump.gpg > copia.dump` (pede a senha) e depois `pg_restore --no-owner --clean --if-exists -d "$URL" copia.dump`.
 
 ### Dados
@@ -292,7 +292,7 @@ Os arquivos do TSE ficam em cache em `.cache/tse/` (fora do Git).
 | --- | --- |
 | `npm test`: os 7 pontos de partida reproduzem o eleito real, 513 cadeiras na Câmara e 81 no Senado; municípios e eleições municipais; crimes nunca atribuídos a pessoas reais; dossiês; fundação de partido até o registro; chapa e fundo eleitoral do partido próprio; subsídios e imposto por época; filiação de novatos; inflação simulada; relógio compartilhado; exclusão de conta; conquistas; mundo fictício sem nenhuma pessoa ou sigla real; simulação de 2026 até depois da eleição de 2030 | 34 de 34 |
 | `npm run test:integration`: criação do mundo, personagem, ações e avanço de 15 dias contra o Supabase real | aprovado |
-| Testes das telas (Playwright): páginas públicas, 404 e o fluxo do jogo num mundo próprio | 2 de 2 |
+| Testes das telas (Playwright): páginas públicas, 404 e o fluxo do jogo num mundo próprio, local e no GitHub Actions | 2 de 2 |
 | `npm run test:private-world`: mundo fictício próprio criado (7,5 s), carregado, com personagem, avançado 7 dias e apagado | aprovado |
 | Totais do 2º turno contra o TSE (ex.: Lula 2002 com 52.793.364 votos, Lula 2022 com 60.345.999) | iguais |
 | `npm run typecheck` e `npm run build` | sem erros |
