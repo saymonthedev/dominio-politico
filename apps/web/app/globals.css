@@ -1705,3 +1705,11 @@ td.num, th.num { text-align: right; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* ===================== Acesso: links, captcha e formulários da conta ===================== */
+.auth__links { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: -4px 0 16px; font-size: .84rem; }
+.auth__links a { color: var(--tinta); font-weight: 600; text-decoration-color: var(--faixa); text-underline-offset: 3px; }
+.captcha { margin: 0 0 16px; min-height: 65px; }
+.account-card--form { align-items: flex-start; }
+.account-form { display: grid; gap: 4px; flex: 1; min-width: min(320px, 100%); max-width: 420px; }
+.account-form .ui-btn { justify-self: start; margin-top: 6px; }

@@ -23,7 +23,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
       >
         {erro === "link" && (
           <FormMessage tone="info">
-            Este link de confirmação expirou ou já foi usado. Se você já confirmou o e-mail, é só entrar com sua senha.
+            Este link expirou ou já foi usado. Se você já confirmou o e-mail, é só entrar com sua senha. Se não, <a href="/reenviar-confirmacao">peça um link novo</a>.
           </FormMessage>
         )}
         <SignInForm next={next ?? "/jogo"} />

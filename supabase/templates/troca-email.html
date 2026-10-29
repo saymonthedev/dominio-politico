@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>Confirme o e-mail novo · Domínio Político</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap" rel="stylesheet" />
+    <style>
+      body { margin: 0; padding: 0; background: #f4efe4; -webkit-text-size-adjust: 100%; }
+      img { border: 0; display: block; }
+      a { color: #0b1f3a; }
+      .cta:hover { background-color: #e2b85a !important; }
+      @media (max-width: 600px) {
+        .wrap { width: 100% !important; }
+        .px { padding-left: 22px !important; padding-right: 22px !important; }
+        .h1 { font-size: 24px !important; line-height: 31px !important; }
+        .step-label { font-size: 11px !important; }
+        .cta-table { width: 100% !important; }
+        .cta { display: block !important; text-align: center !important; }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #f4efe4">
+    <!-- texto de pré-visualização na caixa de entrada -->
+    <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all; font-size: 1px; line-height: 1px; color: #f4efe4">
+      Confirme a troca do e-mail da sua conta no Domínio Político.&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4efe4" style="background-color: #f4efe4">
+      <tr>
+        <td align="center" style="padding: 32px 12px 40px">
+          <table role="presentation" class="wrap" width="560" cellpadding="0" cellspacing="0" border="0" style="width: 560px; max-width: 560px">
+            <!-- cabeçalho: marca sobre azul-planalto -->
+            <tr>
+              <td class="px" bgcolor="#0b1f3a" style="background-color: #0b1f3a; border-radius: 18px 18px 0 0; padding: 22px 34px 20px">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td valign="middle" width="44" style="width: 44px">
+                      <img src="{{ .SiteURL }}/apple-icon.png" width="40" height="40" alt="" style="width: 40px; height: 40px; border-radius: 10px" />
+                    </td>
+                    <td valign="middle" style="padding-left: 12px; font-family: Poppins, 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 19px; line-height: 22px; font-weight: 800; letter-spacing: -0.3px; color: #ffffff">
+                      Domínio <span style="color: #d4a53c">Político</span>
+                    </td>
+                    <td valign="middle" align="right" style="font-family: 'IBM Plex Mono', Menlo, Consolas, monospace; font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: #9fb0c9">
+                      Conta
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <!-- a faixa dourada -->
+            <tr>
+              <td height="5" bgcolor="#d4a53c" style="height: 5px; background-color: #d4a53c; font-size: 0; line-height: 0">&nbsp;</td>
+            </tr>
+
+            <!-- corpo -->
+            <tr>
+              <td class="px" bgcolor="#fffdf8" style="background-color: #fffdf8; border: 1px solid #ddd4c2; border-top: 0; border-radius: 0 0 18px 18px; padding: 34px 40px 32px">
+                <p style="margin: 0 0 10px; font-family: Poppins, 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #7d5c0e">
+                  Troca de e-mail
+                </p>
+                <h1 class="h1" style="margin: 0 0 14px; font-family: Poppins, 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 28px; line-height: 35px; font-weight: 800; letter-spacing: -0.6px; color: #0b1f3a">
+                  Confirme o novo e-mail da sua conta
+                </h1>
+                <p style="margin: 0 0 26px; font-family: Poppins, 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 15px; line-height: 24px; color: #3d434e">
+                  Recebemos um pedido para trocar o e-mail de acesso da sua conta. A troca só vale depois que você confirmar pelo botão abaixo.
+                </p>
+
+                <!-- botão (funciona também no Outlook) -->
+                <table role="presentation" class="cta-table" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 14px">
+                  <tr>
+                    <td align="center" bgcolor="#d4a53c" style="border-radius: 12px; background-color: #d4a53c">
+                      <a
+                        class="cta"
+                        href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email_change&next=/conta?email=confirmado"
+                        target="_blank"
+                        style="display: inline-block; padding: 15px 30px; border-radius: 12px; background-color: #d4a53c; font-family: Poppins, 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 16px; line-height: 20px; font-weight: 700; color: #0b1f3a; text-decoration: none"
+                        >Confirmar troca &rarr;</a
+                      >
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin: 0 0 26px; font-family: Poppins, 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 13px; line-height: 20px; color: #5e6573">
+                  O link vale por tempo limitado e só pode ser usado uma vez.
+                </p>
+
+                <!-- link para copiar, se o botão não abrir -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 26px">
+                  <tr>
+                    <td bgcolor="#f4efe4" style="background-color: #f4efe4; border-radius: 12px; padding: 14px 16px">
+                      <p style="margin: 0 0 6px; font-family: Poppins, 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 12px; line-height: 18px; color: #5e6573">
+                        Se o botão não funcionar, copie e cole este endereço no navegador:
+                      </p>
+                      <p style="margin: 0; font-family: 'IBM Plex Mono', Menlo, Consolas, monospace; font-size: 12px; line-height: 18px; color: #163059; word-break: break-all">
+                        {{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=email_change&amp;next=/conta?email=confirmado
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="border-top: 1px solid #ddd4c2; padding-top: 18px; font-family: Poppins, 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 13px; line-height: 20px; color: #5e6573">
+                      <strong style="color: #12161d">Não pediu a troca?</strong> Ignore este e-mail e troque sua senha em Minha conta. Sem a confirmação, nada muda.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- rodapé -->
+            <tr>
+              <td align="center" style="padding: 22px 16px 0; font-family: Poppins, 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 12px; line-height: 18px; color: #7a8190">
+                Domínio Político · simulador de carreira política<br />
+                Você recebeu este e-mail porque houve um pedido de troca do e-mail de acesso.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
