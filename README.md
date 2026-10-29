@@ -185,7 +185,7 @@ supabase/templates/    e-mails de autenticação no visual do jogo
 - **Nenhuma escrita pelo cliente.** O motor grava por funções `SECURITY DEFINER` que exigem um segredo de servidor, guardado no banco só como hash SHA-256.
 - **Sementes dos mundos e vínculo conta ↔ personagem** ficam num schema privado, fora da API.
 - **Concorrência:** cada mundo tem um lease no banco, e a gravação confere o dia esperado antes de aplicar.
-- **Anti-robô:** Cloudflare Turnstile no cadastro, entrada, recuperação de senha e reenvio de confirmação, conferido pelo próprio Supabase Auth (Attack Protection). Sem a chave pública configurada, o widget não aparece.
+- **Anti-robô:** Cloudflare Turnstile (modo Managed) no cadastro, entrada, recuperação de senha e reenvio de confirmação, ligado em produção. O token é conferido pelo próprio Supabase Auth (Attack Protection, com a chave secreta); o site só tem a chave pública (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`). Os hostnames do widget são `dominio-politico.com.br`, `www.dominio-politico.com.br` e `dominio-politico.vercel.app`. Sem a chave pública configurada, o widget não aparece; nesse caso, desligue também a proteção no Supabase.
 - **Coleta mínima:** e-mail e senha. Nada de CPF, título de eleitor, endereço ou telefone.
 
 ## Tecnologias
