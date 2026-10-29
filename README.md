@@ -210,6 +210,15 @@ values ('local', encode(extensions.digest('SEU_SIM_SECRET', 'sha256'), 'hex'));
 
 Os mundos são criados sozinhos quando o primeiro jogador escolhe um ano.
 
+### E-mail de confirmação
+
+O modelo do e-mail de cadastro, no visual do jogo, está em `supabase/templates/confirmacao.html`. Para usar no projeto:
+
+1. Em **Authentication → Emails → Templates → Confirm signup**, use o assunto `Confirme seu e-mail · Domínio Político` e cole o conteúdo do arquivo no corpo da mensagem.
+2. Em **Authentication → URL Configuration**, confira se o **Site URL** é o endereço público do jogo e se `https://SEU-DOMINIO/auth/callback` está entre as **Redirect URLs**.
+
+O link do e-mail usa `token_hash` e passa pela rota `/auth/callback`, então a confirmação funciona mesmo quando a pessoa abre o e-mail em outro aparelho, e ela volta para onde estava indo (por exemplo, a criação de personagem do ano escolhido).
+
 ### Variáveis de ambiente
 
 Em `apps/web/.env.local` (fora do Git):
@@ -250,7 +259,7 @@ Os arquivos do TSE ficam em cache em `.cache/tse/` (fora do Git).
 
 - Nem toda candidatura tem foto: o TSE só publica fotos a partir de 2004, e parte dos arquivos não existe.
 - Os logos seguem a sigla e a época do ponto de partida, mas nem toda sigla antiga tem logo com licença livre (PSDC e PT do B, por exemplo); essas aparecem pela sigla e cor.
-- O envio de e-mails de confirmação usa o SMTP padrão do Supabase, que tem limite baixo de envios por hora.
+- O envio de e-mails usa o SMTP padrão do Supabase, que só entrega para endereços da equipe do projeto e tem limite baixo por hora. Para abrir o cadastro ao público, é preciso configurar um SMTP próprio (Resend, Brevo, Postmark, Amazon SES e outros) em Authentication → Emails → SMTP Settings.
 
 ## Créditos
 

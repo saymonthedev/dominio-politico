@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/AuthShell";
 import { SignInForm } from "@/components/AuthForms";
+import { FormMessage } from "@/components/forms";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 
 export const metadata: Metadata = { title: "Entrar" };
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ next?: string; erro?: string }> }) {
+  const { next, erro } = await searchParams;
   return (
     <>
       <PublicHeader loggedIn={false} />
@@ -20,6 +21,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
           </>
         }
       >
+        {erro === "link" && (
+          <FormMessage tone="info">
+            Este link de confirmação expirou ou já foi usado. Se você já confirmou o e-mail, é só entrar com sua senha.
+          </FormMessage>
+        )}
         <SignInForm next={next ?? "/jogo"} />
       </AuthShell>
       <Footer />
