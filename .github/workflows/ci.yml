@@ -21,8 +21,16 @@ jobs:
       - name: Testes do motor
         run: npm test
       - name: Build do site
-        run: npm run build
+        run: npm run build | tee build.log
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_exemplo
           NEXT_PUBLIC_SITE_URL: https://dominio-politico.com.br
+      - name: Tamanho do middleware (limite de 1 MB do plano da Vercel)
+        run: |
+          line=$(grep -E "Middleware +[0-9.]+ (kB|MB)" build.log | tail -1)
+          echo "$line"
+          if echo "$line" | grep -q " MB"; then
+            echo "::error::O middleware passou de 1 MB e a Vercel recusa o deploy. Algo pesado (provavelmente o motor) entrou no código do middleware ou do instrumentation."
+            exit 1
+          fi

@@ -562,11 +562,7 @@ export async function probeWorld(worldId: string): Promise<{ loadMs: number; lag
   return { loadMs, lagDays: Math.max(0, targetTick(state, new Date().toISOString()) - state.world.tick) };
 }
 
-/** Guarda um erro do servidor para o painel /admin (nunca falha: erro ao registrar erro é ignorado). */
-export async function logError(source: string, path: string | null, error: unknown, digest?: string | null): Promise<void> {
-  const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-  await rpc("log_error", { p_source: source, p_path: path, p_message: message, p_digest: digest ?? null }).catch(() => undefined);
-}
+export { reportError as logError } from "./report-error";
 
 export interface MaintenanceResult {
   news: number;
