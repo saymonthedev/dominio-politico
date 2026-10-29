@@ -68,7 +68,7 @@ Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE.
 - **Dinheiro:** fechamento mensal com extrato por categoria: salário da profissão ou subsídio do cargo (valores de cada época, de vereador a presidente), Imposto de Renda simplificado (com a isenção até R$ 5 mil a partir de 2026), custo de vida, rendimento da reserva pela Selic, contribuição ao partido, empréstimos com juros e dinheiro não declarado separado da conta, que só volta ao bolso lavado e com perda. Os preços seguem a inflação real até o ponto de partida e, depois, o IPCA simulado mês a mês.
 - **Partido próprio:** fundação com estatuto e custos, coleta de apoio de eleitores (0,5% dos votos válidos para a Câmara, com mínimo em nove estados) em até dois anos, conferência e registro no TSE, presidência da legenda, pedidos de filiação de outros políticos, convites e fidelidade partidária conforme a época (a criação de partido deixou de ser justa causa em 2015). Na eleição, a presidência indica os candidatos da legenda e, depois das convenções, reparte a cota do partido no fundo eleitoral (FEFC) entre as candidaturas; o que sobra no 1º turno volta ao Tesouro.
 - **Passar o tempo:** além do relógio automático, o Painel tem um lugar único para pular 1 dia, 1 semana, 15 dias ou 1 mês. Ao fim, um resumo mostra o que aconteceu no Brasil (aprovação, Selic, inflação, desemprego, dólar e manchetes) e o que mudou para você, com atalho para aceitar ou recusar convites de filiação (os botões somem assim que o convite é respondido).
-- **Mundo compartilhado, só seu ou fictício:** na criação do personagem você escolhe onde jogar. O compartilhado reúne todos os jogadores daquele ano. O "só meu" tem os mesmos dados reais, sem outros jogadores, e o relógio fica parado até você avançar. O fictício também é só seu, mas troca todas as pessoas e partidos reais por nomes e siglas inventados (inclusive nas notícias, no mapa e nos municípios), sem fotos nem logos reais; como ninguém ali é real, qualquer político pode cometer crimes e ser investigado. Cada conta tem um mundo próprio por vez, e ele é apagado inteiro com o personagem (em Minha conta).
+- **Mundo compartilhado, só seu ou fictício:** na criação do personagem você escolhe onde jogar. O compartilhado reúne todos os jogadores daquele ano. O "só meu" tem os mesmos dados reais, sem outros jogadores, e o relógio fica parado até você avançar. O fictício também é só seu, mas troca todas as pessoas e partidos reais por nomes e siglas inventados (inclusive nas notícias, no mapa e nos municípios), sem fotos nem logos reais; como ninguém ali é real, qualquer político pode cometer crimes e ser investigado. Cada conta tem um mundo próprio por vez, e ele é apagado inteiro com o personagem (em Minha conta). Só o dono enxerga o que acontece nele. Um mundo próprio parado por 90 dias é apagado sozinho, com aviso por e-mail uma semana antes.
 - **Conquistas e ranking:** 20 conquistas de carreira (primeira filiação, nome na urna, cada cargo, partido fundado, mãos limpas, inocentado e outras), registradas com a data no jogo e com aviso. Elas somam pontos com o cargo atual e a reputação no ranking dos jogadores de cada mundo. A Carreira mostra também o histórico de mandatos e eleições.
 - **Relógio compartilhado:** cada ponto de partida tem um mundo compartilhado. Quem joga sozinho avança sem limite. Com outros jogadores ativos (ação nas últimas 72 horas), o relógio aceita até 60 dias de jogo por hora real somando todos, para na véspera de prazos e eleições (filiação, fim das convenções, turnos) e só cruza esses marcos 30 minutos depois do último avanço. Todo avanço fica registrado no Painel e avisa os outros jogadores.
 - **Mapa político dos 5.570 municípios,** com prefeito(a) e câmara de cada cidade no ponto de partida (TSE) e zoom do país até o município. Capitais e a cidade do jogador têm disputa completa; as demais são simuladas de forma determinística a cada eleição municipal.
@@ -85,6 +85,9 @@ Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE.
   - listas de pessoas com filtros por cargo, partido e UF;
   - menu lateral com grupos recolhíveis e, no celular, quatro atalhos e um menu "Mais";
   - acessibilidade: contraste AA nas cores de texto e nas pílulas, foco preso e Esc nos diálogos, setas nos menus, atalho "Pular para o conteúdo" e menos animação para quem prefere.
+- **Páginas de cada ponto de partida** (`/partida/2002` a `/partida/2026`): o 2º turno real, o vencedor em cada estado, eleitorado, partidos, Selic, inflação e as regras da primeira eleição geral do mundo, com botão para começar naquele ano.
+- **Prévia de link:** imagem própria para WhatsApp e redes sociais, na página inicial e em cada ponto de partida (com a barra do 2º turno).
+- **Página não encontrada (404)** no visual do jogo: uma cédula "indeferida", com atalhos para o início, os seus mundos e o manual.
 - **Conta:** recuperar senha por e-mail, reenviar a confirmação, trocar senha (pedindo a atual) e trocar e-mail (com confirmação no endereço novo).
 - **LGPD:** exportação dos dados em JSON e exclusão da conta. Na exclusão, o personagem sai da política sem nenhum evento negativo.
 
@@ -144,7 +147,10 @@ apps/web/              site Next.js (App Router, Server Actions)
   components/          kit de formulário, mapa, cabeçalho e rodapé, blocos legais
   components/game/     casca do jogo: barra lateral, sino, passar o tempo, ações rápidas
   lib/sim.ts           ponte motor ↔ banco: carrega, avança o relógio, aplica ações e grava
-  app/admin/           painel de saúde (restrito às contas em ADMIN_USER_IDS)
+  app/admin/           painel de saúde (restrito às contas em ADMIN_USER_IDS): contas, banco, mundos e erros recentes
+  app/partida/[ano]/   página e imagem de compartilhamento de cada ponto de partida
+  e2e/                 testes das telas (Playwright) contra o projeto Supabase de testes
+  instrumentation.ts   registra os erros do servidor para o painel /admin
   lib/game-view.ts     leituras para as telas: próximos passos, agenda e pendências
   lib/glossary.ts      verbetes do glossário (página e dicas nas telas)
   lib/photos.json      fotos do TSE por pessoa (arquivos em public/fotos)
@@ -176,13 +182,17 @@ supabase/templates/    e-mails de autenticação no visual do jogo
 
 **Relógio preguiçoso.** O mundo não precisa de um processo rodando: ao abrir uma página ou executar uma ação, o servidor calcula quantos dias deveriam ter passado e processa a diferença. A rota `/api/cron/tick` faz o mesmo para os mundos compartilhados e roda todo dia pelo Vercel Cron (`apps/web/vercel.json`), para que o mundo ande mesmo sem ninguém abrindo o jogo. Mundos próprios têm velocidade zero: só andam quando o dono avança.
 
+**Manutenção diária.** A mesma tarefa chama `sim_maintenance`, que poda o que já não serve: notícias com mais de dois anos de jogo (menos as de importância 3, os fatos com fonte e tudo o que envolve jogadores), eventos antigos sem jogadores e notificações lidas com mais de um ano de jogo. Ela também cuida dos mundos próprios parados: aos 83 dias sem uso, o dono recebe um aviso por e-mail (pela API da Resend, se `RESEND_API_KEY` estiver configurada); aos 90, o mundo é apagado.
+
+**Erros e métricas.** Erros de páginas, ações e da tarefa diária ficam guardados por 14 dias (fora da API pública) e aparecem no painel `/admin`. As visitas são contadas pelo Vercel Web Analytics, sem cookies.
+
 **Mundos próprios.** O id diz o tipo: `br2026` (compartilhado), `br2026p…` (só meu) e `br2026f…` (fictício), com o começo do id da conta. No fictício, a troca de nomes é determinística (semente do mundo + nome real), então os dados estáticos dos municípios são convertidos de novo a cada carga, sem guardar uma tabela de nomes; o mundo guarda só o número de cada sigla real, para achar o partido correspondente. A função `sim_drop_world` apaga um mundo próprio inteiro e recusa os compartilhados.
 
 **Leitura e gravação.** O estado é lido em partes paralelas e gravado em lotes paralelos; um lote que estoura o tempo do banco é dividido ao meio e tentado de novo (a gravação é idempotente). Com o jogador logado, as chamadas usam o papel autenticado, que tem mais tempo por comando. As telas usam um cache curto, descartado na hora quando o dia de jogo mudou ou o jogador agiu.
 
 ### Segurança
 
-- **RLS em todas as tabelas.** O mundo é de leitura pública; notificações, finanças, dossiês e notícias privadas só para o dono.
+- **RLS em todas as tabelas.** Os mundos compartilhados são de leitura pública; os mundos próprios, só para o dono (`private.can_read_world`). Notificações, finanças, dossiês e notícias privadas são sempre só do dono. As funções da conta (`my_characters`, `delete_my_data`, `mark_notifications_read`) exigem login.
 - **Nenhuma escrita pelo cliente.** O motor grava por funções `SECURITY DEFINER` que exigem um segredo de servidor, guardado no banco só como hash SHA-256.
 - **Sementes dos mundos e vínculo conta ↔ personagem** ficam num schema privado, fora da API.
 - **Concorrência:** cada mundo tem um lease no banco, e a gravação confere o dia esperado antes de aplicar.
@@ -251,6 +261,8 @@ Em `apps/web/.env.local` (fora do Git):
 | `NEXT_PUBLIC_SITE_URL` | Em produção | URL pública, usada nos links de confirmação de e-mail. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Não | Chave pública do Cloudflare Turnstile. A chave secreta vai no Supabase (Authentication → Attack Protection), não aqui. |
 | `ADMIN_USER_IDS` | Não | Ids das contas (separados por vírgula) que podem abrir `/admin`. |
+| `RESEND_API_KEY` | Não | Chave da Resend (só envio) para os avisos de mundo parado. Sem ela, os avisos não saem por e-mail. |
+| `MAIL_FROM` | Não | Remetente dos avisos. Padrão: `Domínio Político <nao-responda@dominio-politico.com.br>`. |
 | `MAX_PRIVATE_WORLDS` | Não | Quantos mundos próprios podem existir ao mesmo tempo (cada um ocupa alguns MB). Padrão: 30. |
 | `CRON_SECRET` | Não | Protege `/api/cron/tick`. Sem ele, a rota usa o `SIM_SECRET`. |
 | `WORLD_GAME_DAYS_PER_HOUR` | Não | Velocidade do relógio. Padrão: 2 dias por hora real. |
@@ -259,6 +271,7 @@ Em `apps/web/.env.local` (fora do Git):
 ### Backup e CI
 
 - **CI** (`.github/workflows/ci.yml`): a cada push e pull request, roda `typecheck`, os testes do motor e o build.
+- **Testes das telas** (`.github/workflows/e2e.yml`): sobe o site contra o projeto Supabase **de testes** (`dominio-politico-testes`, com o mesmo esquema da produção e sem anti-robô) e, com o Playwright, confere as páginas públicas e a 404, entra com uma conta de teste, cria um personagem num mundo só dela, confere os logos dos partidos, passa um mês, responde um convite se aparecer e apaga o mundo. Precisa dos segredos `E2E_SIM_SECRET` e `E2E_PASSWORD`; sem eles, só a parte pública roda. Localmente: `npx next build && npx playwright test` em `apps/web`, com as mesmas variáveis.
 - **Backup diário** (`.github/workflows/backup.yml`): `pg_dump` do banco, criptografado com GPG e guardado por 30 dias como artefato do GitHub Actions. Precisa de dois segredos no repositório: `SUPABASE_DB_URL` (a string de conexão do pooler de sessão, em Supabase → Connect) e `BACKUP_PASSPHRASE` (a senha do arquivo). Para restaurar: baixe o artefato, rode `gpg -d dominio-politico-AAAA-MM-DD.dump.gpg > copia.dump` (pede a senha) e depois `pg_restore --no-owner --clean --if-exists -d "$URL" copia.dump`.
 
 ### Dados
@@ -279,6 +292,7 @@ Os arquivos do TSE ficam em cache em `.cache/tse/` (fora do Git).
 | --- | --- |
 | `npm test`: os 7 pontos de partida reproduzem o eleito real, 513 cadeiras na Câmara e 81 no Senado; municípios e eleições municipais; crimes nunca atribuídos a pessoas reais; dossiês; fundação de partido até o registro; chapa e fundo eleitoral do partido próprio; subsídios e imposto por época; filiação de novatos; inflação simulada; relógio compartilhado; exclusão de conta; conquistas; mundo fictício sem nenhuma pessoa ou sigla real; simulação de 2026 até depois da eleição de 2030 | 34 de 34 |
 | `npm run test:integration`: criação do mundo, personagem, ações e avanço de 15 dias contra o Supabase real | aprovado |
+| Testes das telas (Playwright): páginas públicas, 404 e o fluxo do jogo num mundo próprio | 2 de 2 |
 | `npm run test:private-world`: mundo fictício próprio criado (7,5 s), carregado, com personagem, avançado 7 dias e apagado | aprovado |
 | Totais do 2º turno contra o TSE (ex.: Lula 2002 com 52.793.364 votos, Lula 2022 com 60.345.999) | iguais |
 | `npm run typecheck` e `npm run build` | sem erros |
@@ -288,7 +302,6 @@ Os arquivos do TSE ficam em cache em `.cache/tse/` (fora do Git).
 
 - Nem toda candidatura tem foto: o TSE só publica fotos a partir de 2004, e parte dos arquivos não existe.
 - Os logos seguem a sigla e a época do ponto de partida, mas nem toda sigla antiga tem logo com licença livre (PSDC e PT do B, por exemplo); essas aparecem pela sigla e cor.
-- Os dados de um mundo próprio seguem a regra de leitura dos mundos (públicos para quem conhece o id); notificações, finanças e dossiês continuam só do dono.
 - O ranking compara só jogadores do mesmo mundo.
 - O remetente dos e-mails não tem foto: o domínio só envia (não recebe), e o logo oficial no Gmail (BIMI) exige certificado de marca pago.
 - Com o plano grátis da Resend, o jogo envia no máximo 100 e-mails por dia.
