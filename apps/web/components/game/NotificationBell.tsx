@@ -1,10 +1,10 @@
 "use client";
+import { InviteActions } from "./InviteActions";
 import { useEffect, useId, useRef, useState } from "react";
 import { markNotificationsRead } from "@/app/jogo/actions";
 import { inviteIdOf, resolveLink } from "@/lib/links";
 import { usePopover } from "../a11y";
 import { Icon } from "../Icon";
-import { QuickAction } from "./QuickAction";
 
 export interface BellItem {
   id: string;
@@ -67,10 +67,7 @@ export function NotificationBell({ year, unread, items, openInvites }: { year: n
                     </div>
                     <p>{n.body}</p>
                     {invite && pendingInvites.has(invite) && (
-                      <div className="bellitem__actions">
-                        <QuickAction year={year} action="responder_convite" params={{ request: invite, decision: "ACEITAR" }} label="Aceitar filiação" tone="gold" icon="check" />
-                        <QuickAction year={year} action="responder_convite" params={{ request: invite, decision: "RECUSAR" }} label="Recusar" tone="ghost" />
-                      </div>
+                      <InviteActions year={year} invite={invite} className="bellitem__actions" />
                     )}
                   </div>
                 );

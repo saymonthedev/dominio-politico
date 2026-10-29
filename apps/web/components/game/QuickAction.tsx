@@ -15,6 +15,7 @@ export function QuickAction({
   size = "sm",
   icon,
   full,
+  onDone,
 }: {
   year: number;
   action: string;
@@ -24,6 +25,8 @@ export function QuickAction({
   size?: "sm" | "lg";
   icon?: string;
   full?: boolean;
+  /** chamado depois da resposta do servidor (ex.: esconder os botões de um convite já respondido) */
+  onDone?: (ok: boolean) => void;
 }) {
   const [pending, start] = useTransition();
   const toast = useToast();
@@ -40,6 +43,7 @@ export function QuickAction({
         start(async () => {
           const r = await quickAction(year, action, params);
           toast({ tone: r.ok ? "ok" : "err", title: r.ok ? label : "Não deu certo", body: r.message });
+          onDone?.(r.ok);
           router.refresh();
         })
       }

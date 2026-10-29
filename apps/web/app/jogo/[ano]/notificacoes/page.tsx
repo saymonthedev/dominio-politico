@@ -1,3 +1,4 @@
+import { InviteActions } from "@/components/game/InviteActions";
 import type { AffiliationRequestRow, NotificationRow, PartyRow } from "@dp/engine";
 import { PartyMark } from "@/components/PartyMark";
 import { Icon } from "@/components/Icon";
@@ -72,10 +73,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                           </div>
                           <p>{n.body}</p>
                           {invite && openInvites.has(invite) && (
-                            <div className="ntl__actions">
-                              <QuickAction year={year} action="responder_convite" params={{ request: invite, decision: "ACEITAR" }} label="Aceitar filiação" tone="gold" icon="check" />
-                              <QuickAction year={year} action="responder_convite" params={{ request: invite, decision: "RECUSAR" }} label="Recusar" tone="ghost" />
-                            </div>
+                            <InviteActions year={year} invite={invite} className="ntl__actions" />
                           )}
                           {invite && !openInvites.has(invite) && <small className="muted">Convite já respondido ou expirado.</small>}
                         </div>

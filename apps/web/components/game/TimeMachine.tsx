@@ -1,4 +1,5 @@
 "use client";
+import { InviteActions } from "./InviteActions";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { advanceTime } from "@/app/jogo/actions";
@@ -9,7 +10,6 @@ import { Button } from "../forms";
 import { Term } from "../Term";
 import { Icon } from "../Icon";
 import { NEWS_CATEGORIES } from "./NewsList";
-import { QuickAction } from "./QuickAction";
 import { useToast } from "./Toaster";
 
 const DAY = 86_400_000;
@@ -331,10 +331,7 @@ export function PeriodReport({ result, year, onClose }: { result: FastForwardRes
                         <b>{href && !invite ? <a href={href}>{n.title}</a> : n.title}</b>
                         <p>{n.body}</p>
                         {invite && (
-                          <div className="pr-actions">
-                            <QuickAction year={year} action="responder_convite" params={{ request: invite, decision: "ACEITAR" }} label="Aceitar filiação" tone="gold" icon="check" />
-                            <QuickAction year={year} action="responder_convite" params={{ request: invite, decision: "RECUSAR" }} label="Recusar" tone="ghost" />
-                          </div>
+                          <InviteActions year={year} invite={invite} className="pr-actions" />
                         )}
                       </li>
                     );
