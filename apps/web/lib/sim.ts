@@ -100,15 +100,18 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
+/** Se o mundo existe (os próprios não aparecem na leitura pública, por isso a função do banco). */
 export async function worldExists(worldId: string): Promise<boolean> {
-  const { data } = await db().from("worlds").select("id").eq("id", worldId).maybeSingle();
+  const { data, error } = await db().rpc("world_exists", { p_world: worldId });
+  if (error) throw new SimDbError("world_exists", error.code, error.message);
   return !!data;
 }
 
 /** Quantos mundos próprios existem hoje. */
 export async function countPrivateWorlds(): Promise<number> {
-  const { count } = await db().from("worlds").select("id", { count: "exact", head: true }).filter("id", "match", "^br[0-9]{4}[pf]");
-  return count ?? 0;
+  const { data, error } = await db().rpc("private_world_count");
+  if (error) throw new SimDbError("private_world_count", error.code, error.message);
+  return Number(data ?? 0);
 }
 
 /** Remove um mundo próprio inteiro (o banco recusa os compartilhados). */
