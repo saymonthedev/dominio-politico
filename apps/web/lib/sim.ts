@@ -461,3 +461,48 @@ export async function clearPlayerWorlds(chars: Array<{ world_id: string; person_
     await withWorld(c.world_id, (_state, mk) => clearPlayerData(mk(c.person_id), c.person_id), { maxTicks: 0 }).catch(() => undefined);
   }
 }
+
+export interface AdminWorld {
+  id: string;
+  game_date: string;
+  tick: number;
+  anchor_real_at: string;
+  speed: number;
+  persons: number;
+  players: number;
+  players_24h: number;
+  players_7d: number;
+  actions_24h: number;
+  advances_24h: number;
+  acts: number;
+  acts_discovered: number;
+  investigations_open: number;
+  investigations_closed: number;
+  convictions: number;
+  news: number;
+  parties_player: number;
+  economy: Array<{ month: string; selic: number; inflation: number; unemployment: number; gdp: number }>;
+}
+
+export interface AdminOverview {
+  now: string;
+  db_bytes: number;
+  accounts: number;
+  accounts_7d: number;
+  unconfirmed: number;
+  tables: Array<{ name: string; bytes: number }>;
+  worlds: AdminWorld[];
+}
+
+/** Números agregados para o painel de saúde (só para administradores). */
+export function adminOverview(): Promise<AdminOverview> {
+  return rpc<AdminOverview>("admin_overview", {});
+}
+
+/** Mede quanto tempo leva para carregar um mundo inteiro e quantos dias o relógio está atrasado. */
+export async function probeWorld(worldId: string): Promise<{ loadMs: number; lagDays: number }> {
+  const t0 = Date.now();
+  const state = await loadState(worldId);
+  const loadMs = Date.now() - t0;
+  return { loadMs, lagDays: Math.max(0, targetTick(state, new Date().toISOString()) - state.world.tick) };
+}

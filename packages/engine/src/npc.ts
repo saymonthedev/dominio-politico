@@ -120,6 +120,7 @@ export function buildPerson(input: NewPersonInput): { person: PersonRow; state: 
     debt: 0,
     assets: input.assets ?? Math.round(input.money * 2),
     ledger: { month: null, items: [], net: 0 },
+    achievements: {},
     jailed_until: null,
     sentence: null,
   };

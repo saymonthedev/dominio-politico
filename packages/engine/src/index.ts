@@ -1,4 +1,5 @@
 export * from "./account";
+export * from "./achievements";
 export * from "./actions";
 export * from "./affiliation";
 export * from "./bootstrap";

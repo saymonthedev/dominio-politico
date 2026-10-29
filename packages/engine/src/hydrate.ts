@@ -15,6 +15,7 @@ export function hydrateState(s: WorldState): WorldState {
     st.ledger ??= { month: null, items: [], net: 0 };
     st.jailed_until ??= null;
     st.sentence ??= null;
+    st.achievements ??= {};
   }
   for (const a of s.t.illicit_acts.values()) {
     a.ongoing ??= false;

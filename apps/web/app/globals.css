@@ -1713,3 +1713,48 @@ td.num, th.num { text-align: right; }
 .account-card--form { align-items: flex-start; }
 .account-form { display: grid; gap: 4px; flex: 1; min-width: min(320px, 100%); max-width: 420px; }
 .account-form .ui-btn { justify-self: start; margin-top: 6px; }
+
+/* ===================== Conquistas, trajetória e ranking ===================== */
+.achs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; }
+.achs li { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--rebaixada); opacity: .62; }
+.achs li.is-on { opacity: 1; background: color-mix(in srgb, var(--faixa) 12%, var(--cartao)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--faixa) 40%, transparent); }
+.achs__ico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--cartao); color: var(--apagado); }
+.achs li.is-on .achs__ico { background: var(--faixa); color: var(--planalto); }
+.achs b { display: block; font-size: .84rem; }
+.achs small { display: block; font-size: .74rem; color: var(--apagado); line-height: 1.35; }
+.record { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.record li { display: grid; gap: 2px; padding: 10px 12px; border-left: 3px solid var(--linha); background: var(--rebaixada); border-radius: 0 10px 10px 0; }
+.record li.is-won { border-left-color: var(--faixa); }
+.record b { font-size: .88rem; }
+.record span { font-size: .78rem; color: var(--apagado); }
+.rank { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rank li { display: grid; grid-template-columns: 32px auto minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--linha); background: var(--cartao); }
+.rank li.is-me { border-color: var(--faixa); box-shadow: 0 0 0 2px color-mix(in srgb, var(--faixa) 35%, transparent); }
+.rank__pos { font-size: 1rem; font-weight: 700; color: var(--apagado); text-align: center; }
+.rank li:nth-child(-n+3) .rank__pos { color: var(--faixa-texto); }
+.rank__who { display: grid; min-width: 0; }
+.rank__who b { font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank__who span { font-size: .76rem; color: var(--apagado); }
+.rank__score { font-size: 1.1rem; }
+@media (max-width: 560px) { .rank li { grid-template-columns: 26px auto minmax(0, 1fr) auto; } .rank li .pill { display: none; } }
+
+/* painel de saúde (/admin) */
+.admin { display: grid; gap: 18px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--cartao); border: 1px solid var(--linha); border-radius: 14px; padding: 14px 16px; display: grid; gap: 2px; }
+.kpi span { font-size: .78rem; color: var(--apagado); }
+.kpi b { font-size: 1.35rem; }
+.kpi small { font-size: .74rem; color: var(--apagado); }
+.kpi--warn { border-color: color-mix(in srgb, var(--urgente) 45%, var(--linha)); }
+.kpi--warn b { color: var(--urgente); }
+.admin-world { background: var(--cartao); border: 1px solid var(--linha); border-radius: 18px; padding: 18px 20px; display: grid; gap: 14px; box-shadow: var(--shadow); }
+.admin-world > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.admin-world h2 { margin: 0; font-size: 1.1rem; }
+.admin-world .kpi { background: var(--rebaixada); border-color: transparent; }
+.admin-econ { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.admin-econ > div { display: grid; gap: 4px; font-size: .84rem; color: var(--apagado); }
+.admin-econ b { color: var(--tinta, inherit); margin-left: 4px; }
+.admin-econ .spark { width: 100%; height: 40px; }
+.admin-tables { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.admin-tables li { display: grid; grid-template-columns: minmax(120px, 200px) 1fr auto; gap: 12px; align-items: center; font-size: .85rem; }
+.admin-tables .bar { height: 8px; border-radius: 4px; background: var(--faixa); }

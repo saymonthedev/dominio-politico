@@ -19,6 +19,7 @@ import { monthlyFinances, monthlyPartyFinances } from "./finance";
 import { dailyPartyFormation, playerPartyRecruitment, processPartyInvites } from "./partyfounding";
 import { partySwitchWindow, weeklyAgenda, yearlyRenewal } from "./npclife";
 import { creditPartyFunds, returnUnusedFunds } from "./partycampaign";
+import { checkAchievements } from "./achievements";
 import { eraRules } from "./ruleset";
 import { scheduledElection } from "./bootstrap";
 import { Ctx, type WorldState } from "./state";
@@ -135,6 +136,7 @@ export function advanceDay(ctx: Ctx): void {
     monthlyPartyFinances(ctx);
   }
   if (month(d) === 1 && day(d) === 2) yearlyRenewal(ctx);
+  for (const p of ctx.t.persons.values()) if (p.kind === "PLAYER" && p.status === "ACTIVE") checkAchievements(ctx, p);
   ctx.saveWorld();
 }
 

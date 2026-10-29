@@ -1,9 +1,10 @@
-import { AXES, AXIS_INFO, ENTRY_CULTURE_LABEL, geoName, canonicalGeo, profession, type AffiliationRequestRow, type WorldEventRow } from "@dp/engine";
+import { ACHIEVEMENTS, AXES, AXIS_INFO, careerScore, ENTRY_CULTURE_LABEL, geoName, canonicalGeo, OFFICES, profession, type AffiliationRequestRow, type WorldEventRow } from "@dp/engine";
 import { PartyMark } from "@/components/PartyMark";
 import { ActionPanel } from "@/components/ActionPanel";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
+import { Icon } from "@/components/Icon";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { PartyChip, STAGE_LABEL } from "@/components/ui";
 import { actionsFor } from "@/lib/actions-view";
@@ -55,6 +56,20 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const st = me.state;
   const steps = careerSteps(state, me.person, st, year);
   const age = Number(state.world.game_date.slice(0, 4)) - me.person.birth_year;
+  const score = careerScore(me.person, st);
+  // mandatos exercidos e resultados das próprias candidaturas, do mais recente ao mais antigo
+  const record = [
+    ...[...state.t.mandates.values()]
+      .filter((m) => m.person_id === me.person.id)
+      .map((m) => ({ date: m.start_on, won: true, title: `${OFFICES[m.office_code].name} · ${geoName(m.geo, { cities })}`, detail: `${m.status === "FUTURO" ? "posse em" : "desde"} ${fmtDate(m.start_on)}${m.status === "ENCERRADO" ? ` até ${fmtDate(m.end_on)}` : m.status === "ATIVO" ? " · em exercício" : ""}` })),
+    ...[...state.t.candidacies.values()]
+      .filter((c) => c.person_id === me.person.id && ["ELEITO", "NAO_ELEITO", "SUPLENTE", "SEGUNDO_TURNO", "HOMOLOGADA", "INDEFERIDA"].includes(c.status))
+      .map((c) => {
+        const e = state.t.elections.get(c.election_id);
+        const label = { ELEITO: "eleito(a)", NAO_ELEITO: "não eleito(a)", SUPLENTE: "suplente", SEGUNDO_TURNO: "no 2º turno", HOMOLOGADA: "em campanha", INDEFERIDA: "candidatura indeferida" }[c.status as string];
+        return { date: e?.first_round ?? "", won: c.status === "ELEITO", title: `Eleição de ${e?.year ?? "?"}: ${OFFICES[c.office_code].name}`, detail: `${label}${c.votes ? ` · ${c.votes.toLocaleString("pt-BR")} votos` : ""}` };
+      }),
+  ].sort((a, b) => b.date.localeCompare(a.date));
   const city = canonicalGeo(me.person.municipality);
   const place = /^\d{7}$/.test(city) ? geoName(city, { cities }) : me.person.uf;
 
@@ -116,6 +131,23 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             <ActionPanel year={year} actions={actions} />
           </Panel>
 
+          <Panel title="Mandatos e eleições" icon="ballot">
+            {record.length ? (
+              <ul className="record">
+                {record.map((r, i) => (
+                  <li key={i} className={r.won ? "is-won" : ""}>
+                    <b>{r.title}</b>
+                    <span>{r.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Empty icon="ballot" title="Nenhuma disputa ainda">
+                Seus mandatos e candidaturas aparecem aqui, com o resultado de cada eleição.
+              </Empty>
+            )}
+          </Panel>
+
           <Panel title="Sua trajetória" icon="clock">
             {events.length ? (
               <ol className="tline">
@@ -133,6 +165,24 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         </div>
 
         <div className="gstack">
+          <Panel title="Conquistas" icon="star" href={`/jogo/${year}/ranking`} hrefLabel={`${score} pontos · ranking`}>
+            <ul className="achs">
+              {ACHIEVEMENTS.map((a) => {
+                const on = st.achievements?.[a.id];
+                return (
+                  <li key={a.id} className={on ? "is-on" : ""} title={a.text}>
+                    <span className="achs__ico" aria-hidden="true">
+                      <Icon name={a.icon} size={16} />
+                    </span>
+                    <span>
+                      <b>{a.title}</b>
+                      <small>{on ? `${fmtDate(on)} · +${a.points}` : a.text}</small>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </Panel>
           <Panel title="Indicadores" icon="chart">
             <MeterRow label="Reputação" value={me.person.reputation} tone="sim" />
             <MeterRow label="Visibilidade" value={me.person.visibility} />

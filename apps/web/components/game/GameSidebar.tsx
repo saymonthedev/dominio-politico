@@ -20,7 +20,7 @@ const GROUPS: Array<{ id: string; title: string; items: Item[] }> = [
       ["/relacoes", "Relações", "users"],
     ],
   },
-  { id: "pais", title: "O país", items: [["/noticias", "Notícias", "newspaper"], ["/eleicoes", "Eleições", "ballot"], ["/partidos", "Partidos", "flag"], ["/mapa", "Mapa", "map"], ["/economia", "Economia", "chart"]] },
+  { id: "pais", title: "O país", items: [["/noticias", "Notícias", "newspaper"], ["/eleicoes", "Eleições", "ballot"], ["/partidos", "Partidos", "flag"], ["/mapa", "Mapa", "map"], ["/economia", "Economia", "chart"], ["/ranking", "Ranking", "star"]] },
   { id: "bastidores", title: "Bastidores", items: [["/investigacoes", "Investigações", "search"], ["/esquemas", "Esquemas", "key"], ["/notificacoes", "Notificações", "bell"]] },
 ];
 const ALL = GROUPS.flatMap((g) => g.items);

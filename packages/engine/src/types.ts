@@ -173,6 +173,8 @@ export interface PersonStateRow {
   assets: number;
   /** último fechamento mensal */
   ledger: Ledger;
+  /** conquistas da carreira: id → data em que aconteceu */
+  achievements: Record<string, ISODate>;
   /** cumprindo pena em regime fechado até */
   jailed_until: ISODate | null;
   /** última condenação */

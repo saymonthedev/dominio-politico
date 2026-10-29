@@ -1,3 +1,4 @@
+import { checkAchievements } from "./achievements";
 import { joinParty, leaveParty, relKey, requestAffiliation } from "./affiliation";
 import { addDays, formatDatePt } from "./calendar";
 import {
@@ -1682,6 +1683,7 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
   ctx.save("persons", p);
   ctx.save("person_states", st);
   ctx.emit("PLAYER_ACTION", { actors: [personId], geography: p.uf, payload: { action: actionId, params, message: result.message } });
+  checkAchievements(ctx, p);
   return result;
 }
 
