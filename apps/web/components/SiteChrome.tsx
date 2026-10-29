@@ -87,7 +87,7 @@ export const DISCLAIMER =
   "Domínio Político é uma simulação fictícia e independente. Não possui vínculo com o TSE, partidos, candidaturas, veículos de comunicação ou instituições retratadas, salvo quando expressamente indicado.";
 
 const FOOTER_COLS: Array<{ title: string; links: Array<[string, string, string]> }> = [
-  { title: "O jogo", links: [["/como-funciona", "Como funciona", "play"], ["/manual", "Manual do jogador", "book"], ["/glossario", "Glossário", "search"]] },
+  { title: "O jogo", links: [["/como-funciona", "Como funciona", "play"], ["/manual", "Manual do jogador", "book"], ["/glossario", "Glossário", "search"], ["/partida/2026", "Pontos de partida", "flag"]] },
   { title: "Transparência", links: [["/fontes", "Fontes e licenças", "database"], ["/privacidade", "Privacidade (LGPD)", "lock"], ["/termos", "Termos de uso", "file"]] },
 ];
 

@@ -1765,3 +1765,26 @@ td.num, th.num { text-align: right; }
 .admin-errors { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .admin-errors li { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--rebaixada); overflow-wrap: anywhere; }
 .admin-errors b { font-size: .86rem; font-weight: 600; }
+
+/* páginas de ponto de partida (/partida/[ano]) */
+.sp-cta { margin-top: 22px; }
+.startpage { display: grid; gap: 18px; max-width: 900px; }
+.sp-card { background: var(--cartao); border: 1px solid var(--linha); border-radius: 18px; padding: 22px 24px; box-shadow: var(--shadow); display: grid; gap: 12px; }
+.sp-card h2 { margin: 0; font-size: 1.15rem; }
+.sp-card p { margin: 0; }
+.sp-duel { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.sp-duel b { display: block; font-size: 1.05rem; }
+.sp-duel span { font-size: .84rem; color: var(--apagado); }
+.sp-duel .mono { font-size: 1.2rem; color: inherit; }
+.sp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.sp-stats > div { background: var(--cartao); border: 1px solid var(--linha); border-radius: 14px; padding: 14px 16px; display: grid; gap: 2px; }
+.sp-stats b { font-size: 1.35rem; }
+.sp-stats span { font-size: .8rem; color: var(--apagado); }
+.sp-ufs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.sp-ufs li { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--rebaixada); border-left: 4px solid var(--c); font-size: .88rem; }
+.sp-years { display: flex; flex-wrap: wrap; gap: 8px; }
+.sp-years a, .sp-years span { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--linha); font-family: var(--f-mono); font-size: .9rem; color: var(--tinta); text-decoration: none; }
+.sp-years a:hover { border-color: var(--faixa); }
+.sp-years .is-on { background: var(--planalto); color: var(--faixa-suave); border-color: var(--planalto); }
+.sp-years--home { margin-top: 18px; align-items: center; }
+.sp-years--home .muted { border: 0; padding: 0 4px 0 0; }

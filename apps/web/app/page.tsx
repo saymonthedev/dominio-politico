@@ -122,9 +122,17 @@ export default async function Home() {
           <div className="section-head">
             <div className="section-kicker">Pontos de partida</div>
             <h2>Escolha em que Brasil você começa</h2>
-            <p>Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE. Cada ano é um mundo compartilhado e independente.</p>
+            <p>Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE. Cada ano tem um mundo compartilhado, e você também pode jogar num mundo só seu.</p>
           </div>
           <StartTrack hrefFor={(y) => startHref(y)} />
+          <nav className="sp-years sp-years--home" aria-label="Conheça cada ponto de partida">
+            <span className="muted small">Conheça cada um:</span>
+            {START_POINTS.map((s) => (
+              <a key={s.year} href={`/partida/${s.year}`}>
+                {s.year}
+              </a>
+            ))}
+          </nav>
         </div>
       </section>
 
