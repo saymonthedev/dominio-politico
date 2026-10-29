@@ -258,7 +258,7 @@ Em `apps/web/.env.local` (fora do Git):
 ### Backup e CI
 
 - **CI** (`.github/workflows/ci.yml`): a cada push e pull request, roda `typecheck`, os testes do motor e o build.
-- **Backup diário** (`.github/workflows/backup.yml`): `pg_dump` do banco, criptografado com GPG e guardado por 30 dias como artefato do GitHub Actions. Precisa de dois segredos no repositório: `SUPABASE_DB_URL` (a string de conexão do pooler de sessão, em Supabase → Connect) e `BACKUP_PASSPHRASE` (a senha do arquivo). Para restaurar: baixe o artefato, rode `gpg -d backup.sql.gz.gpg | gunzip | psql "$URL"`.
+- **Backup diário** (`.github/workflows/backup.yml`): `pg_dump` do banco, criptografado com GPG e guardado por 30 dias como artefato do GitHub Actions. Precisa de dois segredos no repositório: `SUPABASE_DB_URL` (a string de conexão do pooler de sessão, em Supabase → Connect) e `BACKUP_PASSPHRASE` (a senha do arquivo). Para restaurar: baixe o artefato, rode `gpg -d dominio-politico-AAAA-MM-DD.dump.gpg > copia.dump` (pede a senha) e depois `pg_restore --no-owner --clean --if-exists -d "$URL" copia.dump`.
 
 ### Dados
 
