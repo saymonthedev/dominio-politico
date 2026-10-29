@@ -1,0 +1,52 @@
+name: Testes das telas
+
+# Sobe o site contra o projeto Supabase de testes (nunca a produção) e percorre o
+# jogo com uma conta de teste: entrar, criar personagem num mundo só dela, ver os
+# partidos, passar o tempo e apagar o mundo. Precisa dos segredos E2E_SIM_SECRET e
+# E2E_PASSWORD (Settings → Secrets and variables → Actions); sem eles, só as
+# páginas públicas são testadas.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e
+  cancel-in-progress: false
+
+jobs:
+  telas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://zaqsyjyvzxxgosryiapx.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_bvDrGAi7loj0sA2wrH52xg_u4Zmbt0U
+      NEXT_PUBLIC_SITE_URL: http://localhost:3210
+      SIM_SECRET: ${{ secrets.E2E_SIM_SECRET }}
+      E2E_EMAIL: e2e@teste.dominio-politico.com.br
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Navegador
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Build
+        run: npx next build
+        working-directory: apps/web
+      - name: Testes
+        run: npx playwright test
+        working-directory: apps/web
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: relatorio-e2e
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7

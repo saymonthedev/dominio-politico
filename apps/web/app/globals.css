@@ -1788,3 +1788,28 @@ td.num, th.num { text-align: right; }
 .sp-years .is-on { background: var(--planalto); color: var(--faixa-suave); border-color: var(--planalto); }
 .sp-years--home { margin-top: 18px; align-items: center; }
 .sp-years--home .muted { border: 0; padding: 0 4px 0 0; }
+
+/* página não encontrada (404) */
+.nf { background: var(--planalto); color: #fff; position: relative; overflow: hidden; }
+.nf::before { content: ""; position: absolute; inset: 0; background: radial-gradient(760px 320px at 85% 0%, rgba(212,165,60,.24), transparent 65%), radial-gradient(520px 260px at 0% 100%, rgba(31,107,74,.18), transparent 70%); pointer-events: none; }
+.nf__inner { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 56px; align-items: center; padding-top: 88px; padding-bottom: 96px; }
+.nf__ballot { position: relative; width: 240px; aspect-ratio: 3 / 4; border-radius: 18px; background: #fffdf8; color: var(--planalto); display: grid; place-items: center; box-shadow: 0 30px 60px -25px rgba(0,0,0,.6); transform: rotate(-4deg); border-top: 10px solid var(--faixa); }
+.nf__code { font-size: 4.4rem; font-weight: 600; letter-spacing: -.04em; }
+.nf__stamp { position: absolute; bottom: 34px; right: -18px; padding: 6px 16px; border: 3px solid #c2410c; border-radius: 8px; color: #c2410c; font-weight: 800; font-size: .95rem; letter-spacing: .14em; text-transform: uppercase; transform: rotate(-14deg); background: rgba(255,253,248,.92); }
+.nf__text .kicker { font-family: var(--f-mono); font-size: .76rem; letter-spacing: .16em; text-transform: uppercase; color: var(--faixa-suave); }
+.nf__text h1 { font-size: clamp(2.1rem, 5vw, 3.4rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.08; margin: 12px 0 14px; }
+.nf__text h1 em { font-style: normal; color: var(--faixa); }
+.nf__text .lede { font-size: 1.06rem; font-weight: 300; color: #d5deeb; max-width: 560px; margin: 0 0 26px; line-height: 1.65; }
+.nf__links { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 26px; font-size: .9rem; }
+.nf__links a { color: #d5deeb; text-underline-offset: 3px; text-decoration-color: var(--faixa); }
+.nf__links a:hover { color: #fff; }
+@media (max-width: 760px) {
+  .nf__inner { grid-template-columns: 1fr; gap: 36px; padding-top: 56px; padding-bottom: 64px; }
+  .nf__ballot { width: 170px; justify-self: center; }
+  .nf__code { font-size: 3.2rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nf__stamp { animation: nf-stamp .5s cubic-bezier(.2, 1.4, .4, 1) .25s both; }
+  @keyframes nf-stamp { from { opacity: 0; transform: rotate(-14deg) scale(1.8); } to { opacity: 1; transform: rotate(-14deg) scale(1); } }
+}
+.nf .cta, .page-hero .sp-cta { display: flex; gap: 10px; flex-wrap: wrap; }
