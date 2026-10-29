@@ -1758,3 +1758,4 @@ td.num, th.num { text-align: right; }
 .admin-tables { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .admin-tables li { display: grid; grid-template-columns: minmax(120px, 200px) 1fr auto; gap: 12px; align-items: center; font-size: .85rem; }
 .admin-tables .bar { height: 8px; border-radius: 4px; background: var(--faixa); }
+.world-card__mode { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--rebaixada); color: var(--planalto); font-size: .66rem; letter-spacing: .06em; }
