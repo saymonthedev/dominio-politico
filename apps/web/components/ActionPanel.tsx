@@ -1,8 +1,9 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { quickAction } from "@/app/jogo/actions";
 import type { ActionView } from "@/lib/actions-view";
+import { useModal } from "./a11y";
 import { Button, Select, TextField } from "./forms";
 import { Icon } from "./Icon";
 import { useToast } from "./game/Toaster";
@@ -21,6 +22,7 @@ const ACTION_ICON: Record<string, string> = {
   pagar_mesada: "coins", lancar_laranjas: "users", desviar_fundo: "flag", lavar_dinheiro: "coins", obstruir_investigacao: "trash",
   encerrar_esquema: "x", fundar_partido: "flag", coletar_assinaturas: "file", mobilizar_voluntarios: "users", desistir_fundacao: "x",
   filiar_meu_partido: "flag", decidir_filiacao: "check", convidar_filiacao: "mail", pegar_emprestimo: "coins", quitar_divida: "check",
+  indicar_candidato: "ballot", retirar_indicacao: "x", repassar_fundo: "coins",
 };
 
 const CAT: Record<string, { icon: string; label: string; cls: string }> = {
@@ -36,16 +38,19 @@ const CAT: Record<string, { icon: string; label: string; cls: string }> = {
 const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR")}`;
 
 function ConfirmDialog({ title, text, onCancel, onConfirm, pending }: { title: string; text: string; onCancel: () => void; onConfirm: () => void; pending: boolean }) {
+  const box = useRef<HTMLDivElement>(null);
+  // em ação irreversível, o foco começa em "Cancelar"
+  useModal(box, true, () => !pending && onCancel(), { initial: "[data-cancel]" });
   return (
-    <div className="ui-overlay" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
-      <div className="ui-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div className="ui-overlay" onMouseDown={(e) => e.target === e.currentTarget && !pending && onCancel()}>
+      <div className="ui-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text" ref={box}>
         <span className="ui-dialog__icon">
           <Icon name="alert" size={24} />
         </span>
         <h2 id="confirm-title">{title}?</h2>
-        <p>{text}</p>
+        <p id="confirm-text">{text}</p>
         <div className="ui-dialog__actions">
-          <Button type="button" tone="ghost" onClick={onCancel}>
+          <Button type="button" tone="ghost" onClick={onCancel} data-cancel="">
             Cancelar
           </Button>
           <Button type="button" tone="danger" loading={pending} onClick={onConfirm}>

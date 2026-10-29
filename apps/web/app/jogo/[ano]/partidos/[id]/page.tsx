@@ -6,9 +6,8 @@ import { QuickAction } from "@/components/game/QuickAction";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { fmtMoney, fmtNum } from "@/lib/format";
 import { partyFits } from "@/lib/game-view";
-import { getParties, getSession, requireMe } from "@/lib/game";
+import { getParties, getSession, playerState, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
-import { cachedState } from "@/lib/sim";
 
 const KIND: Record<string, { label: string; tone: "ok" | "gold" | "neutral" }> = {
   REAL_ACTIVE_AT_SNAPSHOT: { label: "pessoa real", tone: "ok" },
@@ -27,7 +26,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
   const [facQ, peopleQ, state] = await Promise.all([
     sb.from("factions").select("*").eq("world_id", me.worldId).eq("party_id", id),
     sb.from("persons").select("*").eq("world_id", me.worldId).eq("party_id", id).eq("status", "ACTIVE").order("tier").order("reputation", { ascending: false }).limit(48),
-    cachedState(me.worldId),
+    playerState(year),
   ]);
   const factions = (facQ.data ?? []) as FactionRow[];
   const people = (peopleQ.data ?? []) as PersonRow[];

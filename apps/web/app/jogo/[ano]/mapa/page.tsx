@@ -1,13 +1,12 @@
 import { CityMap } from "@/components/CityMap";
 import { GameHeader } from "@/components/game/Page";
 import { mapPayload } from "@/lib/city-view";
-import { requireMe } from "@/lib/game";
-import { cachedState } from "@/lib/sim";
+import { playerState, requireMe } from "@/lib/game";
 
 export default async function Page({ params }: { params: Promise<{ ano: string }> }) {
   const year = Number((await params).ano);
   const me = await requireMe(year);
-  const state = await cachedState(me.worldId);
+  const state = await playerState(year);
   const data = mapPayload(state, year, me.person.municipality || null);
   return (
     <>

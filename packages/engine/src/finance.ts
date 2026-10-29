@@ -2,7 +2,7 @@ import { addMonths, monthKey } from "./calendar";
 import { profession } from "./names";
 import type { OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
-import type { FinanceKind, LedgerItem, PartyRow, PersonRow, PersonStateRow } from "./types";
+import type { FinanceKind, LedgerItem, PartyRow, PersonRow, PersonStateRow, WorldRow } from "./types";
 
 /**
  * Dinheiro no jogo. Valores de referência aproximados (não são parecer
@@ -13,7 +13,7 @@ import type { FinanceKind, LedgerItem, PartyRow, PersonRow, PersonStateRow } fro
  * Todo mês fecha um extrato por categoria (finance_transactions + ledger).
  */
 
-/** Nível de preços relativo a 2026 (IPCA acumulado aproximado; depois de 2026, 4% ao ano). */
+/** Nível de preços histórico relativo a 2026 (IPCA acumulado aproximado; depois de 2026, 4% ao ano como referência). */
 const PRICE_POINTS: Array<[number, number]> = [
   [2002, 0.3],
   [2006, 0.38],
@@ -60,12 +60,35 @@ const PRESIDENT: Array<[string, number]> = [
   ["2025-02-01", 46_366.19],
 ];
 
-function stepValue(table: Array<[string, number]>, date: string): number {
+export type PricedWorld = Pick<WorldRow, "game_date" | "stats">;
+
+/**
+ * Nível de preços do mundo (2026 = 1). Até o ponto de partida vale a tabela
+ * histórica; depois, o IPCA simulado acumulado mês a mês (world.stats.price_level).
+ */
+export function worldPriceLevel(world: PricedWorld): number {
+  return world.stats?.price_level ?? priceLevel(world.game_date);
+}
+
+/** Nível de preços numa data: no dia corrente do mundo, o simulado; em outras datas, a tabela histórica. */
+export function priceLevelAt(ctx: Ctx, date = ctx.date): number {
+  return date === ctx.date ? worldPriceLevel(ctx.world) : priceLevel(date);
+}
+
+/** Corrige o nível de preços pela inflação do mês (fechamento da economia, no dia 1). */
+export function applyMonthlyInflation(ctx: Ctx, inflationMonthPct: number): void {
+  // mundos criados antes deste campo partem da tabela no início do mês que fechou
+  const base = ctx.world.stats?.price_level ?? priceLevel(addMonths(ctx.date, -1));
+  const level = base * (1 + inflationMonthPct / 100);
+  ctx.world.stats = { ...ctx.world.stats, price_level: Math.round(level * 10_000) / 10_000 };
+}
+
+function stepValue(table: Array<[string, number]>, date: string, level: number): number {
   let v = table[0][1];
   for (const [d, val] of table) if (date >= d) v = val;
   // depois da última referência, reajuste pela inflação a partir de 2026
   const last = table[table.length - 1];
-  if (date >= "2027-01-01") v = last[1] * (priceLevel(date) / priceLevel("2026-06-01"));
+  if (date >= "2027-01-01") v = last[1] * (level / priceLevel("2026-06-01"));
   return v;
 }
 
@@ -76,13 +99,14 @@ function populationOf(ctx: Ctx, geo: string | null): number {
 
 /** Subsídio mensal bruto do cargo (CF arts. 27, 29 e 49; valores de referência). */
 export function subsidyFor(ctx: Ctx, office: OfficeCode, geo: string | null, date = ctx.date): number {
-  const fed = stepValue(FEDERAL_LEGISLATOR, date);
+  const level = priceLevelAt(ctx, date);
+  const fed = stepValue(FEDERAL_LEGISLATOR, date, level);
   switch (office) {
     case "DEP_FEDERAL":
     case "SENADOR":
       return fed;
     case "PRESIDENTE":
-      return stepValue(PRESIDENT, date);
+      return stepValue(PRESIDENT, date, level);
     case "GOVERNADOR":
     case "DEP_ESTADUAL":
       return fed * 0.75;
@@ -129,13 +153,14 @@ export function partyContributionRate(party: PartyRow): number {
   return Math.round((0.04 + Math.max(0, -party.ideology.economy) / 100 * 0.1) * 1000) / 1000;
 }
 
-export function professionIncome(p: PersonRow, date: string): number {
-  return profession(p.profession.split("|")[0]).income * priceLevel(date);
+export function professionIncome(p: PersonRow, level: number): number {
+  return profession(p.profession.split("|")[0]).income * level;
 }
 
 /** Custo de vida mensal: moradia, família, deslocamentos (mais alto para quem tem mandato). */
 export function livingCost(ctx: Ctx, p: PersonRow, subsidy: number, date = ctx.date): number {
-  const base = Math.max(1_800 * priceLevel(date), professionIncome(p, date) * 0.5);
+  const level = priceLevelAt(ctx, date);
+  const base = Math.max(1_800 * level, professionIncome(p, level) * 0.5);
   return Math.round(base + (p.office_code ? subsidy * 0.25 : 0));
 }
 
@@ -151,7 +176,7 @@ export function monthlyStatement(ctx: Ctx, p: PersonRow, st: PersonStateRow, dat
   const jailed = !!st.jailed_until && st.jailed_until > date;
   const subsidy = p.office_code && !jailed ? subsidyFor(ctx, p.office_code, p.office_geo, date) : 0;
   // durante o mandato, a atividade profissional fica em segundo plano
-  const work = jailed ? 0 : professionIncome(p, date) * (p.office_code ? 0.15 : 1);
+  const work = jailed ? 0 : professionIncome(p, priceLevelAt(ctx, date)) * (p.office_code ? 0.15 : 1);
   if (work > 0) items.push({ kind: "RENDA", label: p.office_code ? "Rendimentos da atividade privada" : "Salário e rendimentos da profissão", amount: Math.round(work) });
   if (subsidy > 0) items.push({ kind: "SUBSIDIO", label: `Subsídio de ${p.office_code === "PRESIDENTE" ? "presidente" : "parlamentar ou chefe do Executivo"}`, amount: Math.round(subsidy) });
   const tax = incomeTax(work + subsidy, date);
@@ -229,14 +254,15 @@ export function monthlyPartyFinances(ctx: Ctx): void {
   const parties = [...ctx.t.parties.values()].filter((p) => p.status === "ATIVO");
   const clause = performanceClause(ctx.date);
   const eligible = parties.filter((p) => (p.seats.camara ?? 0) >= clause && !(p.fund_suspended_until && p.fund_suspended_until > ctx.date));
-  const totalMonthly = 1_300_000_000 / 12 * priceLevel(ctx.date);
+  const pl = worldPriceLevel(ctx.world);
+  const totalMonthly = (1_300_000_000 / 12) * pl;
   const seatsTotal = eligible.reduce((s, p) => s + (p.seats.camara ?? 0), 0) || 1;
   for (const party of parties) {
     const isEligible = eligible.includes(party);
     const fund = isEligible ? totalMonthly * (0.05 / Math.max(1, eligible.length) + 0.95 * (party.seats.camara ?? 0) / seatsTotal) : 0;
     // a maior parte do fundo vai para diretórios, pessoal, propaganda e institutos
-    const upkeep = fund * 0.9 + party.cash * 0.01 + 15_000 * priceLevel(ctx.date) * Math.max(1, Object.values(party.territory).filter((v) => v > 0.05).length / 5);
-    const dues = party.members * 0.5 * priceLevel(ctx.date);
+    const upkeep = fund * 0.9 + party.cash * 0.01 + 15_000 * pl * Math.max(1, Object.values(party.territory).filter((v) => v > 0.05).length / 5);
+    const dues = party.members * 0.5 * pl;
     const next = Math.max(0, Math.round(party.cash + fund + dues - upkeep));
     if (next !== Math.round(party.cash)) {
       party.cash = next;

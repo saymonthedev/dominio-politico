@@ -37,6 +37,7 @@ export function hydrateState(s: WorldState): WorldState {
     p.founded_on ??= null;
     p.formation ??= null;
     p.fund_suspended_until ??= null;
+    p.campaign_fund ??= null;
   }
   return s;
 }

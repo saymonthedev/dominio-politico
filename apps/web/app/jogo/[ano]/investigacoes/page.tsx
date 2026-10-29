@@ -23,9 +23,9 @@ import { PersonAvatar } from "@/components/PersonAvatar";
 import { PartyChip } from "@/components/ui";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney } from "@/lib/format";
-import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
+import { getParties, getSession, partyMap, playerState, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
-import { cachedState } from "@/lib/sim";
+import { Term } from "@/components/Term";
 
 const STAGES: InvestigationRow["stage"][] = ["DENUNCIA", "IMPRENSA", "INVESTIGACAO", "PROCESSO", "DESFECHO"];
 const OUTCOME: Record<string, { label: string; tone: "bad" | "ok" | "neutral" }> = {
@@ -160,7 +160,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [state, parties, invQ] = await Promise.all([
-    cachedState(me.worldId),
+    playerState(year),
     getParties(me.worldId),
     sb.from("investigations").select("*").eq("world_id", me.worldId).order("opened_on", { ascending: false }).limit(80),
   ]);
@@ -312,7 +312,9 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             <ul className="rules">
               <li>
                 <b>Começo</b>
-                <span>Coaf, Tribunal de Contas, imprensa, ex-assessores, adversários, Ministério Público Eleitoral ou a delação de alguém.</span>
+                <span>
+                  <Term k="Coaf" />, Tribunal de Contas, imprensa, ex-assessores, adversários, Ministério Público Eleitoral ou a <Term k="delação">delação</Term> de alguém.
+                </span>
               </li>
               <li>
                 <b>Investigação</b>
@@ -324,7 +326,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               </li>
               <li>
                 <b>Pena</b>
-                <span>Prisão (com progressão de regime), multa e devolução, cassação em ilícitos eleitorais e inelegibilidade pela Ficha Limpa.</span>
+                <span>Prisão (com progressão de regime), multa e devolução, cassação em ilícitos eleitorais e <Term k="Inelegibilidade">inelegibilidade</Term> pela <Term k="Ficha Limpa" />.</span>
               </li>
             </ul>
           </Panel>

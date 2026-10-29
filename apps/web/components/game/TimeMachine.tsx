@@ -1,10 +1,12 @@
 "use client";
-import { useEffect, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { advanceTime } from "@/app/jogo/actions";
 import { inviteIdOf, resolveLink } from "@/lib/links";
 import type { CountrySnapshot, FastForwardResult } from "@/lib/sim";
+import { useModal } from "../a11y";
 import { Button } from "../forms";
+import { Term } from "../Term";
 import { Icon } from "../Icon";
 import { NEWS_CATEGORIES } from "./NewsList";
 import { QuickAction } from "./QuickAction";
@@ -36,16 +38,45 @@ const longIso = (iso?: string) => {
 const brl = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
 const num = (v: number, d = 1) => v.toFixed(d).replace(".", ",");
 
+/** Plano de um botão de avanço segundo o relógio compartilhado. */
+export interface OptionPlan {
+  ok: boolean;
+  days: number;
+  /** marco em cuja véspera o avanço para */
+  stop?: string;
+  message?: string;
+}
+
+export interface SharedClock {
+  /** outros jogadores ativos nas últimas 72 h */
+  others: number;
+  /** dias ainda disponíveis nesta hora */
+  remaining: number | null;
+  perHour: number;
+  recent: Array<{ name: string | null; days: number; at: string; mine: boolean }>;
+  plans: Record<number, OptionPlan>;
+}
+
 export interface TimeMachineProps {
   year: number;
   date: string;
   energy: number;
   /** próximo compromisso da agenda, para orientar o salto */
   next?: { label: string; date: string } | null;
+  /** presente quando há outros jogadores ativos no mundo */
+  clock?: SharedClock | null;
 }
 
+const ago = (iso: string) => {
+  const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
+  if (m < 1) return "agora";
+  if (m < 60) return `há ${m} min`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `há ${h} h` : `há ${Math.round(h / 24)} d`;
+};
+
 /** O lugar único para passar o tempo: escolhe o salto e mostra o que aconteceu no Brasil. */
-export function TimeMachine({ year, date, energy, next }: TimeMachineProps) {
+export function TimeMachine({ year, date, energy, next, clock }: TimeMachineProps) {
   const [pending, start] = useTransition();
   const [which, setWhich] = useState<number | null>(null);
   const [result, setResult] = useState<FastForwardResult | null>(null);
@@ -90,14 +121,55 @@ export function TimeMachine({ year, date, energy, next }: TimeMachineProps) {
         </p>
       </div>
       <div className="tm__opts" role="group" aria-label="Escolha quanto tempo passar">
-        {OPTIONS.map((o) => (
-          <button key={o.days} type="button" className={`tm__opt${o.days === 30 ? " tm__opt--main" : ""}`} onClick={() => go(o.days)} disabled={pending}>
-            <b>{pending && which === o.days ? <span className="ui-spinner" aria-hidden="true" /> : null}{o.label}</b>
-            <span>até {short(addDays(date, o.days))}</span>
-            <small>{o.hint}</small>
-          </button>
-        ))}
+        {OPTIONS.map((o) => {
+          const plan = clock?.plans[o.days];
+          const blocked = plan ? !plan.ok : false;
+          const days = plan?.ok ? plan.days : o.days;
+          return (
+            <button
+              key={o.days}
+              type="button"
+              className={`tm__opt${o.days === 30 ? " tm__opt--main" : ""}${blocked ? " is-blocked" : ""}`}
+              onClick={() => go(o.days)}
+              disabled={pending || blocked}
+              title={blocked ? plan?.message : undefined}
+              aria-describedby={clock ? "tm-shared" : undefined}
+            >
+              <b>
+                {pending && which === o.days ? <span className="ui-spinner" aria-hidden="true" /> : null}
+                {o.label}
+              </b>
+              <span>{blocked ? "indisponível agora" : `até ${short(addDays(date, days))}`}</span>
+              <small>{plan?.ok && plan.stop ? `para na véspera do ${plan.stop}` : plan?.ok && plan.days < o.days ? `só ${plan.days} dia${plan.days > 1 ? "s" : ""} nesta hora` : o.hint}</small>
+            </button>
+          );
+        })}
       </div>
+      {clock && (
+        <div className="tm__shared" id="tm-shared">
+          <p>
+            <Icon name="users" size={15} />
+            <span>
+              <b>
+                <Term k="Relógio compartilhado" />
+              </b>{" "}
+              com {clock.others === 1 ? "outro jogador ativo" : `${clock.others} outros jogadores ativos`}: até {clock.perHour} dias por hora, somando
+              todos, e o avanço para na véspera de prazos e eleições.{" "}
+              {clock.remaining !== null && (clock.remaining > 0 ? `Restam ${clock.remaining} dias nesta hora.` : "A cota desta hora acabou.")}
+            </span>
+          </p>
+          {Object.values(clock.plans).find((p) => !p.ok)?.message && <p className="tm__block">{Object.values(clock.plans).find((p) => !p.ok)?.message}</p>}
+          {clock.recent.length > 0 && (
+            <ul className="tm__log" aria-label="Últimos avanços do relógio">
+              {clock.recent.slice(0, 3).map((r, i) => (
+                <li key={i}>
+                  <b>{r.mine ? "Você" : r.name ?? "Um jogador"}</b> avançou {r.days === 1 ? "1 dia" : `${r.days} dias`} <span className="muted">· {ago(r.at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {pending && (
         <p className="tm__busy" role="status">
           <span className="ui-spinner" aria-hidden="true" /> O país está andando: eleições, Congresso, economia e imprensa sendo processados…
@@ -155,15 +227,8 @@ function Delta({ label, a, b, money }: { label: string; a: number; b: number; mo
 }
 
 export function PeriodReport({ result, year, onClose }: { result: FastForwardResult; year: number; onClose: () => void }) {
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", k);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", k);
-      document.body.style.overflow = "";
-    };
-  }, [onClose]);
+  const box = useRef<HTMLDivElement>(null);
+  useModal(box, true, onClose, { lockScroll: true, initial: ".pr__foot .ui-btn--gold" });
   const { before, after } = result;
   const heads = result.headlines ?? [];
   const [lead, ...rest] = heads;
@@ -173,7 +238,7 @@ export function PeriodReport({ result, year, onClose }: { result: FastForwardRes
 
   return (
     <div className="ui-overlay pr-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="pr" role="dialog" aria-modal="true" aria-labelledby="pr-title">
+      <div className="pr" role="dialog" aria-modal="true" aria-labelledby="pr-title" ref={box}>
         <header className="pr__head">
           <div>
             <span className="pr__period mono">
@@ -187,6 +252,11 @@ export function PeriodReport({ result, year, onClose }: { result: FastForwardRes
         </header>
 
         <div className="pr__body">
+          {result.note && (
+            <p className="pr-note" role="note">
+              <Icon name="users" size={16} /> {result.note}
+            </p>
+          )}
           {result.country && <CountryRow before={result.country.before} after={result.country.after} />}
 
           <div className="pr__cols">

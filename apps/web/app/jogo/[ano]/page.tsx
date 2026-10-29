@@ -1,17 +1,20 @@
-import type { EconomyRow, NewsRow, PartyRow } from "@dp/engine";
+import { cookies } from "next/headers";
+import { planAdvance, SHARED_DAYS_PER_HOUR, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
-import { TimeMachine } from "@/components/game/TimeMachine";
+import { Onboarding, type OnboardingStep } from "@/components/game/Onboarding";
+import { TimeMachine, type SharedClock } from "@/components/game/TimeMachine";
 import { Icon } from "@/components/Icon";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { STAGE_LABEL } from "@/components/ui";
 import { fmtDate, fmtDec, fmtMoney, fmtPct } from "@/lib/format";
 import { agenda, careerSteps, pending, type Step } from "@/lib/game-view";
-import { getSession, requireMe } from "@/lib/game";
+import { getSession, playerState, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
-import { cachedState } from "@/lib/sim";
+import { clockStatus } from "@/lib/sim";
+import { Term } from "@/components/Term";
 
 function delta(now: number, prev: number | undefined, digits = 2, invert = false) {
   if (prev === undefined) return { hint: undefined, tone: undefined };
@@ -25,8 +28,9 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const year = Number((await params).ano);
   const me = await requireMe(year);
   const { sb } = await getSession();
-  const [state, newsQ, ecoQ] = await Promise.all([
-    cachedState(me.worldId),
+  const [state, clockNow, newsQ, ecoQ] = await Promise.all([
+    playerState(year),
+    clockStatus(me.worldId, me.person.id),
     sb.from("news_articles").select("*").eq("world_id", me.worldId).order("tick", { ascending: false }).order("importance", { ascending: false }).limit(14),
     sb.from("economy_snapshots").select("*").eq("world_id", me.worldId).order("month", { ascending: false }).limit(2),
   ]);
@@ -45,6 +49,69 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const others = parties.slice(8).reduce((s, p) => s + (p.seats.camara ?? 0), 0);
   const firstName = me.person.name.split(" ")[0];
   const pendCount = todo.invites.length + todo.offers.length + todo.investigations + todo.partyRequests.length;
+  // relógio compartilhado: só aparece quando há outros jogadores ativos no mundo
+  const clock: SharedClock | null = clockNow.shared
+    ? {
+        others: clockNow.others.length,
+        remaining: clockNow.remaining,
+        perHour: SHARED_DAYS_PER_HOUR,
+        recent: clockNow.recent.map((r) => ({ name: r.name, days: r.days, at: r.at, mine: r.person_id === me.person.id })),
+        plans: Object.fromEntries(
+          [1, 7, 15, 30].map((d) => {
+            const p = planAdvance(state, clockNow, state.world.game_date, d);
+            return [d, { ok: p.ok, days: p.days, stop: p.stop?.label, message: p.message }];
+          }),
+        ),
+      }
+    : null;
+
+  // primeiros passos: cada um se completa pelo que o jogador já fez no mundo
+  const tutorialOff = (await cookies()).get(`dp_tutorial_${year}`)?.value === "off";
+  const base = `/jogo/${year}`;
+  const onboarding: OnboardingStep[] = [
+    {
+      id: "energia",
+      title: "Gaste energia numa ação",
+      term: "Energia",
+      text: "Cada ação da carreira custa energia, que volta 25 pontos por dia de jogo. Comece por um evento comunitário.",
+      href: `${base}/carreira`,
+      cta: "Escolher uma ação",
+      done: me.state.action_seq > 0,
+    },
+    {
+      id: "tempo",
+      title: "Passe o tempo",
+      text: "O mundo anda sozinho, mas você pode avançar dias aqui no Painel e ver o que aconteceu no Brasil.",
+      href: `${base}#tempo`,
+      cta: "Ir para o relógio",
+      done: state.world.tick - me.person.created_tick >= 7,
+    },
+    {
+      id: "mes",
+      title: "Acompanhe o fechamento do mês",
+      term: "Fechamento do mês",
+      text: "No dia 1 o jogo fecha suas contas: salário, impostos, custo de vida e rendimentos. O extrato fica em Finanças.",
+      href: `${base}/financas`,
+      cta: "Abrir Finanças",
+      done: !!me.state.ledger?.month,
+    },
+    {
+      id: "degrau",
+      title: "Suba o primeiro degrau",
+      text: "Com 20 de ativismo você vira ativista e passa a ser notado(a) pelos partidos. O caminho completo está na Carreira.",
+      href: `${base}/carreira`,
+      cta: "Ver a carreira",
+      done: me.person.stage !== "CIDADAO",
+    },
+    {
+      id: "partido",
+      title: "Entre num partido",
+      text: "Sem partido não há candidatura. Compare afinidade e chance de aprovação de cada legenda antes de pedir filiação.",
+      href: `${base}/partidos`,
+      cta: "Comparar partidos",
+      done: !!me.person.party_id,
+    },
+  ];
 
   return (
     <>
@@ -54,8 +121,10 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
         </a>
       </GameHeader>
 
+      {!tutorialOff && <Onboarding year={year} steps={onboarding} />}
+
       <div id="tempo" className="mb">
-        <TimeMachine year={year} date={state.world.game_date} energy={me.state.energy} next={cal[0] ? { label: cal[0].title, date: cal[0].date } : null} />
+        <TimeMachine year={year} date={state.world.game_date} energy={me.state.energy} next={cal[0] ? { label: cal[0].title, date: cal[0].date } : null} clock={clock} />
       </div>
 
       <div className="ggrid ggrid--main">
@@ -162,7 +231,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
                       {a.days > 0 && <small>{a.days === 1 ? "dia" : "dias"}</small>}
                     </span>
                     <div>
-                      <b>{a.title}</b>
+                      <b>{a.term ? <Term k={a.term}>{a.title}</Term> : a.title}</b>
                       <span>
                         {fmtDate(a.date)} · {a.detail}
                       </span>

@@ -18,6 +18,7 @@ import { dailyBillVotes, dailyPolicies, monthlyBills, monthlyFiscalStance } from
 import { monthlyFinances, monthlyPartyFinances } from "./finance";
 import { dailyPartyFormation, playerPartyRecruitment, processPartyInvites } from "./partyfounding";
 import { partySwitchWindow, weeklyAgenda, yearlyRenewal } from "./npclife";
+import { creditPartyFunds, returnUnusedFunds } from "./partycampaign";
 import { eraRules } from "./ruleset";
 import { scheduledElection } from "./bootstrap";
 import { Ctx, type WorldState } from "./state";
@@ -57,6 +58,7 @@ function electionCalendarDay(ctx: Ctx, e: ElectionRow): void {
   }
   if (d === cal.conventionEnd) {
     runConventions(ctx, e);
+    creditPartyFunds(ctx, e);
   }
   if (d === cal.campaignStart && (e.status === "CONVENCOES" || e.status === "PRE_CAMPANHA")) {
     e.status = "CAMPANHA";
@@ -73,6 +75,7 @@ function electionCalendarDay(ctx: Ctx, e: ElectionRow): void {
   }
   if (e.status === "PRE_CAMPANHA" && day(d) === 15 && [3, 5, 6].includes(month(d))) runPolls(ctx, e, true);
   if (d === e.first_round && e.status === "CAMPANHA") {
+    returnUnusedFunds(ctx, e);
     runFirstRound(ctx, e);
     updateTerritoryFromResults(ctx, e);
   }

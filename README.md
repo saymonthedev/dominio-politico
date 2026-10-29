@@ -36,7 +36,7 @@ Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE.
 
 ## O que funciona
 
-- **Carreira:** cidadão, ativista, aproximação partidária, filiado, quadro, pré-candidato, candidato e mandato. Cada ação gasta energia e tem retorno decrescente.
+- **Carreira:** cidadão, ativista, aproximação partidária, filiado, quadro, pré-candidato, candidato e mandato. Cada ação gasta energia e tem retorno decrescente. A filiação pesa afinidade, reputação, trajetória (ativismo e etapa da carreira), relacionamento, necessidade do partido e alas: quem acabou de chegar à política tem de 25% a 55% de chance nos partidos mais próximos, conforme o perfil; com ativismo e reuniões, passa de 80%.
 - **Partidos reais de cada ano,** com bancadas e lideranças do ponto de partida, sucessões e fusões (PFL → DEM → União, PMDB → MDB e outras), ideologia em seis eixos e culturas internas diferentes: alguns abrem a porta, outros só aceitam quem tem padrinho.
 - **Eleições completas:**
   - convenções e distribuição do fundo eleitoral;
@@ -65,9 +65,10 @@ Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE.
   - dossiês mostram cada achado concreto, inclusive quando não há nada; partidos também podem ser investigados pelas contas.
 
   Só personagens fictícios ou de jogadores cometem crimes, e o motor cria com frequência casos entre os personagens fictícios. Eles podem ser filiados a partidos reais, e a reputação e a integridade do partido mudam pelo que eles fazem. Pessoas reais nunca são autoras nem alvos.
-- **Dinheiro:** fechamento mensal com extrato por categoria: salário da profissão ou subsídio do cargo (valores de cada época, de vereador a presidente), Imposto de Renda simplificado (com a isenção até R$ 5 mil a partir de 2026), custo de vida, rendimento da reserva pela Selic, contribuição ao partido, empréstimos com juros e dinheiro não declarado separado da conta, que só volta ao bolso lavado e com perda.
-- **Partido próprio:** fundação com estatuto e custos, coleta de apoio de eleitores (0,5% dos votos válidos para a Câmara, com mínimo em nove estados) em até dois anos, conferência e registro no TSE, presidência da legenda, pedidos de filiação de outros políticos, convites e fidelidade partidária conforme a época (a criação de partido deixou de ser justa causa em 2015).
-- **Passar o tempo:** além do relógio automático, o Painel tem um lugar único para pular 1 dia, 1 semana, 15 dias ou 1 mês, sem espera entre um salto e outro. Ao fim, um resumo mostra o que aconteceu no Brasil (aprovação, Selic, inflação, desemprego, dólar e manchetes) e o que mudou para você, com atalho para responder convites.
+- **Dinheiro:** fechamento mensal com extrato por categoria: salário da profissão ou subsídio do cargo (valores de cada época, de vereador a presidente), Imposto de Renda simplificado (com a isenção até R$ 5 mil a partir de 2026), custo de vida, rendimento da reserva pela Selic, contribuição ao partido, empréstimos com juros e dinheiro não declarado separado da conta, que só volta ao bolso lavado e com perda. Os preços seguem a inflação real até o ponto de partida e, depois, o IPCA simulado mês a mês.
+- **Partido próprio:** fundação com estatuto e custos, coleta de apoio de eleitores (0,5% dos votos válidos para a Câmara, com mínimo em nove estados) em até dois anos, conferência e registro no TSE, presidência da legenda, pedidos de filiação de outros políticos, convites e fidelidade partidária conforme a época (a criação de partido deixou de ser justa causa em 2015). Na eleição, a presidência indica os candidatos da legenda e, depois das convenções, reparte a cota do partido no fundo eleitoral (FEFC) entre as candidaturas; o que sobra no 1º turno volta ao Tesouro.
+- **Passar o tempo:** além do relógio automático, o Painel tem um lugar único para pular 1 dia, 1 semana, 15 dias ou 1 mês. Ao fim, um resumo mostra o que aconteceu no Brasil (aprovação, Selic, inflação, desemprego, dólar e manchetes) e o que mudou para você, com atalho para responder convites.
+- **Relógio compartilhado:** cada ponto de partida é um mundo só. Quem joga sozinho avança sem limite. Com outros jogadores ativos (ação nas últimas 72 horas), o relógio aceita até 60 dias de jogo por hora real somando todos, para na véspera de prazos e eleições (filiação, fim das convenções, turnos) e só cruza esses marcos 30 minutos depois do último avanço. Todo avanço fica registrado no Painel e avisa os outros jogadores.
 - **Mapa político dos 5.570 municípios,** com prefeito(a) e câmara de cada cidade no ponto de partida (TSE) e zoom do país até o município. Capitais e a cidade do jogador têm disputa completa; as demais são simuladas de forma determinística a cada eleição municipal.
 - **Fotos e logos reais:** fotos oficiais de candidatura do TSE (CC-BY) para 5.702 candidaturas de pessoas reais, sempre com o ano, e logos dos partidos do Wikimedia Commons, só de arquivos em domínio público ou com licença livre, com autor e licença na página de Fontes.
 - **Interface do jogo:**
@@ -75,7 +76,12 @@ Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE.
   - ações com um clique e resultado na hora;
   - notificações lidas ao abrir e convites de filiação aceitos direto do sino;
   - eleições com calendário visual e resultados em barras;
-  - votação de projetos, resposta a ofertas ilícitas e conversas direto das listas.
+  - votação de projetos, resposta a ofertas ilícitas e conversas direto das listas;
+  - primeiros passos no Painel (energia, passar o tempo, fechamento do mês, primeiro degrau e partido), que somem quando tudo estiver feito;
+  - glossário com dicas nos termos sublinhados (janela partidária, FEFC, cláusula de desempenho e outros);
+  - listas de pessoas com filtros por cargo, partido e UF;
+  - menu lateral com grupos recolhíveis e, no celular, quatro atalhos e um menu "Mais";
+  - acessibilidade: contraste AA nas cores de texto e nas pílulas, foco preso e Esc nos diálogos, setas nos menus, atalho "Pular para o conteúdo" e menos animação para quem prefere.
 - **LGPD:** exportação dos dados em JSON e exclusão da conta. Na exclusão, o personagem sai da política sem nenhum evento negativo.
 
 ### Componentes próprios
@@ -135,6 +141,7 @@ apps/web/              site Next.js (App Router, Server Actions)
   components/game/     casca do jogo: barra lateral, sino, passar o tempo, ações rápidas
   lib/sim.ts           ponte motor ↔ banco: carrega, avança o relógio, aplica ações e grava
   lib/game-view.ts     leituras para as telas: próximos passos, agenda e pendências
+  lib/glossary.ts      verbetes do glossário (página e dicas nas telas)
   lib/photos.json      fotos do TSE por pessoa (arquivos em public/fotos)
   lib/logos.json       logos dos partidos com licença e autor (arquivos em public/logos)
 packages/engine/       motor da simulação em TypeScript puro (sem React, sem banco)
@@ -142,6 +149,9 @@ packages/engine/       motor da simulação em TypeScript puro (sem React, sem b
     crimes.ts          catálogo das condutas ilícitas (lei, oportunidade, rastro, canais, pena)
     finance.ts         subsídios, imposto, custo de vida, fundo partidário e fechamento mensal
     partyfounding.ts   fundação de partidos, apoiamento, registro e pedidos de filiação
+    partycampaign.ts   chapa do partido próprio e repasse do fundo eleitoral
+    clock.ts           regras do relógio compartilhado entre jogadores
+    account.ts         limpeza dos dados do jogador na exclusão de conta
   test/                testes dos pontos de partida e simulação longa
 packages/data/         carrega os snapshots por ano
 data/                  snapshots reais (snapshot-2002.json … snapshot-2026.json)
@@ -156,6 +166,8 @@ supabase/migrations/   esquema, RLS e funções do motor
 **Motor determinístico.** Cada sorteio vem de `hash(semente do mundo | fase | dia | chave)`, sem `Math.random`. O mesmo mundo, com as mesmas ações, sempre produz a mesma história. Isso permite processar dias atrasados a qualquer momento e testar décadas de simulação em segundos.
 
 **Relógio preguiçoso.** O mundo não precisa de um processo rodando: ao abrir uma página ou executar uma ação, o servidor calcula quantos dias deveriam ter passado e processa a diferença. A rota `/api/cron/tick` faz o mesmo para todos os mundos, para quem quiser agendar.
+
+**Leitura e gravação.** O estado é lido em partes paralelas e gravado em lotes paralelos; um lote que estoura o tempo do banco é dividido ao meio e tentado de novo (a gravação é idempotente). Com o jogador logado, as chamadas usam o papel autenticado, que tem mais tempo por comando. As telas usam um cache curto, descartado na hora quando o dia de jogo mudou ou o jogador agiu.
 
 ### Segurança
 
@@ -228,7 +240,7 @@ Os arquivos do TSE ficam em cache em `.cache/tse/` (fora do Git).
 
 | Verificação | Resultado |
 | --- | --- |
-| `npm test`: os 7 pontos de partida reproduzem o eleito real, 513 cadeiras na Câmara e 81 no Senado; municípios e eleições municipais; crimes nunca atribuídos a pessoas reais; dossiês; fundação de partido até o registro; subsídios e imposto por época; simulação de 2026 até depois da eleição de 2030 | 25 de 25 |
+| `npm test`: os 7 pontos de partida reproduzem o eleito real, 513 cadeiras na Câmara e 81 no Senado; municípios e eleições municipais; crimes nunca atribuídos a pessoas reais; dossiês; fundação de partido até o registro; chapa e fundo eleitoral do partido próprio; subsídios e imposto por época; filiação de novatos; inflação simulada; relógio compartilhado; exclusão de conta; simulação de 2026 até depois da eleição de 2030 | 32 de 32 |
 | `npm run test:integration`: criação do mundo, personagem, ações e avanço de 15 dias contra o Supabase real | aprovado |
 | Totais do 2º turno contra o TSE (ex.: Lula 2002 com 52.793.364 votos, Lula 2022 com 60.345.999) | iguais |
 | `npm run typecheck` e `npm run build` | sem erros |

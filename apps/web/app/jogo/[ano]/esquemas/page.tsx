@@ -5,8 +5,7 @@ import { QuickAction } from "@/components/game/QuickAction";
 import { Icon } from "@/components/Icon";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney } from "@/lib/format";
-import { getSession, requireMe } from "@/lib/game";
-import { cachedState } from "@/lib/sim";
+import { getSession, playerState, requireMe } from "@/lib/game";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -15,7 +14,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [state, actsQ] = await Promise.all([
-    cachedState(me.worldId),
+    playerState(year),
     sb.from("illicit_acts").select("*").eq("world_id", me.worldId).eq("person_id", me.person.id).order("created_on", { ascending: false }).limit(60),
   ]);
   const ctx = new Ctx(state, "view");

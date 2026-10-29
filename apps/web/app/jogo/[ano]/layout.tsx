@@ -44,6 +44,9 @@ export default async function GameLayout({ children, params }: { children: React
 
   return (
     <Toaster>
+      <a className="skip" href="#conteudo">
+        Pular para o conteúdo
+      </a>
       <header className="gtop">
         <div className="gtop__inner">
           <a className="gtop__brand" href="/jogo" title="Seus mundos">
@@ -93,7 +96,9 @@ export default async function GameLayout({ children, params }: { children: React
             reputation: Math.round(me.person.reputation),
           }}
         />
-        <main className="gmain">{children}</main>
+        <main className="gmain" id="conteudo" tabIndex={-1}>
+          {children}
+        </main>
       </div>
     </Toaster>
   );

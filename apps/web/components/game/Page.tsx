@@ -60,7 +60,7 @@ export function Panel({
   );
 }
 
-export function Kpi({ label, value, hint, tone, icon }: { label: string; value: React.ReactNode; hint?: React.ReactNode; tone?: "up" | "down" | "warn"; icon?: string }) {
+export function Kpi({ label, value, hint, tone, icon }: { label: React.ReactNode; value: React.ReactNode; hint?: React.ReactNode; tone?: "up" | "down" | "warn"; icon?: string }) {
   return (
     <div className={`kpi${tone ? ` kpi--${tone}` : ""}`}>
       <span className="kpi__label">
@@ -72,7 +72,7 @@ export function Kpi({ label, value, hint, tone, icon }: { label: string; value: 
   );
 }
 
-export function MeterRow({ label, value, max = 100, tone, hint, goal }: { label: string; value: number; max?: number; tone?: "ok" | "bad" | "sim" | "gold"; hint?: string; goal?: number }) {
+export function MeterRow({ label, value, max = 100, tone, hint, goal, unit }: { label: string; value: number; max?: number; tone?: "ok" | "bad" | "sim" | "gold"; hint?: string; goal?: number; unit?: string }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div className="mrow">
@@ -80,6 +80,7 @@ export function MeterRow({ label, value, max = 100, tone, hint, goal }: { label:
         <span>{label}</span>
         <b className="mono">
           {Math.round(value)}
+          {unit}
           {goal ? <small> / {goal}</small> : null}
         </b>
       </div>

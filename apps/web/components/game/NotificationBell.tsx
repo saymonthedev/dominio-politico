@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { markNotificationsRead } from "@/app/jogo/actions";
 import { inviteIdOf, resolveLink } from "@/lib/links";
+import { usePopover } from "../a11y";
 import { Icon } from "../Icon";
 import { QuickAction } from "./QuickAction";
 
@@ -21,32 +22,34 @@ export function NotificationBell({ year, unread, items, openInvites }: { year: n
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(unread);
   const box = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const id = useId();
   useEffect(() => setCount(unread), [unread]);
+  usePopover(box, open, () => setOpen(false), { trigger, focusFirst: true });
   useEffect(() => {
-    if (!open) return;
-    if (count > 0) {
-      setCount(0);
-      void markNotificationsRead(year);
-    }
-    const close = (e: MouseEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", esc);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", esc);
-    };
+    if (!open || count === 0) return;
+    setCount(0);
+    void markNotificationsRead(year);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   const pendingInvites = new Set(openInvites);
   return (
     <div className="bellbox" ref={box}>
-      <button type="button" className="topbtn" aria-expanded={open} aria-label={count ? `${count} notificações novas` : "Notificações"} onClick={() => setOpen((o) => !o)}>
+      <button
+        type="button"
+        ref={trigger}
+        className="topbtn"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        aria-label={count ? `${count} notificações novas` : "Notificações"}
+        onClick={() => setOpen((o) => !o)}
+      >
         <Icon name="bell" size={20} />
         {count > 0 && <span className="topbtn__count">{count > 99 ? "99+" : count}</span>}
       </button>
       {open && (
-        <div className="bellpop" role="dialog" aria-label="Notificações">
+        <div className="bellpop" id={id} role="dialog" aria-label="Notificações">
           <div className="bellpop__head">
             <b>Notificações</b>
             <a href={`/jogo/${year}/notificacoes`}>Ver todas</a>

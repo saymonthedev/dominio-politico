@@ -181,6 +181,15 @@ export interface PersonStateRow {
 
 export type EntryCulture = "ABERTO" | "RELACIONAMENTO" | "CONVITE";
 
+/** Cota do FEFC de um partido de jogador numa eleição: a presidência reparte entre as candidaturas. */
+export interface CampaignFund {
+  election_id: string;
+  total: number;
+  left: number;
+  /** repasses por candidatura */
+  given: Record<string, number>;
+}
+
 export interface PartyRow {
   id: string;
   world_id: string;
@@ -214,6 +223,8 @@ export interface PartyRow {
   formation: PartyFormation | null;
   /** cotas do fundo partidário suspensas até (sanção da Justiça Eleitoral) */
   fund_suspended_until: ISODate | null;
+  /** fundo eleitoral do partido para repartir entre candidaturas (partidos presididos por jogador) */
+  campaign_fund: CampaignFund | null;
 }
 
 export interface PartyFormation {

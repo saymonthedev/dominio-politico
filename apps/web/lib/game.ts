@@ -1,8 +1,8 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import type { PartyRow, PersonRow, PersonStateRow, WorldRow } from "@dp/engine";
+import type { PartyRow, PersonRow, PersonStateRow, WorldRow, WorldState } from "@dp/engine";
 import { supabaseServer } from "./supabase/server";
-import { isStartYear, worldIdFor } from "./sim";
+import { asPlayer, cachedState, isStartYear, worldIdFor } from "./sim";
 
 export type PublicWorld = Omit<WorldRow, "seed">;
 
@@ -49,6 +49,18 @@ export const requireMe = cache(async (year: number): Promise<Me> => {
     party = (data as PartyRow) ?? null;
   }
   return { year, worldId, person: person as PersonRow, state: st as PersonStateRow, party };
+});
+
+/**
+ * Estado do mundo para as telas do jogador. Usa o cache só se ele bate com o
+ * que acabou de ser lido do banco: o mesmo dia de jogo e o mesmo número de
+ * ações do jogador. Assim, depois de agir, a tela já mostra o efeito.
+ */
+export const playerState = cache(async (year: number): Promise<WorldState> => {
+  const me = await requireMe(year);
+  const { sb } = await getSession();
+  const [world, session] = await Promise.all([getWorld(year), sb.auth.getSession()]);
+  return asPlayer(session.data.session?.access_token, () => cachedState(me.worldId, { tick: world?.tick, personId: me.person.id, seq: me.state.action_seq }));
 });
 
 export const getParties = cache(async (worldId: string): Promise<PartyRow[]> => {

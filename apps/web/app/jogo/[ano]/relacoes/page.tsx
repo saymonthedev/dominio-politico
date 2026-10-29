@@ -3,9 +3,8 @@ import { Empty, GameHeader, Kpi, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { PartyChip } from "@/components/ui";
-import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
+import { getParties, getSession, partyMap, playerState, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
-import { cachedState } from "@/lib/sim";
 
 const roleOf = (p: PersonRow) => (p.office_code ? OFFICES[p.office_code].name : p.role_label ?? (p.kind === "PLAYER" ? "jogador(a)" : "político(a)"));
 
@@ -21,7 +20,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [state, parties, relQ] = await Promise.all([
-    cachedState(me.worldId),
+    playerState(year),
     getParties(me.worldId),
     sb.from("relationships").select("*").eq("world_id", me.worldId).eq("a_id", me.person.id).order("score", { ascending: false }),
   ]);

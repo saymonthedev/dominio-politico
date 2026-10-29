@@ -6,13 +6,16 @@ import type { Ctx } from "./state";
 import type { AffiliationRequestRow, PartyRow, PersonRow } from "./types";
 
 /**
- * chance_de_aceite = afinidade_ideológica + reputação + relacionamento_local
+ * chance_de_aceite = afinidade_ideológica + reputação + trajetória + relacionamento_local
  *                  + necessidade_do_partido + apoio_de_facção − histórico_de_escândalos
- * (documento técnico, "Partidos e luta interna")
+ * (documento técnico, "Partidos e luta interna"). Afinidade sozinha não basta:
+ * quem acabou de chegar à política precisa de ativismo, reputação ou padrinho.
  */
 export interface AffiliationBreakdown {
   afinidade_ideologica: number;
   reputacao: number;
+  /** ativismo, etapa da carreira e mandato */
+  trajetoria: number;
   relacionamento_local: number;
   necessidade_do_partido: number;
   apoio_de_faccao: number;
@@ -55,11 +58,12 @@ export function computeAffiliation(ctx: Ctx, person: PersonRow, party: PartyRow,
     .filter((f) => f.party_id === party.id)
     .reduce((m, f) => Math.max(m, ideologyAffinity(person.ideology, f.ideology) * f.strength), 0);
   const b: AffiliationBreakdown = {
-    afinidade_ideologica: (affinity - 0.6) * 120,
+    afinidade_ideologica: (affinity - 0.6) * 80,
     reputacao: (person.reputation - 30) * 0.5,
+    trajetoria: Math.min(15, st.activism * 0.3) + (STAGE_WEIGHT[person.stage] ?? 0) + (person.office_code ? 20 : 0),
     relacionamento_local: rel * 0.45,
-    necessidade_do_partido: (1 - territory) * 15 + (ctx.date >= "2027-10-01" ? 5 : 0),
-    apoio_de_faccao: factionSupport * 20,
+    necessidade_do_partido: (1 - territory) * 10 + (ctx.date >= "2027-10-01" ? 5 : 0),
+    apoio_de_faccao: factionSupport * 15,
     historico_de_escandalos: -st.scandal * 0.8,
     cultura_de_entrada: 0,
     total: 0,
@@ -67,7 +71,7 @@ export function computeAffiliation(ctx: Ctx, person: PersonRow, party: PartyRow,
   if (kind === "PEDIDO") {
     if (party.entry_culture === "RELACIONAMENTO") b.cultura_de_entrada = rel >= 25 ? 0 : -20;
     if (party.entry_culture === "CONVITE") b.cultura_de_entrada = rel >= 50 ? -5 : -60;
-    if (party.entry_culture === "ABERTO") b.cultura_de_entrada = 10;
+    if (party.entry_culture === "ABERTO") b.cultura_de_entrada = 5;
   } else {
     b.cultura_de_entrada = 30;
   }
@@ -75,8 +79,20 @@ export function computeAffiliation(ctx: Ctx, person: PersonRow, party: PartyRow,
   return b;
 }
 
+/** Peso da etapa da carreira: quem nunca militou é uma aposta; quem já foi filiado traz bagagem. */
+const STAGE_WEIGHT: Partial<Record<PersonRow["stage"], number>> = {
+  CIDADAO: -15,
+  ATIVISTA: -5,
+  APROXIMACAO: 0,
+  FILIADO: 5,
+  QUADRO: 8,
+  PRE_CANDIDATO: 8,
+  CANDIDATO: 8,
+};
+
+/** Curva de aceite: um perfil mediano (total 30) tem metade de chance. */
 export function acceptanceProbability(total: number): number {
-  return 1 / (1 + Math.exp(-(total - 10) / 10));
+  return 1 / (1 + Math.exp(-(total - 30) / 12));
 }
 
 export function requestAffiliation(ctx: Ctx, person: PersonRow, party: PartyRow): AffiliationRequestRow {
@@ -177,6 +193,7 @@ function acceptReason(b: AffiliationBreakdown): string {
   const labels: Record<string, string> = {
     afinidade_ideologica: "a afinidade com o programa do partido",
     reputacao: "a boa reputação local",
+    trajetoria: "a trajetória de militância",
     relacionamento_local: "o relacionamento com lideranças da legenda",
     necessidade_do_partido: "a necessidade de reforçar a presença na região",
     apoio_de_faccao: "o apoio de uma das alas internas",
@@ -189,6 +206,7 @@ function rejectReason(b: AffiliationBreakdown, party: PartyRow): string {
   if (b.cultura_de_entrada <= -20) return "Faltou relacionamento com lideranças do partido.";
   if (b.historico_de_escandalos < -10) return "O histórico de escândalos pesou contra.";
   if (b.afinidade_ideologica < 0) return "A direção considerou suas posições distantes do programa partidário.";
+  if (b.trajetoria < 0) return "A direção quer ver mais trajetória: militância, eventos e trabalho de base antes da filiação.";
   return "A direção preferiu aguardar uma trajetória mais consolidada.";
 }
 

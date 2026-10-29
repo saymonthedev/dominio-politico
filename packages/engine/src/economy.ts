@@ -1,3 +1,4 @@
+import { applyMonthlyInflation } from "./finance";
 import { addMonths, day, month, monthKey, type ISODate } from "./calendar";
 import { UF_BY_CODE } from "./geo";
 import type { Ctx } from "./state";
@@ -172,6 +173,7 @@ export function monthlyEconomy(ctx: Ctx): void {
     .reduce((s, p) => s + (p.effects.fiscal ?? 0), 0);
   const next = stepEconomy(prev, { fiscalStance: ctx.world.gov.fiscal_stance + policyImpulse, shocks }, monthKey(ctx.date), ctx.world.id);
   ctx.saveEconomy(next);
+  applyMonthlyInflation(ctx, next.inflation_month);
 
   // Aprovação do governo federal acompanha economia (com inércia)
   const econScore = 50 + (next.gdp_growth - 2) * 4 - (next.inflation_12m - 4) * 3 - (next.unemployment - 7) * 2.5 + (next.confidence - 50) * 0.2;

@@ -113,6 +113,8 @@ export interface AgendaItem {
   title: string;
   detail: string;
   tone: "info" | "warn" | "hot";
+  /** verbete do glossário que explica o item */
+  term?: string;
 }
 
 /** Prazos e datas do calendário a partir de hoje (eleição, posse, debates e votações do jogador). */
@@ -122,14 +124,14 @@ export function agenda(state: WorldState, me: PersonRow, limit = 8): AgendaItem[
   for (const e of [...state.t.elections.values()].filter((x) => x.status !== "ENCERRADA").sort((a, b) => a.year - b.year).slice(0, 2)) {
     const kind = e.kind === "GERAL" ? "gerais" : "municipais";
     const c = e.calendar;
-    const add = (date: string | undefined, title: string, detail: string, tone: AgendaItem["tone"] = "info") => {
-      if (date && date >= today) items.push({ date, days: daysBetween(today, date), title, detail, tone });
+    const add = (date: string | undefined, title: string, detail: string, tone: AgendaItem["tone"] = "info", term?: string) => {
+      if (date && date >= today) items.push({ date, days: daysBetween(today, date), title, detail, tone, term });
     };
     add(c.preCampaignStart, `Começa o ano eleitoral de ${e.year}`, `Eleições ${kind}: abrem as disputas e as pré-candidaturas.`);
-    add(c.filiationDeadline, "Prazo final de filiação", `Quem quiser disputar em ${e.year} precisa estar filiado(a) até esta data.`, me.party_id ? "info" : "hot");
-    add(c.partySwitchWindowStart, "Abre a janela partidária", "Parlamentares podem trocar de partido sem perder o mandato.");
-    add(c.conventionStart, "Começam as convenções", "Os partidos escolhem seus candidatos.", "warn");
-    add(c.conventionEnd, "Fim das convenções", "Último dia para definir candidaturas.", "warn");
+    add(c.filiationDeadline, "Prazo final de filiação", `Quem quiser disputar em ${e.year} precisa estar filiado(a) até esta data.`, me.party_id ? "info" : "hot", "Prazo de filiação");
+    add(c.partySwitchWindowStart, "Abre a janela partidária", "Parlamentares podem trocar de partido sem perder o mandato.", "info", "Janela partidária");
+    add(c.conventionStart, "Começam as convenções", "Os partidos escolhem seus candidatos.", "warn", "Convenção partidária");
+    add(c.conventionEnd, "Fim das convenções", "Último dia para definir candidaturas.", "warn", "Convenção partidária");
     add(c.campaignStart, "Começa a campanha oficial", "Propaganda liberada nas ruas e na internet.");
     add(e.first_round, `1º turno das eleições ${kind}`, `Eleições de ${e.year}.`, "hot");
     add(e.runoff, "2º turno", "Disputas majoritárias que não terminaram no 1º turno.", "warn");

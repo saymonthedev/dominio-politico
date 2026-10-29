@@ -9,8 +9,8 @@ import { PartyChip, STAGE_LABEL } from "@/components/ui";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney } from "@/lib/format";
 import { careerSteps } from "@/lib/game-view";
-import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
-import { cachedState, citiesFor } from "@/lib/sim";
+import { getParties, getSession, partyMap, playerState, requireMe } from "@/lib/game";
+import { citiesFor } from "@/lib/sim";
 
 const EVENT_LABEL: Record<string, string> = {
   CHARACTER_CREATED: "Você entrou na vida pública",
@@ -20,6 +20,7 @@ const EVENT_LABEL: Record<string, string> = {
   AFFILIATION_REJECTED: "Filiação recusada",
   PARTY_JOINED: "Filiação",
   PARTY_LEFT: "Desfiliação",
+  TIME_ADVANCED: "Você passou o tempo",
 };
 
 const REQ_STATUS: Record<string, { label: string; tone: "ok" | "bad" | "warn" | "neutral" }> = {
@@ -30,12 +31,18 @@ const REQ_STATUS: Record<string, { label: string; tone: "ok" | "bad" | "warn" | 
   RETIRADO: { label: "retirado", tone: "neutral" },
 };
 
+function eventText(ev: WorldEventRow): string {
+  const payload = ev.payload as { message?: string; days?: number };
+  if (ev.type === "TIME_ADVANCED") return `Você passou o tempo: ${payload.days === 1 ? "1 dia" : `${payload.days ?? 0} dias`}`;
+  return String(payload.message ?? EVENT_LABEL[ev.type] ?? ev.type.toLowerCase().replaceAll("_", " "));
+}
+
 export default async function Page({ params }: { params: Promise<{ ano: string }> }) {
   const year = Number((await params).ano);
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [state, parties, reqQ, evQ, cities] = await Promise.all([
-    cachedState(me.worldId),
+    playerState(year),
     getParties(me.worldId),
     sb.from("affiliation_requests").select("*").eq("world_id", me.worldId).eq("person_id", me.person.id).order("created_on", { ascending: false }).limit(10),
     sb.from("world_events").select("*").eq("world_id", me.worldId).contains("actors", [me.person.id]).order("tick", { ascending: false }).limit(30),
@@ -115,7 +122,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                 {events.map((ev) => (
                   <li key={ev.id}>
                     <span className="tline__date mono">{fmtDate(ev.game_date)}</span>
-                    <span>{String((ev.payload as { message?: string }).message ?? EVENT_LABEL[ev.type] ?? ev.type.toLowerCase().replaceAll("_", " "))}</span>
+                    <span>{eventText(ev)}</span>
                   </li>
                 ))}
               </ol>

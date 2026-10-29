@@ -5,10 +5,15 @@ import {
   CRIMES,
   Ctx,
   currentElection,
+  fundableCandidacies,
+  geoName,
+  indicableMembers,
+  indicationElection,
   isReal,
   OFFICES,
   officesForElection,
   partyLedBy,
+  pendingIndications,
   POLICY_CATALOG,
   scaledAmount,
   SPHERE_LABEL,
@@ -19,7 +24,12 @@ import {
 } from "@dp/engine";
 import { fmtDate, fmtMoney } from "./format";
 
-export interface ActionOption { value: string; label: string }
+export interface ActionOption {
+  value: string;
+  label: string;
+  /** cargo, partido e UF de pessoas, para os filtros da lista */
+  meta?: { o: string; p: string; u: string };
+}
 export interface ActionParamView { name: string; label: string; type: string; optional?: boolean; options?: ActionOption[] }
 export interface ActionView {
   id: string;
@@ -36,7 +46,8 @@ export interface ActionView {
   confirm?: string;
 }
 
-const PERSON_LIMIT = 150;
+/** com filtros por cargo, partido e UF, a lista pode ser longa */
+const PERSON_LIMIT = 300;
 
 /** Monta as ações disponíveis do personagem, com as opções já resolvidas pelo servidor. */
 export function actionsFor(state: WorldState, personId: string, categories?: ActionCategory[]): ActionView[] {
@@ -48,24 +59,30 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
   const partyLabel = (id: string | null) => (id ? state.t.parties.get(id)?.acronym ?? "" : "sem partido");
   const describe = (p: (typeof persons)[number]) =>
     `${p.name} — ${p.role_label ?? (p.office_code ? OFFICES[p.office_code].name : p.kind === "PLAYER" ? "jogador(a)" : "político(a)")} · ${partyLabel(p.party_id)} · ${p.uf}`;
+  const option = (p: (typeof persons)[number], extra = ""): ActionOption => ({
+    value: p.id,
+    label: describe(p) + extra,
+    meta: { o: p.office_code ? OFFICES[p.office_code].name : p.kind === "PLAYER" ? "Jogador(a)" : "Sem mandato", p: (p.party_id && state.t.parties.get(p.party_id)?.acronym) || "Sem partido", u: p.uf },
+  });
 
   const conversable = persons
     .filter((p) => p.kind !== "PLAYER" && (p.uf === me.uf || p.tier === 1))
     .sort((a, b) => a.tier - b.tier || b.reputation - a.reputation)
     .slice(0, PERSON_LIMIT)
-    .map((p) => ({ value: p.id, label: describe(p) }));
+    .map((p) => option(p));
+  // alvos: quem tem dossiê, jogadores, gente do seu estado e quem tem mandato em qualquer UF
   const targetable = persons
-    .filter((p) => canBeTargeted(p) && (p.uf === me.uf || p.kind === "PLAYER" || (st.dossiers[p.id] ?? 0) > 0))
-    .sort((a, b) => (st.dossiers[b.id] ?? 0) - (st.dossiers[a.id] ?? 0) || a.tier - b.tier)
+    .filter((p) => canBeTargeted(p) && (p.uf === me.uf || p.kind === "PLAYER" || !!p.office_code || (st.dossiers[p.id] ?? 0) > 0))
+    .sort((a, b) => (st.dossiers[b.id] ?? 0) - (st.dossiers[a.id] ?? 0) || Number(b.uf === me.uf) - Number(a.uf === me.uf) || a.tier - b.tier || b.reputation - a.reputation)
     .slice(0, PERSON_LIMIT)
-    .map((p) => ({ value: p.id, label: `${describe(p)}${st.dossiers[p.id] ? ` · dossiê ${Math.round(st.dossiers[p.id] * 100)}%` : ""}` }));
+    .map((p) => option(p, st.dossiers[p.id] ? ` · dossiê ${Math.round(st.dossiers[p.id] * 100)}%` : ""));
   const myCand = activeCandidacy(ctx, personId);
   const rivals = myCand
     ? [...state.t.candidacies.values()]
         .filter((c) => c.race_id === myCand.race_id && c.id !== myCand.id)
         .map((c) => state.t.persons.get(c.person_id))
         .filter((p): p is NonNullable<typeof p> => !!p && canBeTargeted(p))
-        .map((p) => ({ value: p.id, label: describe(p) }))
+        .map((p) => option(p))
     : [];
   const e = currentElection(ctx);
   const year = Number(state.world.game_date.slice(0, 4));
@@ -75,7 +92,7 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
         .filter((p) => p.party_id !== myParty.id && !(isReal(p.kind) && p.tier <= 1) && (p.uf === me.uf || (myParty.territory[p.uf] ?? 0) >= 0.02 || p.kind === "PLAYER"))
         .sort((a, b) => Number(!!b.office_code) - Number(!!a.office_code) || b.reputation - a.reputation)
         .slice(0, PERSON_LIMIT)
-        .map((p) => ({ value: p.id, label: describe(p) }))
+        .map((p) => option(p))
     : [];
 
   const optionsFor = (actionId: string, type: string, def?: ActionOption[]): ActionOption[] | undefined => {
@@ -107,7 +124,7 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
               .filter((r) => r.party_id === myParty.id && r.kind === "PEDIDO" && r.status === "PENDENTE")
               .map((r) => {
                 const who = state.t.persons.get(r.person_id);
-                return { value: r.id, label: who ? describe(who) : "Pedido" };
+                return who ? { ...option(who), value: r.id } : { value: r.id, label: "Pedido" };
               })
           : [];
       case "recruit":
@@ -116,6 +133,25 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
         return [...state.t.illicit_acts.values()]
           .filter((a) => a.person_id === personId && a.ongoing)
           .map((a) => ({ value: a.id, label: `${CRIMES[a.kind].label} — ${fmtMoney(a.monthly_gain)}/mês, ${fmtMoney(a.amount)} no total` }));
+      case "member": {
+        const e = indicationElection(ctx);
+        return myParty && e ? indicableMembers(ctx, myParty, e).slice(0, PERSON_LIMIT).map((p) => option(p)) : [];
+      }
+      case "indication":
+        return myParty
+          ? pendingIndications(ctx, myParty).map((c) => ({ value: c.id, label: `${state.t.persons.get(c.person_id)?.name ?? "Membro"} — ${OFFICES[c.office_code].name} · ${geoName(c.geo, state)}` }))
+          : [];
+      case "party_candidacy":
+        return myParty
+          ? fundableCandidacies(ctx, myParty).map((c) => {
+              const given = myParty.campaign_fund?.given[c.id] ?? 0;
+              return { value: c.id, label: `${state.t.persons.get(c.person_id)?.name ?? "Candidatura"} — ${OFFICES[c.office_code].name} · ${geoName(c.geo, state)}${given ? ` · já recebeu ${fmtMoney(given)}` : ""}` };
+            })
+          : [];
+      case "fund_share": {
+        const left = myParty?.campaign_fund?.left ?? 0;
+        return [10, 25, 50, 100].map((pct) => ({ value: String(pct), label: `${pct === 100 ? "Tudo o que resta" : `${pct}% do que resta`} (${fmtMoney(Math.round((left * pct) / 100))})` }));
+      }
       case "uf":
         return UF_CODES.map((u) => ({ value: u, label: `${u} — ${UF_BY_CODE[u].name}` }));
       case "uf_br":

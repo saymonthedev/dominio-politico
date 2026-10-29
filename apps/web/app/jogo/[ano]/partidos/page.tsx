@@ -5,8 +5,8 @@ import { QuickAction } from "@/components/game/QuickAction";
 import { Icon } from "@/components/Icon";
 import { actionsFor } from "@/lib/actions-view";
 import { partyFits } from "@/lib/game-view";
-import { requireMe } from "@/lib/game";
-import { cachedState } from "@/lib/sim";
+import { playerState, requireMe } from "@/lib/game";
+import { Term } from "@/components/Term";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -14,7 +14,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const year = Number((await params).ano);
   const { ordem = "afinidade" } = await searchParams;
   const me = await requireMe(year);
-  const state = await cachedState(me.worldId);
+  const state = await playerState(year);
   const person = state.t.persons.get(me.person.id) ?? me.person;
   let fits = partyFits(state, person);
   if (ordem === "bancada") fits = [...fits].sort((a, b) => (b.party.seats.camara ?? 0) - (a.party.seats.camara ?? 0));
@@ -31,7 +31,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         kicker="O país"
         icon="flag"
         title="Partidos"
-        lede="Os partidos reais do ponto de partida. Bancadas, número e federação são fatos; posição nos eixos, cultura de entrada e integridade são do jogo e mudam com a partida."
+        lede={
+          <>
+            Os partidos reais do ponto de partida. Bancadas, número e <Term k="Federação partidária">federação</Term> são fatos; posição nos eixos,{" "}
+            <Term k="Cultura de entrada">cultura de entrada</Term> e integridade são do jogo e mudam com a partida.
+          </>
+        }
       >
         <div className="seg" role="tablist" aria-label="Ordenar">
           {[

@@ -7,9 +7,9 @@ import { PartyChip } from "@/components/ui";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtPct } from "@/lib/format";
 import { daysBetween } from "@/lib/game-view";
-import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
+import { getParties, getSession, partyMap, playerState, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
-import { cachedState, citiesFor } from "@/lib/sim";
+import { citiesFor } from "@/lib/sim";
 
 const MANDATE: Record<string, { label: string; tone: "ok" | "gold" | "neutral" }> = {
   ATIVO: { label: "mandato em curso", tone: "ok" },
@@ -32,7 +32,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [state, parties, bQ, mQ, pQ] = await Promise.all([
-    cachedState(me.worldId),
+    playerState(year),
     getParties(me.worldId),
     sb.from("bills").select("*").eq("world_id", me.worldId).order("vote_on", { ascending: false }).limit(20),
     sb.from("mandates").select("*").eq("world_id", me.worldId).eq("person_id", me.person.id).order("start_on", { ascending: false }),

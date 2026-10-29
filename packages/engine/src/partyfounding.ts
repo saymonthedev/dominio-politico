@@ -1,6 +1,6 @@
 import { joinParty, relationshipScore } from "./affiliation";
 import { addDays, diffDays } from "./calendar";
-import { priceLevel } from "./finance";
+import { worldPriceLevel, type PricedWorld } from "./finance";
 import { UF_BY_CODE, UF_CODES } from "./geo";
 import { ideologyAffinity } from "./ideology";
 import { moderateText } from "./news/moderation";
@@ -42,13 +42,13 @@ export const ENTRY_OPTIONS: Array<{ value: EntryCulture; label: string }> = [
 ];
 
 /** Custo inicial: assessoria jurídica, estatuto, registro civil e estrutura de coleta. */
-export function foundingCost(date: string): number {
-  return Math.round((120_000 * priceLevel(date)) / 1000) * 1000;
+export function foundingCost(world: PricedWorld): number {
+  return Math.round((120_000 * worldPriceLevel(world)) / 1000) * 1000;
 }
 
 /** Custo médio por assinatura numa coleta paga. */
-export function signatureCost(date: string): number {
-  return Math.round(2.5 * priceLevel(date) * 100) / 100;
+export function signatureCost(world: PricedWorld): number {
+  return Math.round(2.5 * worldPriceLevel(world) * 100) / 100;
 }
 
 function electorateTotal(): number {
@@ -113,7 +113,7 @@ export function validateFounding(ctx: Ctx, p: PersonRow, input: FoundInput): str
   if (partyInFormationBy(ctx, p.id)) return "Você já está fundando um partido.";
   if (partyFoundedBy(ctx, p.id)) return "Você já fundou um partido.";
   if (p.reputation < 25) return "Reputação mínima de 25 para reunir fundadores.";
-  const cost = foundingCost(ctx.date);
+  const cost = foundingCost(ctx.world);
   if (st.money < cost) return `Custa R$ ${cost.toLocaleString("pt-BR")} (estatuto, advogados, registro e estrutura de coleta).`;
   const realNames = [...ctx.t.persons.values()].filter((x) => isReal(x.kind) && x.name.split(" ").length >= 2).map((x) => x.name);
   const name = input.name.trim().replace(/\s+/g, " ");
@@ -137,7 +137,7 @@ export function validateFounding(ctx: Ctx, p: PersonRow, input: FoundInput): str
 /** Inicia a fundação: o partido existe "em formação" até o registro no TSE. */
 export function foundParty(ctx: Ctx, p: PersonRow, input: FoundInput): PartyRow {
   const st = ctx.pstate(p.id)!;
-  const cost = foundingCost(ctx.date);
+  const cost = foundingCost(ctx.world);
   st.money -= cost;
   const goals = formationGoals();
   const formation: PartyFormation = {
@@ -182,6 +182,7 @@ export function foundParty(ctx: Ctx, p: PersonRow, input: FoundInput): PartyRow 
     founded_on: null,
     formation,
     fund_suspended_until: null,
+    campaign_fund: null,
   };
   ctx.save("parties", party);
   ctx.save("person_states", st);

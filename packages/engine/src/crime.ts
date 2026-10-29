@@ -9,7 +9,7 @@ import {
   type DetectionChannel,
   type IllicitKind,
 } from "./crimes";
-import { priceLevel } from "./finance";
+import { worldPriceLevel } from "./finance";
 import { isReal } from "./news/policy";
 import { spawnProceduralCadre } from "./npc";
 import { eraRules, OFFICES, type OfficeCode } from "./ruleset";
@@ -142,7 +142,7 @@ export function crimeOpportunity(ctx: Ctx, p: PersonRow, kind: IllicitKind): str
     case "DESVIO_FUNDO_PARTIDARIO": {
       const party = partyLedBy(ctx, p.id);
       if (!party) return "Só para quem preside um partido.";
-      return party.cash >= 50_000 * priceLevel(ctx.date) ? null : "O caixa do partido está baixo demais.";
+      return party.cash >= 50_000 * worldPriceLevel(ctx.world) ? null : "O caixa do partido está baixo demais.";
     }
     case "TRAFICO_INFLUENCIA": {
       if (p.office_code) return null;
@@ -150,7 +150,7 @@ export function crimeOpportunity(ctx: Ctx, p: PersonRow, kind: IllicitKind): str
       return knowsOfficial ? null : "Exige relação forte (40+) com alguém que tenha cargo.";
     }
     case "LAVAGEM":
-      return st.dirty_money >= 20_000 * priceLevel(ctx.date) ? null : "Você não tem dinheiro não declarado para lavar.";
+      return st.dirty_money >= 20_000 * worldPriceLevel(ctx.world) ? null : "Você não tem dinheiro não declarado para lavar.";
     case "OBSTRUCAO_JUSTICA":
       return openCaseAgainst(ctx, p.id) ? null : "Não há investigação aberta contra você.";
     case "ENRIQUECIMENTO_ILICITO":
@@ -186,7 +186,7 @@ export interface CrimeGain {
 }
 
 export function crimeGain(ctx: Ctx, p: PersonRow, kind: IllicitKind, rng: Rng): CrimeGain {
-  const pl = priceLevel(ctx.date);
+  const pl = worldPriceLevel(ctx.world);
   const scale = (p.office_code ? OFFICE_SCALE[p.office_code] : 0.4) * cityFactor(ctx, p) * pl;
   const r = (lo: number, hi: number) => Math.round(rng.range(lo, hi) * scale / 1000) * 1000;
   const flat = (lo: number, hi: number) => Math.round(rng.range(lo, hi) * pl / 1000) * 1000;
@@ -276,7 +276,7 @@ export function createIllicitAct(ctx: Ctx, person: PersonRow, kind: IllicitKind,
     kind,
     created_on: ctx.date,
     amount: Math.round(opts.amount),
-    value_relative: Math.min(1, opts.amount / (2_000_000 * priceLevel(ctx.date))),
+    value_relative: Math.min(1, opts.amount / (2_000_000 * worldPriceLevel(ctx.world))),
     participants: 1 + (opts.partners?.length ?? 0) + rng.int(0, 3),
     witnesses: opts.witnesses ?? rng.int(def.witnesses[0], def.witnesses[1]),
     paper_trail: opts.paperTrail ?? rng.range(def.trail[0], def.trail[1]),
@@ -729,8 +729,8 @@ function progressInvestigation(ctx: Ctx, inv: InvestigationRow): void {
   if (inv.stage === "INVESTIGACAO") {
     measure(ctx, inv, "QUEBRA_SIGILO", "Quebra dos sigilos bancário e fiscal");
     if (inv.evidence >= 0.4) measure(ctx, inv, "BUSCA", `Busca e apreensão${target ? ` em endereços ligados a ${target.name}` : ` na sede do ${party?.acronym ?? "partido"}`}`);
-    if (totalAmount >= 500_000 * priceLevel(ctx.date) && inv.evidence >= 0.5) measure(ctx, inv, "BLOQUEIO_BENS", `Bloqueio de até R$ ${Math.round(totalAmount).toLocaleString("pt-BR")} em bens`);
-    if (target && (obstruction || (totalAmount >= 5_000_000 * priceLevel(ctx.date) && inv.evidence >= 0.7))) {
+    if (totalAmount >= 500_000 * worldPriceLevel(ctx.world) && inv.evidence >= 0.5) measure(ctx, inv, "BLOQUEIO_BENS", `Bloqueio de até R$ ${Math.round(totalAmount).toLocaleString("pt-BR")} em bens`);
+    if (target && (obstruction || (totalAmount >= 5_000_000 * worldPriceLevel(ctx.world) && inv.evidence >= 0.7))) {
       measure(ctx, inv, "PRISAO_PREVENTIVA", obstruction ? "Prisão preventiva por risco à investigação" : "Prisão preventiva pelo volume desviado");
       if (st) {
         st.jailed_until = addDays(ctx.date, rng.int(30, 120));
@@ -951,7 +951,7 @@ export function monthlyCrime(ctx: Ctx): void {
     act.recurrence += 1;
     act.paper_trail = Math.min(0.95, act.paper_trail + 0.02);
     if (ctx.rng("scheme-witness", act.id).chance(0.25)) act.witnesses += 1;
-    act.value_relative = Math.min(1, act.amount / (2_000_000 * priceLevel(ctx.date)));
+    act.value_relative = Math.min(1, act.amount / (2_000_000 * worldPriceLevel(ctx.world)));
     ctx.save("illicit_acts", act);
     if (st) {
       if (act.kind === "NEPOTISMO") st.money += act.monthly_gain;
@@ -979,7 +979,7 @@ export function monthlyCrime(ctx: Ctx): void {
         }
       }
       // quem acumula dinheiro sujo tenta lavá-lo
-      if (st.dirty_money > 200_000 * priceLevel(ctx.date) && rng.chance(0.15)) {
+      if (st.dirty_money > 200_000 * worldPriceLevel(ctx.world) && rng.chance(0.15)) {
         const amount = Math.round(st.dirty_money * rng.range(0.3, 0.7));
         commitCrime(ctx, p, "LAVAGEM", { amount, description: "Lavagem por meio de empresa de fachada" });
         st.dirty_money = Math.max(0, st.dirty_money - amount);
@@ -996,7 +996,7 @@ export function monthlyCrime(ctx: Ctx): void {
       if (!rng.chance(exposure * contagion)) continue;
       const broker = findOrCreateBroker(ctx, p.uf, rng.chance(0.5) ? party : undefined);
       const kind: Offer["kind"] = p.office_code ? "PROPINA" : "CAIXA_DOIS";
-      const amount = Math.round((rng.range(30_000, 400_000) * (p.office_code ? 2 : 1) * priceLevel(ctx.date)) / 1000) * 1000;
+      const amount = Math.round((rng.range(30_000, 400_000) * (p.office_code ? 2 : 1) * worldPriceLevel(ctx.world)) / 1000) * 1000;
       const offer: Offer = { id: ctx.id("ofr", p.id), kind, from: broker.id, amount, expires_tick: ctx.tick + 15 };
       st.offers.push(offer);
       ctx.save("person_states", st);

@@ -9,6 +9,7 @@ import { daysBetween } from "@/lib/game-view";
 import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
 import { photoOf, type Photo } from "@/lib/photos";
 import { citiesFor } from "@/lib/sim";
+import { Term } from "@/components/Term";
 
 const STATUS: Record<string, { label: string; tone: "neutral" | "ok" | "warn" | "gold" | "sim" }> = {
   AGENDADA: { label: "agendada", tone: "neutral" },
@@ -312,12 +313,16 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                       <span>{era.domicileMonths} meses na circunscrição.</span>
                     </li>
                     <li>
-                      <b>{era.fichaLimpa ? "Ficha Limpa" : "Inelegibilidade"}</b>
+                      <b>
+                        <Term k={era.fichaLimpa ? "Ficha Limpa" : "Inelegibilidade"} />
+                      </b>
                       <span>{era.fichaLimpa ? "condenação por órgão colegiado deixa 8 anos inelegível." : "3 anos após condenação definitiva (antes da Ficha Limpa)."}</span>
                     </li>
                     {era.partySwitchWindow && (
                       <li>
-                        <b>Janela partidária</b>
+                        <b>
+                          <Term k="Janela partidária" />
+                        </b>
                         <span>
                           troca de partido sem perder mandato de {fmtDate(selected.calendar.partySwitchWindowStart)} a {fmtDate(selected.calendar.partySwitchWindowEnd)}.
                         </span>
@@ -333,7 +338,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               )}
               <Panel title="Como disputar" icon="flag" tone="gold">
                 <p className="small" style={{ marginTop: 0 }}>
-                  Para entrar numa disputa você precisa estar filiado(a) até o prazo, lançar a pré-candidatura e ser escolhido(a) na convenção do seu partido.
+                  Para entrar numa disputa você precisa estar filiado(a) até o prazo, lançar a pré-candidatura e ser escolhido(a) na <Term k="Convenção partidária">convenção</Term> do seu partido.
                 </p>
                 <a className="ui-btn ui-btn--gold ui-btn--sm" href={`/jogo/${year}/campanha`}>
                   <span>Ir para a campanha</span> <Icon name="arrow" size={14} />

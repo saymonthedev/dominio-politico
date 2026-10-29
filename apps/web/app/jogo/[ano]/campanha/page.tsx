@@ -5,8 +5,9 @@ import { Icon } from "@/components/Icon";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney, fmtNum, fmtPct } from "@/lib/format";
 import { daysBetween } from "@/lib/game-view";
-import { getSession, requireMe } from "@/lib/game";
-import { cachedState, citiesFor } from "@/lib/sim";
+import { getSession, playerState, requireMe } from "@/lib/game";
+import { citiesFor } from "@/lib/sim";
+import { Term } from "@/components/Term";
 
 const STATUS: Record<string, { label: string; tone: "neutral" | "ok" | "bad" | "warn" | "gold" | "sim" }> = {
   PRE: { label: "pré-candidatura · aguardando convenção", tone: "warn" },
@@ -25,7 +26,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [state, cQ] = await Promise.all([
-    cachedState(me.worldId),
+    playerState(year),
     sb.from("candidacies").select("*").eq("world_id", me.worldId).eq("person_id", me.person.id).order("election_id", { ascending: false }).limit(5),
   ]);
   const today = state.world.game_date;
@@ -88,7 +89,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         <Panel className="mb">
           <Empty icon="megaphone" title="Você não tem candidatura">
             <p>
-              No ano eleitoral, filiado(a) dentro do prazo, lance sua pré-candidatura. A convenção do partido decide quem disputa.
+              No ano eleitoral, filiado(a) dentro do prazo, lance sua pré-candidatura. A <Term k="Convenção partidária">convenção</Term> do partido decide quem disputa.
               {upcoming ? ` Próxima eleição: ${upcoming.year}, com pré-campanha a partir de ${fmtDate(upcoming.calendar.preCampaignStart)}.` : ""}
             </p>
             <a className="ui-btn ui-btn--ghost ui-btn--sm" href={`/jogo/${year}/eleicoes`}>
@@ -115,7 +116,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             <Panel title="Recursos" icon="coins">
               <div className="kpis">
                 <Kpi label="Disponível" value={fmtMoney(c.budget - c.spent)} hint={`de ${fmtMoney(c.budget)}`} tone={c.budget - c.spent < 20_000 ? "warn" : undefined} />
-                <Kpi label="Fundo eleitoral" value={fmtMoney(c.fefc)} />
+                <Kpi label={<Term k="FEFC">Fundo eleitoral</Term>} value={fmtMoney(c.fefc)} />
                 <Kpi label="Doações" value={fmtMoney(c.donations)} />
                 <Kpi label="Voluntários" value={fmtNum(c.volunteers)} hint={`equipe: ${Object.values(c.team).reduce((a, b) => a + b, 0)}`} />
               </div>

@@ -176,6 +176,47 @@ export interface Option {
   value: string;
   label: string;
   hint?: string;
+  /** facetas para filtrar listas de pessoas: cargo, partido e UF */
+  meta?: { o: string; p: string; u: string };
+}
+
+type Facet = "o" | "p" | "u";
+const FACETS: Array<{ key: Facet; label: string; spoken: string }> = [
+  { key: "o", label: "Cargo", spoken: "cargo" },
+  { key: "p", label: "Partido", spoken: "partido" },
+  { key: "u", label: "UF", spoken: "estado (UF)" },
+];
+
+/** Fileira de filtros (barra de ferramentas com uma parada de Tab; setas percorrem as opções). */
+function FacetRow({ label, spoken, values, current, onPick }: { label: string; spoken: string; values: Array<[string, number]>; current: string | null; onPick: (v: string | null) => void }) {
+  const row = useRef<HTMLDivElement>(null);
+  const all: Array<[string | null, number]> = [[null, 0], ...values];
+  const selected = Math.max(0, all.findIndex(([v]) => v === current));
+  const onKey = (e: React.KeyboardEvent) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const buttons = [...(row.current?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
+    const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const next = e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 : (at + (e.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length;
+    buttons[next]?.focus();
+    buttons[next]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  };
+  return (
+    <div className="ui-facet" role="toolbar" aria-label={`Filtrar por ${spoken}`} ref={row} onKeyDown={onKey}>
+      <span className="ui-facet__label" aria-hidden="true">
+        {label}
+      </span>
+      <div className="ui-facet__chips">
+        {all.map(([v, n], i) => (
+          <button key={v ?? "__todos"} type="button" tabIndex={i === selected ? 0 : -1} aria-pressed={current === v} className={`ui-chip${current === v ? " is-on" : ""}`} onClick={() => onPick(current === v ? null : v)}>
+            {v ?? "Todos"}
+            {v !== null && <small>{n}</small>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -210,16 +251,38 @@ export function Select({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [facet, setFacet] = useState<Record<Facet, string | null>>({ o: null, p: null, u: null });
   const root = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const searchable = options.length > 8;
+  // listas de pessoas: filtros por cargo, partido e UF. Cada fileira conta só o que combina com os
+  // outros filtros escolhidos, para nunca levar a uma lista vazia; a fileira some se não ajuda a filtrar.
+  const facetRows = useMemo(() => {
+    if (options.length < 12 || !options.some((o) => o.meta)) return null;
+    const distinct = (k: Facet) => new Set(options.map((o) => o.meta?.[k]).filter(Boolean)).size;
+    return { o: distinct("o") > 1, p: distinct("p") > 1, u: distinct("u") > 1 };
+  }, [options]);
+  const facets = useMemo(() => {
+    if (!facetRows) return null;
+    const count = (k: Facet) => {
+      const m = new Map<string, number>();
+      for (const o of options) {
+        if (!o.meta || !(["o", "p", "u"] as Facet[]).every((x) => x === k || !facet[x] || o.meta?.[x] === facet[x])) continue;
+        m.set(o.meta[k], (m.get(o.meta[k]) ?? 0) + 1);
+      }
+      if (facet[k] && !m.has(facet[k]!)) m.set(facet[k]!, 0);
+      return [...m.entries()].sort((a, b) => (k === "u" ? a[0].localeCompare(b[0]) : b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")));
+    };
+    return { o: count("o"), p: count("p"), u: count("u") };
+  }, [options, facet, facetRows]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
-    if (!q) return options;
-    return options.filter((o) => o.label.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").includes(q));
-  }, [options, query]);
+    const byFacet = facets ? options.filter((o) => (["o", "p", "u"] as Facet[]).every((k) => !facet[k] || o.meta?.[k] === facet[k])) : options;
+    if (!q) return byFacet;
+    return byFacet.filter((o) => o.label.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").includes(q));
+  }, [options, query, facet, facets]);
   const current = options.find((o) => o.value === value);
 
   useEffect(() => {
@@ -248,6 +311,8 @@ export function Select({
     trigger.current?.focus();
   };
   const onKey = (e: React.KeyboardEvent) => {
+    // dentro das fileiras de filtro, Enter e espaço acionam o filtro, não a opção
+    if (e.key !== "Escape" && (e.target as HTMLElement).closest?.(".ui-facet")) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
       if (!open) setOpen(true);
@@ -260,6 +325,7 @@ export function Select({
       if (filtered[active]) choose(filtered[active]);
     } else if (e.key === "Escape" && open) {
       e.preventDefault();
+      e.stopPropagation();
       setOpen(false);
       trigger.current?.focus();
     } else if (e.key === "Home" && open) {
@@ -271,7 +337,18 @@ export function Select({
 
   return (
     <FieldShell id={id} label={label} hint={hint} optional={optional}>
-      <div className={`ui-select${open ? " is-open" : ""}`} ref={root} onKeyDown={onKey}>
+      <div
+        className={`ui-select${open ? " is-open" : ""}`}
+        ref={root}
+        onKeyDown={onKey}
+        onBlur={(e) => {
+          // o foco saiu do seletor (Tab, clique fora): fecha sem escolher
+          if (open && !root.current?.contains(e.relatedTarget as Node | null)) {
+            setOpen(false);
+            setQuery("");
+          }
+        }}
+      >
         <input type="hidden" name={name} value={value} />
         {/* validação nativa sem o visual nativo: campo invisível que exige valor */}
         {required && <input className="ui-sr" tabIndex={-1} aria-hidden="true" required value={value} onChange={() => undefined} onFocus={() => trigger.current?.focus()} />}
@@ -291,6 +368,25 @@ export function Select({
         </button>
         {open && (
           <div className="ui-select__pop">
+            {facets && (
+              <div className="ui-select__facets">
+                {FACETS.map(({ key, label: l, spoken }) =>
+                  facetRows?.[key] ? (
+                    <FacetRow
+                      key={key}
+                      label={l}
+                      spoken={spoken}
+                      values={facets[key]}
+                      current={facet[key]}
+                      onPick={(v) => {
+                        setFacet((f) => ({ ...f, [key]: v }));
+                        setActive(0);
+                      }}
+                    />
+                  ) : null,
+                )}
+              </div>
+            )}
             {searchable && (
               <div className="ui-select__search">
                 <Icon name="search" size={16} />

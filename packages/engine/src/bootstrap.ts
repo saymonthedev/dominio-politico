@@ -1,4 +1,5 @@
 import { addDays, type ISODate } from "./calendar";
+import { priceLevel } from "./finance";
 import { capitalId, UFS, UF_BY_CODE, type CityBase, type Region } from "./geo";
 import { snapshotTerritory } from "./cities";
 import { clampAxis, jitter, makeIdeology, spectrumLabel, type Ideology } from "./ideology";
@@ -72,7 +73,8 @@ export function createInitialWorld(snap: Snapshot, opts: BootstrapOptions): { st
     game_days_per_real_hour: opts.gameDaysPerRealHour ?? 2,
     election_integrity_mode: false,
     gov: { president_id: null, approval: 50, fiscal_stance: 0.2, base_party_ids: [] },
-    stats: {},
+    // nível de preços real no ponto de partida; daí em diante, o IPCA simulado
+    stats: { price_level: priceLevel(SNAPSHOT_DATE) },
   };
   const economy = initialEconomy(snap, world.id);
   const state: WorldState = { world, economy, ruleset: DEFAULT_RULESET, t: emptyTables(), cities: new Map((opts.cities ?? []).map((c) => [c.id, c])) };
@@ -158,6 +160,7 @@ export function createInitialWorld(snap: Snapshot, opts: BootstrapOptions): { st
       founded_on: null,
       formation: null,
       fund_suspended_until: null,
+      campaign_fund: null,
     };
     ctx.save("parties", party);
     partyByAcronym.set(sp.acronym, party);

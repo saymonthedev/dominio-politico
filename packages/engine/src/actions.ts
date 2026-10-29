@@ -14,7 +14,7 @@ import {
   type SchemeResult,
 } from "./crime";
 import { CRIMES, type IllicitKind } from "./crimes";
-import { priceLevel } from "./finance";
+import { worldPriceLevel } from "./finance";
 import { checkEligibility, emptyCampaign, ensureRace, geoName, tallyMajoritarian, ufOfGeo } from "./elections";
 import { canonicalGeo, capitalId, isMunicipality, UF_BY_CODE, UF_CODES } from "./geo";
 import { POLICY_CATALOG, startPolicy } from "./government";
@@ -37,6 +37,7 @@ import {
   validateFounding,
 } from "./partyfounding";
 import { profession } from "./names";
+import { fundableCandidacies, giveFefc, indicableMembers, indicateCandidate, indicationElection, pendingIndications, withdrawIndication } from "./partycampaign";
 import type { Rng } from "./rng";
 import { eraRules, OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
@@ -66,7 +67,11 @@ export interface ActionParam {
     | "recruit"
     | "scheme"
     | "policy"
-    | "debate";
+    | "debate"
+    | "member"
+    | "indication"
+    | "party_candidacy"
+    | "fund_share";
   options?: Array<{ value: string; label: string }>;
   /** valores de referência (R$ de 2026) para type "amount"; a tela corrige pela época */
   amounts?: number[];
@@ -112,7 +117,7 @@ const fmtMoney = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
 
 /** Valor de referência (R$ de 2026) corrigido para o nível de preços do dia. */
 export function scaledAmount(ctx: Ctx, base: number): number {
-  return Math.round((base * priceLevel(ctx.date)) / 1000) * 1000;
+  return Math.round((base * worldPriceLevel(ctx.world)) / 1000) * 1000;
 }
 
 /** Valor escolhido numa lista de type "amount" (aceita só as opções oferecidas). */
@@ -251,7 +256,7 @@ export const ACTIONS: ActionDef[] = [
     energy: 25,
     available: () => null,
     run: ({ ctx, p, st, dr }) => {
-      const income = Math.round(profession(professionIdOf(p)).income * priceLevel(ctx.date) * 0.2 * (0.5 + 0.5 * dr("trabalhar")));
+      const income = Math.round(profession(professionIdOf(p)).income * worldPriceLevel(ctx.world) * 0.2 * (0.5 + 0.5 * dr("trabalhar")));
       st.money += income;
       st.income_last_year += income;
       ctx.insert("finance_transactions", { id: ctx.id("fin", p.id), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "RENDA", amount: income, declared: true, game_date: ctx.date, description: "Trabalho extra" });
@@ -1329,7 +1334,7 @@ export const ACTIONS: ActionDef[] = [
     description: "Estatuto, fundadores e registro civil; depois, dois anos para reunir o apoio de eleitores em pelo menos nove estados e pedir o registro ao TSE.",
     category: "MEU_PARTIDO",
     energy: 30,
-    costFn: (ctx) => foundingCost(ctx.date),
+    costFn: (ctx) => foundingCost(ctx.world),
     params: [
       { name: "name", label: "Nome do partido", type: "text" },
       { name: "acronym", label: "Sigla", type: "text" },
@@ -1341,7 +1346,7 @@ export const ACTIONS: ActionDef[] = [
       if (partyInFormationBy(ctx, p.id)) return "Você já está fundando um partido.";
       if (partyFoundedBy(ctx, p.id)) return "Você já fundou um partido.";
       if (p.reputation < 25) return "Exige reputação de pelo menos 25 para reunir fundadores.";
-      if (st.money < foundingCost(ctx.date)) return `Custa ${fmtMoney(foundingCost(ctx.date))}.`;
+      if (st.money < foundingCost(ctx.world)) return `Custa ${fmtMoney(foundingCost(ctx.world))}.`;
       return null;
     },
     run: ({ ctx, p, params }) => {
@@ -1375,7 +1380,7 @@ export const ACTIONS: ActionDef[] = [
       if (st.money < amount) return { ok: false, message: "Saldo insuficiente." };
       const uf = params.uf === "BR" || UF_BY_CODE[params.uf ?? ""] ? params.uf! : "BR";
       st.money -= amount;
-      const got = addSignatures(party, uf, (amount / signatureCost(ctx.date)) * rng.range(0.85, 1.1));
+      const got = addSignatures(party, uf, (amount / signatureCost(ctx.world)) * rng.range(0.85, 1.1));
       party.formation!.spent += amount;
       ctx.save("parties", party);
       ctx.insert("finance_transactions", { id: ctx.id("fin", p.id, "assinaturas"), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "COLETA_ASSINATURAS", amount: -amount, declared: true, game_date: ctx.date, description: `Coleta de assinaturas do ${party.acronym} (${uf === "BR" ? "todo o país" : uf})` });
@@ -1466,6 +1471,71 @@ export const ACTIONS: ActionDef[] = [
       if (!target || target.status !== "ACTIVE" || target.id === p.id) return { ok: false, message: "Pessoa indisponível." };
       if (isReal(target.kind) && target.tier <= 1) return { ok: false, message: "Lideranças nacionais reais não mudam de partido por convite no jogo." };
       return { ok: true, message: inviteToParty(ctx, p, party, target) };
+    },
+  },
+  {
+    id: "indicar_candidato",
+    label: "Indicar candidato(a) do partido",
+    description: "Escolha um membro da legenda para disputar a eleição. No partido que você preside, a chapa é decisão da presidência; a convenção só confere a elegibilidade.",
+    category: "MEU_PARTIDO",
+    energy: 5,
+    params: [
+      { name: "member", label: "Membro", type: "member" },
+      { name: "office", label: "Cargo", type: "office" },
+    ],
+    available: (ctx, p) => {
+      const party = partyLedBy(ctx, p.id);
+      if (!party?.founder_id) return "Só para quem preside um partido fundado no jogo.";
+      const e = indicationElection(ctx);
+      if (!e) return "As indicações abrem no ano eleitoral e vão até o fim das convenções.";
+      if (!indicableMembers(ctx, party, e).length) return "Nenhum membro fictício disponível: convide gente para o partido.";
+      return null;
+    },
+    run: ({ ctx, p, params }) => {
+      const party = partyLedBy(ctx, p.id)!;
+      const member = ctx.person(params.member);
+      if (!member) return { ok: false, message: "Membro inválido." };
+      return indicateCandidate(ctx, party, member, params.office as OfficeCode);
+    },
+  },
+  {
+    id: "retirar_indicacao",
+    label: "Retirar indicação",
+    description: "Desista de um nome antes da convenção.",
+    category: "MEU_PARTIDO",
+    energy: 0,
+    params: [{ name: "indication", label: "Indicação", type: "indication" }],
+    available: (ctx, p) => {
+      const party = partyLedBy(ctx, p.id);
+      return party && pendingIndications(ctx, party).length ? null : "Nenhuma indicação esperando a convenção.";
+    },
+    run: ({ ctx, p, params }) => withdrawIndication(ctx, partyLedBy(ctx, p.id)!, params.indication),
+  },
+  {
+    id: "repassar_fundo",
+    label: "Repassar fundo eleitoral",
+    description: "Divida a cota do partido no FEFC entre as candidaturas homologadas. O que sobrar no 1º turno volta ao Tesouro.",
+    category: "MEU_PARTIDO",
+    energy: 2,
+    params: [
+      { name: "candidacy", label: "Candidatura", type: "party_candidacy" },
+      { name: "share", label: "Quanto", type: "fund_share" },
+    ],
+    available: (ctx, p) => {
+      const party = partyLedBy(ctx, p.id);
+      const fund = party?.campaign_fund;
+      if (!party || !fund) return "O fundo eleitoral chega ao partido depois das convenções.";
+      const e = ctx.t.elections.get(fund.election_id);
+      if (!e || ctx.date >= e.first_round) return "Depois do 1º turno, a sobra do fundo volta ao Tesouro.";
+      if (fund.left <= 0) return "O fundo do partido já foi todo repassado.";
+      if (!fundableCandidacies(ctx, party).length) return "O partido não tem candidaturas homologadas.";
+      return null;
+    },
+    run: ({ ctx, p, params }) => {
+      const party = partyLedBy(ctx, p.id)!;
+      const pct = Number(params.share);
+      if (![10, 25, 50, 100].includes(pct)) return { ok: false, message: "Escolha quanto repassar." };
+      return giveFefc(ctx, party, params.candidacy, Math.round(((party.campaign_fund?.left ?? 0) * pct) / 100));
     },
   },
   // ------------------------------------------------------------------ FINANÇAS

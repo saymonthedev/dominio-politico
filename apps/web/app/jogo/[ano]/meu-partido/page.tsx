@@ -23,9 +23,10 @@ import { PersonAvatar } from "@/components/PersonAvatar";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney, fmtNum } from "@/lib/format";
 import { daysBetween } from "@/lib/game-view";
-import { getSession, requireMe } from "@/lib/game";
+import { getSession, playerState, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
-import { cachedState } from "@/lib/sim";
+import { Term } from "@/components/Term";
+import { PartyCampaign } from "@/components/game/PartyCampaign";
 
 const short = (n: number) => (n >= 1000 ? `${Math.round(n / 100) / 10} mil`.replace(".", ",") : fmtNum(n));
 
@@ -39,7 +40,7 @@ const STEPS = [
 export default async function Page({ params }: { params: Promise<{ ano: string }> }) {
   const year = Number((await params).ano);
   const me = await requireMe(year);
-  const state = await cachedState(me.worldId);
+  const state = await playerState(year);
   const ctx = new Ctx(state, "view");
   const person = me.person;
   // o partido vem direto do banco: a coleta e o registro mudam a cada ação
@@ -61,7 +62,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             {STEPS.map((s, i) => (
               <li key={s.title}>
                 <span className="pfsteps__n">{i + 1}</span>
-                <b>{s.title}</b>
+                <b>{s.title === "Apoiamento" ? <Term k="Apoiamento" /> : s.title}</b>
                 <p>{s.text}</p>
               </li>
             ))}
@@ -74,9 +75,9 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           <div className="gstack">
             <Panel title="O que vai ser exigido" icon="info">
               <div className="kpis">
-                <Kpi label="Custo inicial" value={fmtMoney(foundingCost(today))} hint="estatuto, advogados, registro" />
+                <Kpi label="Custo inicial" value={fmtMoney(foundingCost(state.world))} hint="estatuto, advogados, registro" />
                 <Kpi label="Assinaturas" value={fmtNum(goals.goal)} hint={`em ${goals.ufs_needed} estados, no mínimo`} />
-                <Kpi label="Coleta paga" value={`${fmtMoney(signatureCost(today))}/apoio`} hint="ou mutirões de voluntários" />
+                <Kpi label="Coleta paga" value={`${fmtMoney(signatureCost(state.world))}/apoio`} hint="ou mutirões de voluntários" />
                 <Kpi label="Reputação mínima" value="25" hint={`a sua: ${Math.round(person.reputation)}`} tone={person.reputation < 25 ? "warn" : undefined} />
               </div>
             </Panel>
@@ -172,6 +173,12 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const fundOk = (party.seats.camara ?? 0) >= clause;
   const pending = party.formation?.founder_pending && person.party_id !== party.id;
   const topUfs = Object.entries(party.territory).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  // eleição em curso (ou a próxima) e as candidaturas da legenda nela; o fundo vem do estado do motor
+  const live = state.t.parties.get(party.id) ?? party;
+  const elections = [...state.t.elections.values()].filter((x) => x.status !== "ENCERRADA").sort((a, b) => a.year - b.year);
+  const election = elections.find((x) => x.status !== "AGENDADA") ?? elections[0];
+  const cands = election ? [...state.t.candidacies.values()].filter((c) => c.party_id === party.id && c.election_id === election.id) : [];
+  const campaignActions = actions.filter((a) => ["indicar_candidato", "retirar_indicacao", "repassar_fundo"].includes(a.id));
 
   return (
     <>
@@ -204,7 +211,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         <Kpi icon="users" label="Filiados" value={fmtNum(party.members)} hint={`${members.length} quadros conhecidos`} />
         <Kpi icon="coins" label="Caixa do partido" value={fmtMoney(party.cash)} />
         <Kpi icon="landmark" label="Deputados federais" value={party.seats.camara ?? 0} hint={`cláusula: ${clause}`} tone={fundOk ? "up" : undefined} />
-        <Kpi icon="flag" label="Fundo partidário" value={fundOk ? "recebe" : "não recebe"} hint={fundOk ? "cota mensal" : `precisa de ${clause} deputados`} tone={fundOk ? "up" : "warn"} />
+        <Kpi icon="flag" label={<Term k="Fundo partidário" />} value={fundOk ? "recebe" : "não recebe"} hint={fundOk ? "cota mensal" : `precisa de ${clause} deputados`} tone={fundOk ? "up" : "warn"} />
       </div>
 
       <div className="ggrid ggrid--main">
@@ -251,6 +258,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           <Panel title="Presidência" icon="play">
             <ActionPanel year={year} actions={actions.filter((a) => ["convidar_filiacao", "filiar_meu_partido"].includes(a.id))} />
           </Panel>
+          {election && <PartyCampaign year={year} election={election} party={live} cands={cands} people={state.t.persons} cities={state.cities} today={today} actions={campaignActions} />}
         </div>
 
         <div className="gstack">
@@ -290,16 +298,25 @@ function PartyNote({ party }: { party: PartyRow }) {
     <Panel title="Como o partido cresce" icon="info">
       <ul className="rules">
         <li>
-          <b>Entrada</b>
+          <b>
+            <Term k="Cultura de entrada">Entrada</Term>
+          </b>
           <span>{ENTRY_CULTURE_LABEL[party.entry_culture]}</span>
         </li>
         <li>
-          <b>Fidelidade</b>
-          <span>Quem tem mandato de deputado ou vereador só troca de partido sem perder o cargo na janela partidária.</span>
+          <b>
+            <Term k="Fidelidade partidária">Fidelidade</Term>
+          </b>
+          <span>
+            Quem tem mandato de deputado ou vereador só troca de partido sem perder o cargo na <Term k="Janela partidária">janela partidária</Term>.
+          </span>
         </li>
         <li>
           <b>Dinheiro</b>
-          <span>O caixa vem de contribuições dos filiados e, depois de cumprir a cláusula de desempenho, do fundo partidário.</span>
+          <span>
+            O caixa vem de contribuições dos filiados e, depois de cumprir a <Term k="Cláusula de desempenho">cláusula de desempenho</Term>, do{" "}
+            <Term k="Fundo partidário">fundo partidário</Term>.
+          </span>
         </li>
       </ul>
     </Panel>

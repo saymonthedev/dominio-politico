@@ -1,12 +1,12 @@
-import { Ctx, monthlyStatement, priceLevel, type FinanceRow, type LedgerItem } from "@dp/engine";
+import { Ctx, monthlyStatement, worldPriceLevel, type FinanceRow, type LedgerItem } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Empty, GameHeader, Kpi, Panel, Pill } from "@/components/game/Page";
 import { Icon } from "@/components/Icon";
 import { Sparkline } from "@/components/ui";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney } from "@/lib/format";
-import { getSession, requireMe } from "@/lib/game";
-import { cachedState } from "@/lib/sim";
+import { getSession, playerState, requireMe } from "@/lib/game";
+import { Term } from "@/components/Term";
 
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const monthLabel = (m: string | null) => (m ? `${MONTHS[Number(m.slice(5, 7)) - 1]} de ${m.slice(0, 4)}` : "");
@@ -52,7 +52,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [state, txQ] = await Promise.all([
-    cachedState(me.worldId),
+    playerState(year),
     sb.from("finance_transactions").select("*").eq("world_id", me.worldId).eq("person_id", me.person.id).order("game_date", { ascending: false }).limit(240),
   ]);
   // dados do personagem direto do banco (o estado do mundo em cache pode estar alguns segundos atrás)
@@ -68,7 +68,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const months = [...byMonth.keys()].sort().slice(-12);
   const series = months.map((m) => byMonth.get(m) ?? 0);
   const actions = actionsFor(state, me.person.id, ["FINANCAS"]);
-  const pl = priceLevel(state.world.game_date);
+  const pl = worldPriceLevel(state.world);
 
   return (
     <>
@@ -76,7 +76,12 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         kicker="Você"
         icon="coins"
         title="Finanças"
-        lede="O que entra e sai todo mês, o que você tem e o que deve. O fechamento acontece no dia 1. Valores de referência aproximados, corrigidos pela inflação da época."
+        lede={
+          <>
+            O que entra e sai todo mês, o que você tem e o que deve. O <Term k="Fechamento do mês">fechamento</Term> acontece no dia 1. Valores de referência aproximados,
+            corrigidos pela <Term k="IPCA">inflação</Term>: a real até o ponto de partida e a simulada depois.
+          </>
+        }
       />
 
       <div className="kpis mb">
@@ -91,7 +96,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           <Icon name="alert" size={18} />
           <span>
             Você tem <b>{fmtMoney(st.dirty_money)}</b> em dinheiro não declarado. Ele não aparece no saldo nem na declaração de bens; gastar ou lavar esse
-            dinheiro chama a atenção do Coaf e da Receita. Veja em <a href={`/jogo/${year}/esquemas`}>Esquemas</a>.
+            dinheiro chama a atenção do <Term k="Coaf">Coaf</Term> e da Receita. Veja em <a href={`/jogo/${year}/esquemas`}>Esquemas</a>.
           </span>
         </div>
       )}
@@ -160,7 +165,9 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                 <span>Cai todo dia 1. Com mandato, você recebe o subsídio do cargo e a profissão fica em segundo plano.</span>
               </li>
               <li>
-                <b>Subsídio</b>
+                <b>
+                  <Term k="Subsídio" />
+                </b>
                 <span>Muda com o cargo e a época: deputados e senadores, 75% disso para deputados estaduais, e vereadores de 20% a 75% conforme o tamanho da cidade.</span>
               </li>
               <li>
@@ -169,7 +176,9 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               </li>
               <li>
                 <b>Rendimento</b>
-                <span>O saldo em conta rende perto da Selic do mês, já descontado o imposto.</span>
+                <span>
+                  O saldo em conta rende perto da <Term k="Selic">Selic</Term> do mês, já descontado o imposto.
+                </span>
               </li>
               <li>
                 <b>Custo de vida e partido</b>

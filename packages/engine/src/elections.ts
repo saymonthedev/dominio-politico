@@ -5,6 +5,7 @@ import { ideologyAffinity } from "./ideology";
 import { isReal } from "./news/policy";
 import { POLL_INSTITUTES } from "./news/outlets";
 import { spawnProceduralCadre } from "./npc";
+import { isPlayerLed } from "./partyfounding";
 import { rngFor, Rng } from "./rng";
 import { eraRules, inaugurationDate, OFFICES, officesForElection, senateSeatsForYear, termEnd, type OfficeCode } from "./ruleset";
 import type { Ctx, WorldState } from "./state";
@@ -255,7 +256,7 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
   // Ordena: cargos mais altos primeiro (quem disputa Presidência não disputa governo)
   races.sort((a, b) => OFFICES[b.office_code].rank - OFFICES[a.office_code].rank);
   const parties = [...ctx.t.parties.values()].filter((p) => p.status === "ATIVO");
-  const fefcTotal = eraRules(e.year).fefc ? ctx.s.ruleset.fefcReference * (e.kind === "GERAL" ? 1 : 0.6) : 0;
+  const fefcTotal = fefcTotalFor(ctx, e);
   const camaraTotal = parties.reduce((s, p) => s + (p.seats.camara ?? 0), 0) || 1;
 
   for (const race of races) {
@@ -265,14 +266,18 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
       for (const c of preByRace.get(race.id) ?? []) {
         const p = ctx.person(c.person_id)!;
         const st = ctx.pstate(p.id)!;
+        const party = ctx.t.parties.get(c.party_id);
+        // partido presidido por jogador: quem decide a chapa é a presidência
+        const led = !!party && isPlayerLed(ctx, party);
         const elig = checkEligibility(ctx, p, race.office_code, race.geo, e);
-        const approved = elig.ok && st.party_standing >= 20;
+        const approved = elig.ok && (led || st.party_standing >= 20);
         c.status = approved ? "HOMOLOGADA" : "INDEFERIDA";
-        c.note = approved ? "Indicação aprovada em convenção" : elig.ok ? "A convenção não incluiu seu nome na chapa (pouco espaço no partido)." : elig.reasons.join(" ");
+        c.note = approved ? (led ? "Chapa definida pela presidência do partido" : "Indicação aprovada em convenção") : elig.ok ? "A convenção não incluiu seu nome na chapa (pouco espaço no partido)." : elig.reasons.join(" ");
         if (approved) {
           p.stage = "CANDIDATO";
           ctx.save("persons", p);
-          allocateFefc(ctx, c, fefcTotal, camaraTotal, 0.002);
+          // no partido de jogador, o fundo eleitoral é repartido pela presidência (partycampaign.ts)
+          if (!led) allocateFefc(ctx, c, fefcTotal, camaraTotal, 0.002);
         }
         ctx.save("candidacies", c);
         ctx.notify(p.id, approved ? "Candidatura homologada" : "Candidatura não homologada", c.note ?? "", "/jogo/campanha");
@@ -282,7 +287,9 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
     }
     const [minC, maxC] = MAJ_CANDIDATES[race.office_code] ?? [2, 4];
     const target = rng.int(minC, maxC) * (race.office_code === "SENADOR" ? Math.max(1, race.seats) : 1);
+    // partidos de jogador só disputam onde a presidência indicou alguém (entram abaixo, pelas pré-candidaturas)
     const ranked = parties
+      .filter((p) => !isPlayerLed(ctx, p))
       .map((p) => ({ p, s: partyStrengthIn(p, race.geo) * (0.6 + p.reputation / 125) + rng.range(0, 0.08) }))
       .sort((a, b) => b.s - a.s);
     const running: PartyRow[] = [];
@@ -302,8 +309,10 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
     for (const party of running) {
       ballot++;
       const uf = ufOfGeo(race.geo);
+      const led = isPlayerLed(ctx, party);
       const pool = [...ctx.t.persons.values()].filter(
         (p) =>
+          !led &&
           p.party_id === party.id &&
           p.kind !== "PLAYER" &&
           !taken.has(p.id) &&
@@ -322,11 +331,14 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
           ctx.notify(p.id, "Pré-candidatura barrada", pc.note, "/jogo/campanha");
           continue;
         }
-        scored.push({ p, s: candidateScore(ctx, p, race.office_code, race.geo, rng) + (ctx.pstate(p.id)?.party_standing ?? 0) * 0.25 });
+        // no partido de jogador: a pré-candidatura do presidente vem primeiro, depois outros jogadores, depois as indicações
+        const priority = led ? (p.id === party.president_id ? 1000 : p.kind === "PLAYER" ? 500 : 0) : 0;
+        scored.push({ p, s: priority + candidateScore(ctx, p, race.office_code, race.geo, rng) + (ctx.pstate(p.id)?.party_standing ?? 0) * 0.25 });
       }
       scored.sort((a, b) => b.s - a.s);
       let chosen = scored[0]?.p;
       if (!chosen) {
+        if (led) continue;
         if (race.office_code === "PRESIDENTE" && party.seats.camara === undefined) continue;
         chosen = spawnProceduralCadre(ctx, {
           partyId: party.id,
@@ -376,8 +388,8 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
         note: null,
       };
       cand.status = "HOMOLOGADA";
-      cand.note = "Candidatura oficializada em convenção";
-      allocateFefc(ctx, cand, fefcTotal, camaraTotal, race.office_code === "PRESIDENTE" ? 0.15 : race.office_code === "GOVERNADOR" ? 0.012 : 0.006);
+      cand.note = led ? "Candidatura definida pela presidência do partido" : "Candidatura oficializada em convenção";
+      if (!led) allocateFefc(ctx, cand, fefcTotal, camaraTotal, race.office_code === "PRESIDENTE" ? 0.15 : race.office_code === "GOVERNADOR" ? 0.012 : 0.006);
       ctx.save("candidacies", cand);
       chosen.stage = "CANDIDATO";
       ctx.save("persons", chosen);
@@ -408,10 +420,20 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
   }
 }
 
+/** Fatia do FEFC de um partido (Lei 9.504, art. 16-D: 2% iguais, 35% por votos, 48% pela Câmara e 15% pelo Senado; aproximação do jogo). */
+export function fefcPartyShare(party: PartyRow, camaraTotal: number): number {
+  return 0.02 / 30 + 0.48 * ((party.seats.camara ?? 0) / camaraTotal) + (0.35 * nationalStrength(party)) / 4 + 0.15 * ((party.seats.senado ?? 0) / 81);
+}
+
+/** Valor total do FEFC na eleição (zero antes de 2018). */
+export function fefcTotalFor(ctx: Ctx, e: ElectionRow): number {
+  return eraRules(e.year).fefc ? ctx.s.ruleset.fefcReference * (e.kind === "GERAL" ? 1 : 0.6) : 0;
+}
+
 function allocateFefc(ctx: Ctx, c: CandidacyRow, fefcTotal: number, camaraTotal: number, share: number): void {
   const party = ctx.t.parties.get(c.party_id);
   if (!party) return;
-  const partyShare = 0.02 / 30 + 0.48 * ((party.seats.camara ?? 0) / camaraTotal) + 0.35 * nationalStrength(party) / 4 + 0.15 * ((party.seats.senado ?? 0) / 81);
+  const partyShare = fefcPartyShare(party, camaraTotal);
   const st = ctx.pstate(c.person_id);
   const standing = c.is_player ? (st?.party_standing ?? 30) / 100 : 0.7;
   const amount = Math.round(fefcTotal * partyShare * share * (0.5 + standing));

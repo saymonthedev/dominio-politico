@@ -1,6 +1,6 @@
 import { makeIdeology, type Ideology } from "./ideology";
 import { moderateText } from "./news/moderation";
-import { priceLevel } from "./finance";
+import { worldPriceLevel } from "./finance";
 import { buildPerson } from "./npc";
 import { origin, profession } from "./names";
 import { cityName } from "./cities";
@@ -68,8 +68,8 @@ export function createCharacter(ctx: Ctx, input: CharacterInput): CharacterResul
       competence: Math.min(0.9, 0.45 + prof.competence + rng.range(0, 0.05)),
       charisma: Math.min(0.9, 0.45 + prof.charisma + rng.range(0, 0.05)),
     },
-    money: Math.round(orig.savings * priceLevel(ctx.date)),
-    assets: Math.round(orig.assets * priceLevel(ctx.date)),
+    money: Math.round(orig.savings * worldPriceLevel(ctx.world)),
+    assets: Math.round(orig.assets * worldPriceLevel(ctx.world)),
     reach: { [uf.code]: orig.reach },
     tier: 3,
     userId: input.userId,
@@ -78,7 +78,7 @@ export function createCharacter(ctx: Ctx, input: CharacterInput): CharacterResul
     worldId: ctx.world.id,
   });
   state.interests = input.interests.slice(0, 5);
-  state.income_last_year = Math.round(prof.income * 12 * priceLevel(ctx.date));
+  state.income_last_year = Math.round(prof.income * 12 * worldPriceLevel(ctx.world));
   ctx.save("persons", person);
   ctx.save("person_states", state);
   ctx.emit("CHARACTER_CREATED", { actors: [person.id], geography: uf.code, payload: { municipality: city } });
