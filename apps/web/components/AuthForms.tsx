@@ -12,15 +12,17 @@ export function SignInForm({ next }: { next: string }) {
       <input type="hidden" name="next" value={next} />
       <TextField label="E-mail" name="acesso" inputMode="email" icon="mail" placeholder="voce@exemplo.com" />
       <PasswordField label="Senha" name="chave" placeholder="Sua senha" />
-      <p className="auth__links">
+      <p className="auth__forgot">
         <a href="/esqueci-senha">Esqueci minha senha</a>
-        <a href="/reenviar-confirmacao">Reenviar confirmação</a>
       </p>
       <Captcha reset={state} />
       <SubmitButton tone="primary" size="lg" full icon="arrow" pendingLabel="Entrando…">
         Entrar
       </SubmitButton>
       {state.error && <FormMessage tone="err">{state.error}</FormMessage>}
+      <p className="auth__hint">
+        Não recebeu a confirmação? <a href="/reenviar-confirmacao">Enviar de novo</a>
+      </p>
     </form>
   );
 }
