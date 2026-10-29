@@ -223,9 +223,9 @@ Os mundos são criados sozinhos quando o primeiro jogador escolhe um ano.
 
 ### E-mails da conta
 
-Os e-mails de autenticação, no visual do jogo, estão em `supabase/templates/`. O Supabase só deixa editar os modelos com um SMTP próprio, então a ordem é:
+Em produção, os e-mails de cadastro, recuperação de senha e troca de e-mail já saem pela Resend, de `Domínio Político <nao-responda@dominio-politico.com.br>`, com os modelos do jogo (testado de ponta a ponta com a recuperação de senha). Os modelos estão em `supabase/templates/`. Para montar em outro projeto (o Supabase só deixa editar os modelos com um SMTP próprio), a ordem é:
 
-1. **SMTP.** O jogo usa a [Resend](https://resend.com) com o domínio `dominio-politico.com.br` verificado (registros DKIM, SPF e MX de `send.` no DNS). Em **Authentication → Emails → SMTP Settings**: host `smtp.resend.com`, porta `465`, usuário `resend`, senha = chave de API da Resend (permissão só de envio), remetente `nao-responda@dominio-politico.com.br` e nome `Domínio Político`. Depois, em **Rate Limits**, aumente o limite de e-mails por hora.
+1. **SMTP.** O jogo usa a [Resend](https://resend.com) com o domínio `dominio-politico.com.br` verificado (registros DKIM, SPF e MX de `send.` no DNS). Em **Authentication → Emails → SMTP Settings**: host `smtp.resend.com`, porta `465`, usuário `resend`, senha = chave de API da Resend (permissão só de envio), remetente `nao-responda@dominio-politico.com.br` e nome `Domínio Político`. Depois, em **Rate Limits**, aumente o limite de e-mails (em produção: 30 por hora; o plano grátis da Resend envia até 100 por dia e 3.000 por mês).
 2. **Modelos** (**Authentication → Emails → Templates**):
 
    | Modelo | Assunto | Arquivo |
@@ -234,7 +234,7 @@ Os e-mails de autenticação, no visual do jogo, estão em `supabase/templates/`
    | Reset password | `Crie uma senha nova · Domínio Político` | `recuperacao.html` |
    | Change email address | `Confirme o e-mail novo · Domínio Político` | `troca-email.html` |
 
-3. **URLs** (**Authentication → URL Configuration**): **Site URL** `https://dominio-politico.com.br` e, nas **Redirect URLs**, `https://dominio-politico.com.br/**` (e o endereço `.vercel.app`, se ainda for usado).
+3. **URLs** (**Authentication → URL Configuration**): **Site URL** `https://dominio-politico.com.br` e, nas **Redirect URLs**, `https://dominio-politico.com.br/**`, `https://www.dominio-politico.com.br/**` e as do `.vercel.app` (para links enviados antes da troca de domínio). Na Vercel, `NEXT_PUBLIC_SITE_URL` é `https://dominio-politico.com.br`.
 
 O link do e-mail usa `token_hash` e passa pela rota `/auth/callback`, então a confirmação funciona mesmo quando a pessoa abre o e-mail em outro aparelho, e ela volta para onde estava indo (por exemplo, a criação de personagem do ano escolhido).
 
@@ -289,6 +289,8 @@ Os arquivos do TSE ficam em cache em `.cache/tse/` (fora do Git).
 - Os logos seguem a sigla e a época do ponto de partida, mas nem toda sigla antiga tem logo com licença livre (PSDC e PT do B, por exemplo); essas aparecem pela sigla e cor.
 - Os dados de um mundo próprio seguem a regra de leitura dos mundos (públicos para quem conhece o id); notificações, finanças e dossiês continuam só do dono.
 - O ranking compara só jogadores do mesmo mundo.
+- O remetente dos e-mails não tem foto: o domínio só envia (não recebe), e o logo oficial no Gmail (BIMI) exige certificado de marca pago.
+- Com o plano grátis da Resend, o jogo envia no máximo 100 e-mails por dia.
 
 ## Créditos
 
