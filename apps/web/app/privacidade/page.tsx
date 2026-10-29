@@ -15,7 +15,7 @@ export default function Page() {
             items={[
               { icon: "mail", title: "Só e-mail e senha", text: "Nenhum documento, telefone ou endereço." },
               { icon: "user", title: "Personagem ≠ você", text: "A ideologia do personagem é ficção, não opinião sua." },
-              { icon: "cookie", title: "Sem rastreadores", text: "Apenas o cookie de sessão necessário para o login." },
+              { icon: "cookie", title: "Sem rastreadores", text: "Apenas o cookie de sessão necessário para o login. As visitas são contadas sem cookies e sem identificar você." },
               { icon: "download", title: "Controle total", text: "Exporte ou apague seus dados quando quiser." },
             ]}
           />
@@ -111,7 +111,9 @@ export default function Page() {
               <ProviderList
                 items={[
                   { name: "Supabase", role: "Banco e autenticação", detail: "Guarda a conta e o estado dos mundos, com controle de acesso por linha em todas as tabelas." },
-                  { name: "Vercel", role: "Hospedagem", detail: "Serve o site e executa o motor da simulação, com funções na região de São Paulo." },
+                  { name: "Vercel", role: "Hospedagem e métricas", detail: "Serve o site e executa o motor da simulação, com funções na região de São Paulo. Conta visitas por página de forma agregada, sem cookies e sem identificar o visitante (Web Analytics)." },
+                  { name: "Resend", role: "E-mail", detail: "Envia os e-mails de confirmação, recuperação de senha e avisos da conta." },
+                  { name: "Cloudflare", role: "Anti-robô", detail: "Verifica, no cadastro e na entrada, se a visita é de uma pessoa (Turnstile), sem guardar seus dados de acesso." },
                 ]}
               />
               <Callout tone="info" title="Transferência internacional">

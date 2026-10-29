@@ -69,6 +69,7 @@ export function CharacterForm({
               : []),
           ]}
         />
+        {privateOpen && <p className="muted small">Mundos próprios parados por 90 dias são apagados, com aviso por e-mail uma semana antes.</p>}
         {!privateOpen && <p className="muted small">As vagas para mundos próprios estão esgotadas no momento. Tente de novo mais tarde.</p>}
       </Block>
       <Block n={2} title="Identidade" text="Um nome fictício. Nomes de políticos reais são recusados.">

@@ -542,6 +542,9 @@ export interface AdminOverview {
   accounts: number;
   accounts_7d: number;
   unconfirmed: number;
+  errors_24h: number;
+  errors_7d: number;
+  errors: Array<{ at: string; source: string; path: string | null; message: string; digest: string | null }>;
   tables: Array<{ name: string; bytes: number }>;
   worlds: AdminWorld[];
 }
@@ -557,4 +560,29 @@ export async function probeWorld(worldId: string): Promise<{ loadMs: number; lag
   const state = await loadState(worldId);
   const loadMs = Date.now() - t0;
   return { loadMs, lagDays: Math.max(0, targetTick(state, new Date().toISOString()) - state.world.tick) };
+}
+
+/** Guarda um erro do servidor para o painel /admin (nunca falha: erro ao registrar erro é ignorado). */
+export async function logError(source: string, path: string | null, error: unknown, digest?: string | null): Promise<void> {
+  const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  await rpc("log_error", { p_source: source, p_path: path, p_message: message, p_digest: digest ?? null }).catch(() => undefined);
+}
+
+export interface MaintenanceResult {
+  news: number;
+  events: number;
+  notifications: number;
+  /** donos de mundos próprios parados, a avisar por e-mail */
+  warn: Array<{ world: string; email: string; last_active: string; delete_after: string }>;
+  dropped: string[];
+}
+
+/** Poda diária do banco e limpeza de mundos próprios parados (regras em sim_maintenance). */
+export async function runMaintenance(): Promise<MaintenanceResult> {
+  const res = await rpc<MaintenanceResult>("sim_maintenance", {});
+  for (const id of res.dropped) {
+    cache.delete(id);
+    fictionCities.delete(id);
+  }
+  return res;
 }

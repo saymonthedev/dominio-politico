@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createCharacter, performAction, type ActionResult } from "@dp/engine";
 import { getSession, myCharacters, myWorldId } from "@/lib/game";
-import { asPlayer, clearPlayerWorlds, countPrivateWorlds, dropWorld, ensureWorld, fastForward, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, WORLD_MODES, withWorld, worldIdFor, yearOfWorld, type FastForwardResult, type WorldMode } from "@/lib/sim";
+import { asPlayer, clearPlayerWorlds, logError, countPrivateWorlds, dropWorld, ensureWorld, fastForward, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, WORLD_MODES, withWorld, worldIdFor, yearOfWorld, type FastForwardResult, type WorldMode } from "@/lib/sim";
 
 /** Token de acesso do jogador: as chamadas ao motor rodam no papel autenticado (mais tempo por comando no banco). */
 async function tokenOf(sb: Awaited<ReturnType<typeof getSession>>["sb"]): Promise<string | null> {
@@ -50,6 +50,7 @@ export async function createCharacterAction(_: ActionState, form: FormData): Pro
     );
     if (!result?.ok) return { ok: false, message: result?.error ?? "Não foi possível criar o personagem." };
   } catch (e) {
+    await logError("action", `criar personagem ${worldId}`, e);
     return { ok: false, message: e instanceof Error ? e.message : "Erro ao criar o personagem." };
   }
   redirect(`/jogo/${year}`);
@@ -76,6 +77,7 @@ export async function doAction(_: ActionState, form: FormData): Promise<ActionSt
     revalidatePath(`/jogo/${year}`, "layout");
     return { ...(result ?? { ok: false, message: "Sem resultado." }), at: Date.now() };
   } catch (e) {
+    await logError("action", `${actionId} ${worldId}`, e);
     return { ok: false, message: e instanceof Error ? e.message : "Erro ao executar a ação.", at: Date.now() };
   }
 }
@@ -130,6 +132,7 @@ export async function advanceTime(_: FastForwardResult | null, form: FormData): 
     if (res.ok) revalidatePath(`/jogo/${year}`, "layout");
     return res;
   } catch (e) {
+    await logError("action", `passar ${days} dias ${year}`, e);
     return { ok: false, message: e instanceof Error ? e.message : "Erro ao passar o tempo.", days: 0 };
   }
 }

@@ -86,8 +86,31 @@ export default async function Page() {
           <Kpi label="Contas" value={fmtNum(o.accounts)} note={`${o.accounts_7d} nos últimos 7 dias`} />
           <Kpi label="Sem confirmar e-mail" value={fmtNum(o.unconfirmed)} warn={o.unconfirmed > o.accounts / 2 && o.accounts > 4} />
           <Kpi label="Banco de dados" value={mb(o.db_bytes)} note={`${Math.round((o.db_bytes / DB_LIMIT) * 100)}% de 500 MB`} warn={o.db_bytes > DB_LIMIT * 0.7} />
-          <Kpi label="Mundos" value={fmtNum(o.worlds.length)} />
+          <Kpi label="Mundos" value={fmtNum(o.worlds.length)} note={`${o.worlds.filter((w) => /^br\d{4}[pf]/.test(w.id)).length} próprios`} />
+          <Kpi label="Erros em 24 h" value={fmtNum(o.errors_24h)} note={`${o.errors_7d} em 7 dias`} warn={o.errors_24h > 0} />
         </div>
+        <section className="admin-world">
+          <header>
+            <h2>Erros recentes</h2>
+            <span className="muted small">páginas, ações e tarefa diária · guardados por 14 dias</span>
+          </header>
+          {o.errors.length ? (
+            <ul className="admin-errors">
+              {o.errors.map((e, i) => (
+                <li key={i}>
+                  <span className="mono small muted">
+                    {new Date(e.at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} · {e.source}
+                    {e.path ? ` · ${e.path}` : ""}
+                    {e.digest ? ` · ${e.digest}` : ""}
+                  </span>
+                  <b>{e.message}</b>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted small">Nenhum erro registrado.</p>
+          )}
+        </section>
         {o.worlds.map((w, i) => (
           <World key={w.id} w={w} probe={loads[i]} />
         ))}
