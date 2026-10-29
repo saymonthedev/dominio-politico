@@ -11,6 +11,7 @@ export * from "./crime";
 export * from "./crimes";
 export * from "./economy";
 export * from "./elections";
+export * from "./fiction";
 export * from "./finance";
 export * from "./geo";
 export * from "./hydrate";

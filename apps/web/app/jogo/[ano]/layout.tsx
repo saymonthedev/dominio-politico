@@ -55,7 +55,7 @@ export default async function GameLayout({ children, params }: { children: React
               <b>
                 Domínio <em>Político</em>
               </b>
-              <small>Brasil pós-{year}</small>
+              <small>Brasil pós-{year}{world?.stats?.fictional ? " · fictício" : world?.stats?.private ? " · só seu" : ""}</small>
             </span>
           </a>
           <a className="gtop__date" href={`/jogo/${year}#tempo`} title="Passar o tempo no painel">

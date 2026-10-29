@@ -28,8 +28,11 @@ export function CharacterForm({
   professions,
   origins,
   axes,
+  privateOpen,
 }: {
   year: number;
+  /** ainda há vagas para mundos próprios */
+  privateOpen: boolean;
   ufs: Option[];
   capitals: Record<string, string>;
   professions: Choice[];
@@ -51,13 +54,30 @@ export function CharacterForm({
   return (
     <form action={action} noValidate autoComplete="off" className="cf">
       <input type="hidden" name="year" value={year} />
-      <Block n={1} title="Identidade" text="Um nome fictício. Nomes de políticos reais são recusados.">
+      <Block n={1} title="Mundo" text="Onde você vai jogar. Não dá para trocar depois sem apagar o personagem.">
+        <ChoiceCards
+          name="mode"
+          label="Tipo de mundo"
+          columns={3}
+          options={[
+            { value: "SHARED", label: "Compartilhado", hint: "Com outros jogadores. O relógio anda sozinho e todos veem o mesmo país.", icon: "users" },
+            ...(privateOpen
+              ? [
+                  { value: "PRIVATE", label: "Só meu", hint: "Os mesmos dados reais, sem outros jogadores. O tempo só passa quando você avança.", icon: "lock" },
+                  { value: "FICTIONAL", label: "Fictício, só meu", hint: "Pessoas e partidos inventados. Qualquer político pode cometer crimes e ser investigado.", icon: "book" },
+                ]
+              : []),
+          ]}
+        />
+        {!privateOpen && <p className="muted small">As vagas para mundos próprios estão esgotadas no momento. Tente de novo mais tarde.</p>}
+      </Block>
+      <Block n={2} title="Identidade" text="Um nome fictício. Nomes de políticos reais são recusados.">
         <div className="cf-row">
           <TextField label="Nome do personagem" name="name" icon="user" minLength={3} maxLength={40} placeholder="Ex.: Joana Ribeiro" value={name} onChange={(e) => setName(e.target.value)} />
           <Stepper label="Idade" name="age" min={18} max={80} defaultValue={30} suffix="anos" />
         </div>
       </Block>
-      <Block n={2} title="Base eleitoral" text="Seu estado e sua cidade. É nela que você pode disputar prefeitura e câmara; para deputado e governo, vale o estado inteiro.">
+      <Block n={3} title="Base eleitoral" text="Seu estado e sua cidade. É nela que você pode disputar prefeitura e câmara; para deputado e governo, vale o estado inteiro.">
         <div className="cf-row cf-row--even">
           <Select name="uf" label="Estado" options={ufs} placeholder="Escolha o estado" onChange={chooseUf} />
           {uf && cities[uf] ? (
@@ -70,11 +90,11 @@ export function CharacterForm({
           )}
         </div>
       </Block>
-      <Block n={3} title="Trajetória" text="A profissão define renda, competência e carisma iniciais. A origem define suas economias e quantas pessoas já conhecem você.">
+      <Block n={4} title="Trajetória" text="A profissão define renda, competência e carisma iniciais. A origem define suas economias e quantas pessoas já conhecem você.">
         <ChoiceCards name="profession" label="Profissão anterior" options={professions} columns={3} />
         <ChoiceCards name="origin" label="Origem" options={origins} columns={3} />
       </Block>
-      <Block n={4} title="Posições" text="Seis eixos de −100 a +100. São as posições do personagem, não as suas, e mudam a afinidade com cada partido.">
+      <Block n={5} title="Posições" text="Seis eixos de −100 a +100. São as posições do personagem, não as suas, e mudam a afinidade com cada partido.">
         <div className="cf-axes">
           {axes.map((a) => (
             <Slider key={a.key} name={`ax_${a.key}`} label={a.label} negLabel={a.neg} posLabel={a.pos} />

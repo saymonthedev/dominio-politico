@@ -81,7 +81,9 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
     {
       id: "tempo",
       title: "Passe o tempo",
-      text: "O mundo anda sozinho, mas você pode avançar dias aqui no Painel e ver o que aconteceu no Brasil.",
+      text: state.world.stats?.private
+        ? "Neste mundo só seu, o tempo para enquanto você não joga. Avance dias aqui no Painel e veja o que aconteceu no Brasil."
+        : "O mundo anda sozinho, mas você pode avançar dias aqui no Painel e ver o que aconteceu no Brasil.",
       href: `${base}#tempo`,
       cta: "Ir para o relógio",
       done: state.world.tick - me.person.created_tick >= 7,

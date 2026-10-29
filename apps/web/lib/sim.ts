@@ -13,10 +13,14 @@ import {
   createInitialWorld,
   MILESTONE_HOLD_MIN,
   planAdvance,
+  PRIVATE_FLAG,
   SHARED_DAYS_PER_HOUR,
   Ctx,
   DEFAULT_RULESET,
   emptyTables,
+  FICTIONAL_FLAG,
+  fictionalizeCities,
+  fictionalizeWorld,
   formatDatePt,
   hydrateState,
   runTicks,
@@ -33,8 +37,19 @@ import {
 import { simSecret, SUPABASE_KEY, SUPABASE_URL } from "./env";
 
 export const WORLD_VERSION = "v1";
-export const worldIdFor = (year: number) => `br${year}`;
-export const yearOfWorld = (id: string) => Number(id.replace(/^br/, ""));
+/** Compartilhado (todos jogam juntos), só do jogador com dados reais, ou só do jogador e fictício. */
+export type WorldMode = "SHARED" | "PRIVATE" | "FICTIONAL";
+export const WORLD_MODES: readonly WorldMode[] = ["SHARED", "PRIVATE", "FICTIONAL"];
+
+/** br2026 (compartilhado), br2026p<conta> (só meu) ou br2026f<conta> (fictício). */
+export function worldIdFor(year: number, mode: WorldMode = "SHARED", userId?: string): string {
+  if (mode === "SHARED" || !userId) return `br${year}`;
+  return `br${year}${mode === "FICTIONAL" ? "f" : "p"}${userId.replace(/-/g, "").slice(0, 10).toLowerCase()}`;
+}
+export const yearOfWorld = (id: string) => Number(id.slice(2, 6));
+export const modeOfWorld = (id: string): WorldMode => (id[6] === "f" ? "FICTIONAL" : id[6] === "p" ? "PRIVATE" : "SHARED");
+/** Quantos mundos próprios cabem no banco (cada um ocupa alguns MB). */
+export const MAX_PRIVATE_WORLDS = Number(process.env.MAX_PRIVATE_WORLDS ?? "30");
 export const isStartYear = (y: number): boolean => (START_YEARS as readonly number[]).includes(y);
 
 /** Velocidade padrão: 2 dias de jogo por hora real (ajustável por ambiente). */
@@ -85,9 +100,23 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
-export async function worldExists(year: number): Promise<boolean> {
-  const { data } = await db().from("worlds").select("id").eq("id", worldIdFor(year)).maybeSingle();
+export async function worldExists(worldId: string): Promise<boolean> {
+  const { data } = await db().from("worlds").select("id").eq("id", worldId).maybeSingle();
   return !!data;
+}
+
+/** Quantos mundos próprios existem hoje. */
+export async function countPrivateWorlds(): Promise<number> {
+  const { count } = await db().from("worlds").select("id", { count: "exact", head: true }).filter("id", "match", "^br[0-9]{4}[pf]");
+  return count ?? 0;
+}
+
+/** Remove um mundo próprio inteiro (o banco recusa os compartilhados). */
+export async function dropWorld(worldId: string): Promise<void> {
+  if (modeOfWorld(worldId) === "SHARED") return;
+  await rpc("sim_drop_world", { p_world: worldId });
+  cache.delete(worldId);
+  fictionCities.delete(worldId);
 }
 
 const cityCache = new Map<number, Promise<Map<string, CityBase>>>();
@@ -158,20 +187,28 @@ export async function persist(worldId: string, changes: Changes, expectedTick: n
   }
 }
 
-/** Cria o mundo de um ponto de partida (idempotente: a seed é fixa por ano). */
-export async function ensureWorld(year: number): Promise<void> {
-  if (!isStartYear(year)) throw new Error("Ponto de partida inválido");
-  if (await worldExists(year)) return;
+/**
+ * Cria o mundo de um ponto de partida (idempotente: a seed é fixa por mundo).
+ * Mundos próprios têm o relógio parado (só andam quando o dono avança) e,
+ * no modo fictício, nomes inventados para todas as pessoas e partidos.
+ */
+export async function ensureWorld(year: number, worldId = worldIdFor(year)): Promise<void> {
+  if (!isStartYear(year) || yearOfWorld(worldId) !== year) throw new Error("Ponto de partida inválido");
+  if (await worldExists(worldId)) return;
+  const mode = modeOfWorld(worldId);
   const snap = await loadSnapshot(year);
   const cities = await citiesFor(year);
+  const base = `dominio-politico-${year}-${WORLD_VERSION}`;
   const { state, changes } = createInitialWorld(snap, {
     cities: [...cities.values()],
-    worldId: worldIdFor(year),
-    seed: `dominio-politico-${year}-${WORLD_VERSION}`,
+    worldId,
+    seed: mode === "SHARED" ? base : `${base}|${worldId}`,
     startRealAt: new Date().toISOString(),
-    gameDaysPerRealHour: SPEED,
-    name: `Brasil pós-${year}`,
+    gameDaysPerRealHour: mode === "SHARED" ? SPEED : 0,
+    name: mode === "SHARED" ? `Brasil pós-${year}` : `Brasil pós-${year} · só seu`,
   });
+  if (mode !== "SHARED") state.world.stats[PRIVATE_FLAG] = 1;
+  if (mode === "FICTIONAL") fictionalizeWorld(state, changes);
   // linha do mundo primeiro (com start_year) para as próximas leituras
   const worldRow = { ...state.world, start_year: year };
   await rpc("sim_apply", { p_world: state.world.id, p_changes: { worlds: [worldRow] }, p_expected_tick: null });
@@ -205,8 +242,16 @@ export async function loadState(worldId: string): Promise<WorldState> {
     const map = t[name] as Map<string, unknown>;
     for (const row of (data[name] ?? []) as Array<{ id: string }>) map.set(row.id, row);
   }
-  return hydrateState({ world: data.world, economy: data.economy, ruleset: DEFAULT_RULESET, t, cities: await citiesFor(yearOfWorld(worldId)) });
+  let cities = await citiesFor(yearOfWorld(worldId));
+  if (data.world.stats?.[FICTIONAL_FLAG]) {
+    if (!fictionCities.has(worldId)) fictionCities.set(worldId, fictionalizeCities(cities, { world: data.world, t }));
+    cities = fictionCities.get(worldId)!;
+  }
+  return hydrateState({ world: data.world, economy: data.economy, ruleset: DEFAULT_RULESET, t, cities });
 }
+
+/** Municípios já convertidos para os nomes de cada mundo fictício. */
+const fictionCities = new Map<string, Map<string, CityBase>>();
 
 const cache = new Map<string, { state: WorldState; at: number }>();
 const loading = new Map<string, Promise<WorldState>>();
@@ -393,9 +438,8 @@ export async function clockStatus(worldId: string, personId: string | null): Pro
  * no novo dia (o relógio automático continua dali). Vale para todo o mundo:
  * sozinho, sem limite; com outros jogadores ativos, segue o planAdvance.
  */
-export async function fastForward(year: number, days: number, userId: string): Promise<FastForwardResult> {
+export async function fastForward(worldId: string, days: number, userId: string): Promise<FastForwardResult> {
   if (!ALLOWED_DAYS.has(days)) return { ok: false, message: "Escolha 1, 7, 15 ou 30 dias.", days };
-  const worldId = worldIdFor(year);
   const holder = crypto.randomUUID();
   if (!(await acquire(worldId, holder))) return { ok: false, message: "O mundo está processando outro avanço. Tente em instantes.", days };
   try {
@@ -458,6 +502,11 @@ export async function fastForward(year: number, days: number, userId: string): P
 /** Exclusão de conta: o motor limpa os dados do jogador em cada mundo antes de o banco anonimizar o personagem. */
 export async function clearPlayerWorlds(chars: Array<{ world_id: string; person_id: string }>): Promise<void> {
   for (const c of chars) {
+    // mundo próprio: sai inteiro, junto com o personagem
+    if (modeOfWorld(c.world_id) !== "SHARED") {
+      await dropWorld(c.world_id).catch(() => undefined);
+      continue;
+    }
     await withWorld(c.world_id, (_state, mk) => clearPlayerData(mk(c.person_id), c.person_id), { maxTicks: 0 }).catch(() => undefined);
   }
 }

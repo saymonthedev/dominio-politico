@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { START_YEARS } from "@dp/engine";
-import { advanceWorld, worldExists } from "@/lib/sim";
+import { advanceWorld, worldExists, worldIdFor } from "@/lib/sim";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const out: Record<string, number | string> = {};
   for (const y of START_YEARS) {
     try {
-      if (!(await worldExists(y))) continue;
+      if (!(await worldExists(worldIdFor(y)))) continue;
       // tarefa diária: vai processando em blocos até alcançar o relógio ou acabar o tempo
       const started = Date.now();
       let total = 0;

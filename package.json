@@ -16,7 +16,8 @@
     "import:historico": "node scripts/import-snapshot/import-historical.mjs",
     "build:startpoints": "node scripts/build-startpoints.mjs",
     "build:icons": "node scripts/build-icons.mjs",
-    "test:integration": "cd apps/web && tsx --env-file=.env.local scripts/integration.ts"
+    "test:integration": "cd apps/web && tsx --env-file=.env.local scripts/integration.ts",
+    "test:private-world": "cd apps/web && tsx --env-file=.env.local scripts/private-world.ts"
   },
   "engines": {
     "node": ">=20"

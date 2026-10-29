@@ -4,7 +4,7 @@ Jogo de navegador em que você começa como cidadão comum e tenta chegar ao Pla
 
 > Projeto de estudo. Partidos, eleitos e resultados do ponto de partida são reais (TSE e Banco Central). Tudo o que acontece depois é simulação e vem marcado como tal. O jogo nunca atribui crimes, falas ou condições de saúde inventadas a pessoas reais.
 
-**No ar:** [dominio-politico.vercel.app](https://dominio-politico.vercel.app)
+**No ar:** [dominio-politico.com.br](https://dominio-politico.com.br) (também em [dominio-politico.vercel.app](https://dominio-politico.vercel.app))
 
 ![Página inicial](docs/screenshots/inicio.png)
 
@@ -68,7 +68,9 @@ Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE.
 - **Dinheiro:** fechamento mensal com extrato por categoria: salário da profissão ou subsídio do cargo (valores de cada época, de vereador a presidente), Imposto de Renda simplificado (com a isenção até R$ 5 mil a partir de 2026), custo de vida, rendimento da reserva pela Selic, contribuição ao partido, empréstimos com juros e dinheiro não declarado separado da conta, que só volta ao bolso lavado e com perda. Os preços seguem a inflação real até o ponto de partida e, depois, o IPCA simulado mês a mês.
 - **Partido próprio:** fundação com estatuto e custos, coleta de apoio de eleitores (0,5% dos votos válidos para a Câmara, com mínimo em nove estados) em até dois anos, conferência e registro no TSE, presidência da legenda, pedidos de filiação de outros políticos, convites e fidelidade partidária conforme a época (a criação de partido deixou de ser justa causa em 2015). Na eleição, a presidência indica os candidatos da legenda e, depois das convenções, reparte a cota do partido no fundo eleitoral (FEFC) entre as candidaturas; o que sobra no 1º turno volta ao Tesouro.
 - **Passar o tempo:** além do relógio automático, o Painel tem um lugar único para pular 1 dia, 1 semana, 15 dias ou 1 mês. Ao fim, um resumo mostra o que aconteceu no Brasil (aprovação, Selic, inflação, desemprego, dólar e manchetes) e o que mudou para você, com atalho para responder convites.
-- **Relógio compartilhado:** cada ponto de partida é um mundo só. Quem joga sozinho avança sem limite. Com outros jogadores ativos (ação nas últimas 72 horas), o relógio aceita até 60 dias de jogo por hora real somando todos, para na véspera de prazos e eleições (filiação, fim das convenções, turnos) e só cruza esses marcos 30 minutos depois do último avanço. Todo avanço fica registrado no Painel e avisa os outros jogadores.
+- **Mundo compartilhado, só seu ou fictício:** na criação do personagem você escolhe onde jogar. O compartilhado reúne todos os jogadores daquele ano. O "só meu" tem os mesmos dados reais, sem outros jogadores, e o relógio fica parado até você avançar. O fictício também é só seu, mas troca todas as pessoas e partidos reais por nomes e siglas inventados (inclusive nas notícias, no mapa e nos municípios), sem fotos nem logos reais; como ninguém ali é real, qualquer político pode cometer crimes e ser investigado. Cada conta tem um mundo próprio por vez, e ele é apagado inteiro com o personagem (em Minha conta).
+- **Conquistas e ranking:** 20 conquistas de carreira (primeira filiação, nome na urna, cada cargo, partido fundado, mãos limpas, inocentado e outras), registradas com a data no jogo e com aviso. Elas somam pontos com o cargo atual e a reputação no ranking dos jogadores de cada mundo. A Carreira mostra também o histórico de mandatos e eleições.
+- **Relógio compartilhado:** cada ponto de partida tem um mundo compartilhado. Quem joga sozinho avança sem limite. Com outros jogadores ativos (ação nas últimas 72 horas), o relógio aceita até 60 dias de jogo por hora real somando todos, para na véspera de prazos e eleições (filiação, fim das convenções, turnos) e só cruza esses marcos 30 minutos depois do último avanço. Todo avanço fica registrado no Painel e avisa os outros jogadores.
 - **Mapa político dos 5.570 municípios,** com prefeito(a) e câmara de cada cidade no ponto de partida (TSE) e zoom do país até o município. Capitais e a cidade do jogador têm disputa completa; as demais são simuladas de forma determinística a cada eleição municipal.
 - **Fotos e logos reais:** fotos oficiais de candidatura do TSE (CC-BY) para 5.702 candidaturas de pessoas reais, sempre com o ano, e logos dos partidos do Wikimedia Commons, só de arquivos em domínio público ou com licença livre, com autor e licença na página de Fontes.
 - **Interface do jogo:**
@@ -82,6 +84,7 @@ Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE.
   - listas de pessoas com filtros por cargo, partido e UF;
   - menu lateral com grupos recolhíveis e, no celular, quatro atalhos e um menu "Mais";
   - acessibilidade: contraste AA nas cores de texto e nas pílulas, foco preso e Esc nos diálogos, setas nos menus, atalho "Pular para o conteúdo" e menos animação para quem prefere.
+- **Conta:** recuperar senha por e-mail, reenviar a confirmação, trocar senha (pedindo a atual) e trocar e-mail (com confirmação no endereço novo).
 - **LGPD:** exportação dos dados em JSON e exclusão da conta. Na exclusão, o personagem sai da política sem nenhum evento negativo.
 
 ### Componentes próprios
@@ -140,6 +143,7 @@ apps/web/              site Next.js (App Router, Server Actions)
   components/          kit de formulário, mapa, cabeçalho e rodapé, blocos legais
   components/game/     casca do jogo: barra lateral, sino, passar o tempo, ações rápidas
   lib/sim.ts           ponte motor ↔ banco: carrega, avança o relógio, aplica ações e grava
+  app/admin/           painel de saúde (restrito às contas em ADMIN_USER_IDS)
   lib/game-view.ts     leituras para as telas: próximos passos, agenda e pendências
   lib/glossary.ts      verbetes do glossário (página e dicas nas telas)
   lib/photos.json      fotos do TSE por pessoa (arquivos em public/fotos)
@@ -152,6 +156,8 @@ packages/engine/       motor da simulação em TypeScript puro (sem React, sem b
     partycampaign.ts   chapa do partido próprio e repasse do fundo eleitoral
     clock.ts           regras do relógio compartilhado entre jogadores
     account.ts         limpeza dos dados do jogador na exclusão de conta
+    achievements.ts    conquistas e pontos de carreira do ranking
+    fiction.ts         modo fictício: nomes e siglas inventados, determinísticos por mundo
   test/                testes dos pontos de partida e simulação longa
 packages/data/         carrega os snapshots por ano
 data/                  snapshots reais (snapshot-2002.json … snapshot-2026.json)
@@ -161,11 +167,15 @@ scripts/
   build-startpoints.mjs  gera os fatos dos pontos de partida
   build-icons.mjs        gera favicon e ícones a partir do logo
 supabase/migrations/   esquema, RLS e funções do motor
+supabase/templates/    e-mails de autenticação no visual do jogo
+.github/workflows/     CI (tipos, testes e build) e backup diário do banco
 ```
 
 **Motor determinístico.** Cada sorteio vem de `hash(semente do mundo | fase | dia | chave)`, sem `Math.random`. O mesmo mundo, com as mesmas ações, sempre produz a mesma história. Isso permite processar dias atrasados a qualquer momento e testar décadas de simulação em segundos.
 
-**Relógio preguiçoso.** O mundo não precisa de um processo rodando: ao abrir uma página ou executar uma ação, o servidor calcula quantos dias deveriam ter passado e processa a diferença. A rota `/api/cron/tick` faz o mesmo para todos os mundos, para quem quiser agendar.
+**Relógio preguiçoso.** O mundo não precisa de um processo rodando: ao abrir uma página ou executar uma ação, o servidor calcula quantos dias deveriam ter passado e processa a diferença. A rota `/api/cron/tick` faz o mesmo para os mundos compartilhados e roda todo dia pelo Vercel Cron (`apps/web/vercel.json`), para que o mundo ande mesmo sem ninguém abrindo o jogo. Mundos próprios têm velocidade zero: só andam quando o dono avança.
+
+**Mundos próprios.** O id diz o tipo: `br2026` (compartilhado), `br2026p…` (só meu) e `br2026f…` (fictício), com o começo do id da conta. No fictício, a troca de nomes é determinística (semente do mundo + nome real), então os dados estáticos dos municípios são convertidos de novo a cada carga, sem guardar uma tabela de nomes; o mundo guarda só o número de cada sigla real, para achar o partido correspondente. A função `sim_drop_world` apaga um mundo próprio inteiro e recusa os compartilhados.
 
 **Leitura e gravação.** O estado é lido em partes paralelas e gravado em lotes paralelos; um lote que estoura o tempo do banco é dividido ao meio e tentado de novo (a gravação é idempotente). Com o jogador logado, as chamadas usam o papel autenticado, que tem mais tempo por comando. As telas usam um cache curto, descartado na hora quando o dia de jogo mudou ou o jogador agiu.
 
@@ -175,6 +185,7 @@ supabase/migrations/   esquema, RLS e funções do motor
 - **Nenhuma escrita pelo cliente.** O motor grava por funções `SECURITY DEFINER` que exigem um segredo de servidor, guardado no banco só como hash SHA-256.
 - **Sementes dos mundos e vínculo conta ↔ personagem** ficam num schema privado, fora da API.
 - **Concorrência:** cada mundo tem um lease no banco, e a gravação confere o dia esperado antes de aplicar.
+- **Anti-robô:** Cloudflare Turnstile no cadastro, entrada, recuperação de senha e reenvio de confirmação, conferido pelo próprio Supabase Auth (Attack Protection). Sem a chave pública configurada, o widget não aparece.
 - **Coleta mínima:** e-mail e senha. Nada de CPF, título de eleitor, endereço ou telefone.
 
 ## Tecnologias
@@ -210,12 +221,20 @@ values ('local', encode(extensions.digest('SEU_SIM_SECRET', 'sha256'), 'hex'));
 
 Os mundos são criados sozinhos quando o primeiro jogador escolhe um ano.
 
-### E-mail de confirmação
+### E-mails da conta
 
-O modelo do e-mail de cadastro, no visual do jogo, está em `supabase/templates/confirmacao.html`. Para usar no projeto:
+Os e-mails de autenticação, no visual do jogo, estão em `supabase/templates/`. O Supabase só deixa editar os modelos com um SMTP próprio, então a ordem é:
 
-1. Em **Authentication → Emails → Templates → Confirm signup**, use o assunto `Confirme seu e-mail · Domínio Político` e cole o conteúdo do arquivo no corpo da mensagem.
-2. Em **Authentication → URL Configuration**, confira se o **Site URL** é o endereço público do jogo e se `https://SEU-DOMINIO/auth/callback` está entre as **Redirect URLs**.
+1. **SMTP.** O jogo usa a [Resend](https://resend.com) com o domínio `dominio-politico.com.br` verificado (registros DKIM, SPF e MX de `send.` no DNS). Em **Authentication → Emails → SMTP Settings**: host `smtp.resend.com`, porta `465`, usuário `resend`, senha = chave de API da Resend (permissão só de envio), remetente `nao-responda@dominio-politico.com.br` e nome `Domínio Político`. Depois, em **Rate Limits**, aumente o limite de e-mails por hora.
+2. **Modelos** (**Authentication → Emails → Templates**):
+
+   | Modelo | Assunto | Arquivo |
+   | --- | --- | --- |
+   | Confirm signup | `Confirme seu e-mail · Domínio Político` | `confirmacao.html` |
+   | Reset password | `Crie uma senha nova · Domínio Político` | `recuperacao.html` |
+   | Change email address | `Confirme o e-mail novo · Domínio Político` | `troca-email.html` |
+
+3. **URLs** (**Authentication → URL Configuration**): **Site URL** `https://dominio-politico.com.br` e, nas **Redirect URLs**, `https://dominio-politico.com.br/**` (e o endereço `.vercel.app`, se ainda for usado).
 
 O link do e-mail usa `token_hash` e passa pela rota `/auth/callback`, então a confirmação funciona mesmo quando a pessoa abre o e-mail em outro aparelho, e ela volta para onde estava indo (por exemplo, a criação de personagem do ano escolhido).
 
@@ -229,9 +248,17 @@ Em `apps/web/.env.local` (fora do Git):
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Sim | Chave publicável do Supabase. |
 | `SIM_SECRET` | Sim | Segredo do motor. O hash dele precisa estar em `private.app_secrets`. |
 | `NEXT_PUBLIC_SITE_URL` | Em produção | URL pública, usada nos links de confirmação de e-mail. |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Não | Chave pública do Cloudflare Turnstile. A chave secreta vai no Supabase (Authentication → Attack Protection), não aqui. |
+| `ADMIN_USER_IDS` | Não | Ids das contas (separados por vírgula) que podem abrir `/admin`. |
+| `MAX_PRIVATE_WORLDS` | Não | Quantos mundos próprios podem existir ao mesmo tempo (cada um ocupa alguns MB). Padrão: 30. |
 | `CRON_SECRET` | Não | Protege `/api/cron/tick`. Sem ele, a rota usa o `SIM_SECRET`. |
 | `WORLD_GAME_DAYS_PER_HOUR` | Não | Velocidade do relógio. Padrão: 2 dias por hora real. |
 | `WORLD_MAX_CATCHUP_TICKS` | Não | Máximo de dias processados por requisição. Padrão: 45. |
+
+### Backup e CI
+
+- **CI** (`.github/workflows/ci.yml`): a cada push e pull request, roda `typecheck`, os testes do motor e o build.
+- **Backup diário** (`.github/workflows/backup.yml`): `pg_dump` do banco, criptografado com GPG e guardado por 30 dias como artefato do GitHub Actions. Precisa de dois segredos no repositório: `SUPABASE_DB_URL` (a string de conexão do pooler de sessão, em Supabase → Connect) e `BACKUP_PASSPHRASE` (a senha do arquivo). Para restaurar: baixe o artefato, rode `gpg -d backup.sql.gz.gpg | gunzip | psql "$URL"`.
 
 ### Dados
 
@@ -249,8 +276,9 @@ Os arquivos do TSE ficam em cache em `.cache/tse/` (fora do Git).
 
 | Verificação | Resultado |
 | --- | --- |
-| `npm test`: os 7 pontos de partida reproduzem o eleito real, 513 cadeiras na Câmara e 81 no Senado; municípios e eleições municipais; crimes nunca atribuídos a pessoas reais; dossiês; fundação de partido até o registro; chapa e fundo eleitoral do partido próprio; subsídios e imposto por época; filiação de novatos; inflação simulada; relógio compartilhado; exclusão de conta; simulação de 2026 até depois da eleição de 2030 | 32 de 32 |
+| `npm test`: os 7 pontos de partida reproduzem o eleito real, 513 cadeiras na Câmara e 81 no Senado; municípios e eleições municipais; crimes nunca atribuídos a pessoas reais; dossiês; fundação de partido até o registro; chapa e fundo eleitoral do partido próprio; subsídios e imposto por época; filiação de novatos; inflação simulada; relógio compartilhado; exclusão de conta; conquistas; mundo fictício sem nenhuma pessoa ou sigla real; simulação de 2026 até depois da eleição de 2030 | 34 de 34 |
 | `npm run test:integration`: criação do mundo, personagem, ações e avanço de 15 dias contra o Supabase real | aprovado |
+| `npm run test:private-world`: mundo fictício próprio criado (7,5 s), carregado, com personagem, avançado 7 dias e apagado | aprovado |
 | Totais do 2º turno contra o TSE (ex.: Lula 2002 com 52.793.364 votos, Lula 2022 com 60.345.999) | iguais |
 | `npm run typecheck` e `npm run build` | sem erros |
 | Rolagem horizontal em 390 e 1360 px nas páginas públicas e do jogo, temas claro e escuro | nenhuma |
@@ -259,7 +287,8 @@ Os arquivos do TSE ficam em cache em `.cache/tse/` (fora do Git).
 
 - Nem toda candidatura tem foto: o TSE só publica fotos a partir de 2004, e parte dos arquivos não existe.
 - Os logos seguem a sigla e a época do ponto de partida, mas nem toda sigla antiga tem logo com licença livre (PSDC e PT do B, por exemplo); essas aparecem pela sigla e cor.
-- O envio de e-mails usa o SMTP padrão do Supabase, que só entrega para endereços da equipe do projeto e tem limite baixo por hora. Para abrir o cadastro ao público, é preciso configurar um SMTP próprio (Resend, Brevo, Postmark, Amazon SES e outros) em Authentication → Emails → SMTP Settings.
+- Os dados de um mundo próprio seguem a regra de leitura dos mundos (públicos para quem conhece o id); notificações, finanças e dossiês continuam só do dono.
+- O ranking compara só jogadores do mesmo mundo.
 
 ## Créditos
 

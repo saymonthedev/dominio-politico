@@ -2,7 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { PartyRow, PersonRow, PersonStateRow, WorldRow, WorldState } from "@dp/engine";
 import { supabaseServer } from "./supabase/server";
-import { asPlayer, cachedState, isStartYear, worldIdFor } from "./sim";
+import { asPlayer, cachedState, isStartYear, modeOfWorld, worldIdFor, yearOfWorld, type WorldMode } from "./sim";
 
 export type PublicWorld = Omit<WorldRow, "seed">;
 
@@ -12,17 +12,28 @@ export const getSession = cache(async () => {
   return { sb, user: data.user };
 });
 
-export const getWorld = cache(async (year: number): Promise<PublicWorld | null> => {
-  const { sb } = await getSession();
-  const { data } = await sb.from("worlds").select("*").eq("id", worldIdFor(year)).maybeSingle();
-  return (data as PublicWorld) ?? null;
-});
-
 export const myCharacters = cache(async (): Promise<Array<{ world_id: string; person_id: string }>> => {
   const { sb, user } = await getSession();
   if (!user) return [];
   const { data } = await sb.rpc("my_characters");
   return (data as Array<{ world_id: string; person_id: string }>) ?? [];
+});
+
+/**
+ * O mundo do jogador neste ponto de partida: o próprio (só dele ou fictício),
+ * se tiver personagem em um; senão, o compartilhado.
+ */
+export const myWorldId = cache(async (year: number): Promise<string> => {
+  const mine = (await myCharacters()).filter((c) => yearOfWorld(c.world_id) === year);
+  return (mine.find((c) => modeOfWorld(c.world_id) !== "SHARED") ?? mine[0])?.world_id ?? worldIdFor(year);
+});
+
+export const myWorldMode = async (year: number): Promise<WorldMode> => modeOfWorld(await myWorldId(year));
+
+export const getWorld = cache(async (year: number): Promise<PublicWorld | null> => {
+  const { sb } = await getSession();
+  const { data } = await sb.from("worlds").select("*").eq("id", await myWorldId(year)).maybeSingle();
+  return (data as PublicWorld) ?? null;
 });
 
 export interface Me {
@@ -38,7 +49,7 @@ export const requireMe = cache(async (year: number): Promise<Me> => {
   if (!isStartYear(year)) redirect("/jogo");
   const { sb, user } = await getSession();
   if (!user) redirect(`/entrar?next=/jogo/${year}`);
-  const worldId = worldIdFor(year);
+  const worldId = await myWorldId(year);
   const { data: st } = await sb.from("person_states").select("*").eq("world_id", worldId).eq("user_id", user.id).maybeSingle();
   if (!st) redirect(`/jogo/novo?ano=${year}`);
   const { data: person } = await sb.from("persons").select("*").eq("world_id", worldId).eq("id", st.id).maybeSingle();

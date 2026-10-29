@@ -5,7 +5,7 @@ import { StartTrack } from "@/components/StartTrack";
 import { STAGE_LABEL } from "@/components/ui";
 import { getSession, myCharacters } from "@/lib/game";
 import { fmtDate, initials } from "@/lib/format";
-import { yearOfWorld } from "@/lib/sim";
+import { modeOfWorld, yearOfWorld } from "@/lib/sim";
 
 export const metadata: Metadata = { title: "Seus mundos" };
 
@@ -48,7 +48,10 @@ export default async function Page() {
               return (
                 <a key={d.world_id} className="world-card" href={`/jogo/${d.year}`} style={{ ["--accent" as string]: color }}>
                   <div className="world-card__top">
-                    <span className="world-card__year">Brasil pós-{d.year}</span>
+                    <span className="world-card__year">
+                      Brasil pós-{d.year}
+                      {modeOfWorld(d.world_id) !== "SHARED" && <small className="world-card__mode">{modeOfWorld(d.world_id) === "FICTIONAL" ? "fictício · só seu" : "só seu"}</small>}
+                    </span>
                     <span className="world-card__date">
                       <Icon name="calendar" size={14} /> {fmtDate(d.date)}
                     </span>

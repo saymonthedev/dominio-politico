@@ -2,8 +2,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createCharacter, performAction, type ActionResult } from "@dp/engine";
-import { getSession, myCharacters } from "@/lib/game";
-import { asPlayer, clearPlayerWorlds, ensureWorld, fastForward, isStartYear, withWorld, worldIdFor, type FastForwardResult } from "@/lib/sim";
+import { getSession, myCharacters, myWorldId } from "@/lib/game";
+import { asPlayer, clearPlayerWorlds, countPrivateWorlds, dropWorld, ensureWorld, fastForward, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, WORLD_MODES, withWorld, worldIdFor, yearOfWorld, type FastForwardResult, type WorldMode } from "@/lib/sim";
 
 /** Token de acesso do jogador: as chamadas ao motor rodam no papel autenticado (mais tempo por comando no banco). */
 async function tokenOf(sb: Awaited<ReturnType<typeof getSession>>["sb"]): Promise<string | null> {
@@ -20,13 +20,21 @@ export async function createCharacterAction(_: ActionState, form: FormData): Pro
   if (!user) redirect("/entrar");
   const year = Number(form.get("year"));
   if (!isStartYear(year)) return { ok: false, message: "Ponto de partida inválido." };
+  const mode = (WORLD_MODES as readonly string[]).includes(String(form.get("mode"))) ? (String(form.get("mode")) as WorldMode) : "SHARED";
+  const chars = await myCharacters();
+  if (chars.some((c) => yearOfWorld(c.world_id) === year)) return { ok: false, message: "Você já tem um personagem neste ponto de partida." };
+  if (mode !== "SHARED") {
+    if (chars.some((c) => modeOfWorld(c.world_id) !== "SHARED")) return { ok: false, message: "Cada conta pode ter um mundo próprio. Apague o personagem do outro mundo próprio para criar este." };
+    if ((await countPrivateWorlds()) >= MAX_PRIVATE_WORLDS) return { ok: false, message: "As vagas para mundos próprios estão esgotadas no momento. Escolha o mundo compartilhado ou tente mais tarde." };
+  }
+  const worldId = worldIdFor(year, mode, user.id);
   try {
     const token = await tokenOf(sb);
-    await asPlayer(token, () => ensureWorld(year));
+    await asPlayer(token, () => ensureWorld(year, worldId));
     const ideology: Record<string, number> = {};
     for (const ax of ["economy", "social", "security", "institutions", "environment", "federalism"]) ideology[ax] = Number(form.get(`ax_${ax}`) ?? 0);
     const { result } = await asPlayer(token, () =>
-      withWorld(worldIdFor(year), (state, mk) =>
+      withWorld(worldId, (state, mk) =>
         createCharacter(mk(`novo-${user.id}`), {
           userId: user.id,
           name: String(form.get("name") ?? ""),
@@ -53,7 +61,7 @@ export async function doAction(_: ActionState, form: FormData): Promise<ActionSt
   const year = Number(form.get("__year"));
   const actionId = String(form.get("__action") ?? "");
   if (!isStartYear(year)) return { ok: false, message: "Mundo inválido." };
-  const worldId = worldIdFor(year);
+  const worldId = await myWorldId(year);
   const { data: st } = await sb.from("person_states").select("id").eq("world_id", worldId).eq("user_id", user.id).maybeSingle();
   if (!st) return { ok: false, message: "Você não tem personagem neste mundo." };
   const params: Record<string, string> = {};
@@ -98,6 +106,18 @@ export async function deleteMyData(): Promise<void> {
   redirect("/?conta=excluida");
 }
 
+/** Apaga um mundo próprio inteiro (com o personagem). Os compartilhados não podem ser apagados. */
+export async function deleteMyWorld(form: FormData): Promise<void> {
+  const { sb, user } = await getSession();
+  if (!user) redirect("/entrar?next=/conta");
+  const worldId = String(form.get("world") ?? "");
+  const chars = await myCharacters();
+  if (form.get("confirm") !== "on" || modeOfWorld(worldId) === "SHARED" || !chars.some((c) => c.world_id === worldId)) redirect("/conta?mundo=erro");
+  await asPlayer(await tokenOf(sb), () => dropWorld(worldId));
+  revalidatePath("/jogo");
+  redirect("/conta?mundo=apagado");
+}
+
 export async function advanceTime(_: FastForwardResult | null, form: FormData): Promise<FastForwardResult> {
   const { sb, user } = await getSession();
   if (!user) return { ok: false, message: "Sessão expirada.", days: 0 };
@@ -105,7 +125,8 @@ export async function advanceTime(_: FastForwardResult | null, form: FormData): 
   const days = Number(form.get("days"));
   if (!isStartYear(year)) return { ok: false, message: "Mundo inválido.", days: 0 };
   try {
-    const res = await asPlayer(await tokenOf(sb), () => fastForward(year, days, user.id));
+    const worldId = await myWorldId(year);
+    const res = await asPlayer(await tokenOf(sb), () => fastForward(worldId, days, user.id));
     if (res.ok) revalidatePath(`/jogo/${year}`, "layout");
     return res;
   } catch (e) {

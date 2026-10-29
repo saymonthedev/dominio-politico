@@ -31,7 +31,7 @@ async function main() {
     console.log(`${action}: ${result?.ok} · ${result?.message} (${Date.now() - t} ms)`);
   }
   t = Date.now();
-  const ff = await fastForward(YEAR, 15, USER);
+  const ff = await fastForward(worldIdFor(YEAR), 15, USER);
   console.log(`fastForward: ${ff.ok} ${ff.message} ${ff.from} → ${ff.to} (${Date.now() - t} ms)`);
   for (const h of ff.headlines ?? []) console.log("  ·", h.date, h.headline);
   const s1 = await loadState(worldIdFor(YEAR));

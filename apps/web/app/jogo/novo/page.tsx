@@ -5,10 +5,12 @@ import { CharacterForm } from "@/components/CharacterForm";
 import { Icon } from "@/components/Icon";
 import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
 import { myCharacters } from "@/lib/game";
-import { isStartYear, worldIdFor } from "@/lib/sim";
+import { countPrivateWorlds, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, yearOfWorld } from "@/lib/sim";
 import { START_POINTS } from "@/lib/startpoints";
 
 export const metadata: Metadata = { title: "Novo personagem" };
+/** montar um mundo próprio leva alguns segundos */
+export const maxDuration = 60;
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR")}`;
@@ -23,7 +25,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
   const year = Number((await searchParams).ano ?? 2026);
   if (!isStartYear(year)) redirect("/jogo");
   const chars = await myCharacters();
-  if (chars.some((c) => c.world_id === worldIdFor(year))) redirect(`/jogo/${year}`);
+  if (chars.some((c) => yearOfWorld(c.world_id) === year)) redirect(`/jogo/${year}`);
+  const privateOpen = !chars.some((c) => modeOfWorld(c.world_id) !== "SHARED") && (await countPrivateWorlds().catch(() => MAX_PRIVATE_WORLDS)) < MAX_PRIVATE_WORLDS;
   const sp = START_POINTS.find((s) => s.year === year)!;
   const wc = profileFor(sp.winnerParty, year).color;
   const rc = profileFor(sp.rivalParty, year).color;
@@ -39,6 +42,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
             capitals={CAPITAL_IBGE}
             professions={PROFESSIONS.map((p) => ({ value: p.id, label: cap(p.label), hint: `${brl(p.income)}/mês`, icon: PROF_ICON[p.id] }))}
             origins={ORIGINS.map((o) => ({ value: o.id, label: cap(o.label), hint: `Economias: ${brl(o.savings)}`, icon: ORIGIN_ICON[o.id] }))}
+            privateOpen={privateOpen}
             axes={AXES.map((a) => ({ key: a, label: AXIS_INFO[a].label, neg: AXIS_INFO[a].neg, pos: AXIS_INFO[a].pos }))}
           />
           <aside className="cf-aside">

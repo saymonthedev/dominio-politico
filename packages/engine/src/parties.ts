@@ -179,3 +179,8 @@ export const FACTION_TEMPLATES: Array<{ name: string; offset: Partial<Ideology>;
   { name: "Ala Pragmática", offset: { economy: 8, institutions: 8 }, strength: 0.45 },
   { name: "Ala Regionalista", offset: { federalism: 15 }, strength: 0.2 },
 ];
+
+/** Todas as siglas reais que o jogo conhece (para que as siglas inventadas nunca coincidam com elas). */
+export const KNOWN_ACRONYMS: ReadonlySet<string> = new Set(
+  [...Object.keys(RAW), ...Object.keys(SAME_PROFILE), ...Object.values(SAME_PROFILE), ...Object.keys(SUCCESSION), ...Object.values(SUCCESSION).flat()].map((a) => normAcronym(a).replace(/\s/g, "")),
+);

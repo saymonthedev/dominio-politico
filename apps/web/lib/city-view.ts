@@ -1,4 +1,4 @@
-import { canonicalGeo, cityNow, partyResolver, profileFor, UFS, type CityNow, type WorldState } from "@dp/engine";
+import { acronymMapper, canonicalGeo, cityNow, fictionalName, isFictional, partyResolver, profileFor, UFS, type CityNow, type WorldState } from "@dp/engine";
 import { MAP_OTHERS, MAP_PALETTE } from "./map-colors";
 import { photoOf } from "./photos";
 import { START_POINTS } from "./startpoints";
@@ -64,9 +64,19 @@ export interface MapPayload {
   states: Record<string, { governor: { name: string; party: string; color: string } | null }>;
 }
 
+/** O 2º turno real do ponto de partida, com os nomes do mundo (inventados, no modo fictício). */
+function startPointOf(state: WorldState, year: number) {
+  const sp = START_POINTS.find((s) => s.year === year)!;
+  const colors = { winnerColor: profileFor(sp.winnerParty, year).color, rivalColor: profileFor(sp.rivalParty, year).color };
+  if (!isFictional(state)) return { ...sp, ...colors };
+  const acr = acronymMapper(state);
+  const seed = state.world.seed;
+  return { ...sp, ...colors, winner: fictionalName(seed, sp.winner), rival: fictionalName(seed, sp.rival), winnerParty: acr(sp.winnerParty), rivalParty: acr(sp.rivalParty) };
+}
+
 /** Resumo de todas as cidades para colorir o mapa (prefeito atual no mundo e 2º turno real de partida). */
 export function mapPayload(state: WorldState, year: number, myCity: string | null): MapPayload {
-  const sp = START_POINTS.find((s) => s.year === year)!;
+  const sp = startPointOf(state, year);
   const resolve = partyResolver(state.t.parties.values());
   const parties: MapParty[] = [];
   const idx = new Map<string, number>();
@@ -101,8 +111,8 @@ export function mapPayload(state: WorldState, year: number, myCity: string | nul
     year,
     parties,
     cities,
-    winner: { name: sp.winner, party: sp.winnerParty, color: profileFor(sp.winnerParty, year).color },
-    rival: { name: sp.rival, party: sp.rivalParty, color: profileFor(sp.rivalParty, year).color },
+    winner: { name: sp.winner, party: sp.winnerParty, color: sp.winnerColor },
+    rival: { name: sp.rival, party: sp.rivalParty, color: sp.rivalColor },
     myCity: myCity ? canonicalGeo(myCity) : null,
     states,
   };
@@ -127,7 +137,7 @@ export interface CityDetail {
 export function cityDetail(state: WorldState, year: number, id: string): CityDetail | null {
   const c = cityNow(state, id);
   if (!c) return null;
-  const sp = START_POINTS.find((s) => s.year === year)!;
+  const sp = startPointOf(state, year);
   const colorOf = (partyId: string | null | undefined, label?: string) =>
     (partyId ? state.t.parties.get(partyId)?.color : undefined) ?? (label ? profileFor(label, year).color : "#64748b");
   const acr = (partyId: string | null) => (partyId ? state.t.parties.get(partyId)?.acronym ?? null : null);
@@ -151,7 +161,7 @@ export function cityDetail(state: WorldState, year: number, id: string): CityDet
     replaced: c.mayor && !c.mayor.simulated && c.mayor.electedIn === year - 2 ? baseMayor?.replaced ?? null : null,
     council: c.council.map((x) => ({ partyId: x.partyId, label: x.label, color: colorOf(x.partyId, x.label), seats: x.seats })),
     president: Object.entries(c.president)
-      .map(([name, votes]) => ({ name, votes, pct: (votes / totalPres) * 100, color: profileFor(name === sp.winner ? sp.winnerParty : sp.rivalParty, year).color }))
+      .map(([name, votes]) => ({ name, votes, pct: (votes / totalPres) * 100, color: name === sp.winner ? sp.winnerColor : sp.rivalColor }))
       .sort((a, b) => b.votes - a.votes),
     players: persons.filter((p) => p.kind === "PLAYER").map((p) => ({ id: p.id, name: p.name, party: acr(p.party_id), stage: p.stage })),
     locals: persons
