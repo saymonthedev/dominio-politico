@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { quickAction, type ActionDelta, type ActionState } from "@/app/jogo/actions";
 import { STAGE_LABEL } from "../ui";
 import { Icon } from "../Icon";
@@ -52,6 +52,23 @@ function announce(r: ActionState) {
  * Executa uma ação do jogo com começo, meio e fim: frases de progresso enquanto roda,
  * resultado com o que mudou (energia, caixa, reputação…) e comemoração se a carreira avançar.
  */
+/** Uma ação por vez em toda a tela: enquanto uma acontece, as outras esperam. */
+let busyNow = false;
+const busySubs = new Set<() => void>();
+function setBusy(v: boolean) {
+  busyNow = v;
+  for (const f of busySubs) f();
+}
+const subscribeBusy = (f: () => void) => {
+  busySubs.add(f);
+  return () => void busySubs.delete(f);
+};
+
+/** Há alguma ação do jogo em andamento (em qualquer cartão)? */
+export function useActionBusy(): boolean {
+  return useSyncExternalStore(subscribeBusy, () => busyNow, () => false);
+}
+
 export function useGameAction(year: number, category?: string) {
   const [, start] = useTransition();
   // "acontecendo" vai do clique até a resposta; a página atualizada chega logo depois, sem segurar o cartão
@@ -63,7 +80,13 @@ export function useGameAction(year: number, category?: string) {
 
   useEffect(() => () => void (timer.current && clearInterval(timer.current)), []);
 
+  const busy = useActionBusy();
   const run = (actionId: string, params: Record<string, string>, label: string, after?: (r: ActionState) => void) => {
+    if (busyNow) {
+      toast({ tone: "err", title: "Uma coisa de cada vez", body: "Espere a ação em andamento terminar." });
+      return;
+    }
+    setBusy(true);
     const list = PHRASES[category ?? ""] ?? GENERIC;
     let k = 0;
     setResult(null);
@@ -73,11 +96,12 @@ export function useGameAction(year: number, category?: string) {
     start(async () => {
       const t0 = Date.now();
       // a ação chama revalidatePath: a resposta já traz a página atualizada (sem um segundo refresh)
-      const r = await quickAction(year, actionId, params);
+      const r = await quickAction(year, actionId, params).catch((e: unknown) => ({ ok: false, message: e instanceof Error ? e.message : "Erro ao executar a ação." }) as ActionState);
       const wait = MIN_MS - (Date.now() - t0);
       if (wait > 0) await new Promise((ok) => setTimeout(ok, wait));
       if (timer.current) clearInterval(timer.current);
       setRunning(false);
+      setBusy(false);
       setResult(r);
       toast({ tone: r.ok ? "ok" : "err", title: r.ok ? label : "Não deu certo", body: r.message, deltas: r.ok ? r.deltas : undefined });
       announce(r);
@@ -85,7 +109,8 @@ export function useGameAction(year: number, category?: string) {
     });
   };
   const clear = useCallback(() => setResult(null), []);
-  return { run, pending: running, phrase, result, clear };
+  // outra ação em andamento: este cartão espera
+  return { run, pending: running, locked: busy && !running, phrase, result, clear };
 }
 
 /** Tela de comemoração quando a ação muda a etapa da carreira ou o partido. */

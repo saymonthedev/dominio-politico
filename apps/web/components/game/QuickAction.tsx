@@ -25,7 +25,7 @@ export function QuickAction({
   /** chamado depois da resposta do servidor (ex.: esconder os botões de um convite já respondido) */
   onDone?: (ok: boolean) => void;
 }) {
-  const { run, pending, phrase } = useGameAction(year);
+  const { run, pending, locked, phrase } = useGameAction(year);
   return (
     <Button
       type="button"
@@ -34,6 +34,7 @@ export function QuickAction({
       icon={icon}
       full={full}
       loading={pending}
+      disabled={locked}
       onClick={() => run(action, params ?? {}, label, (r) => onDone?.(r.ok))}
     >
       {pending ? phrase : label}

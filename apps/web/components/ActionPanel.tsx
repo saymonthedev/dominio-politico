@@ -63,7 +63,7 @@ function ConfirmDialog({ title, text, onCancel, onConfirm, pending }: { title: s
 function ActionCard({ year, a }: { year: number; a: ActionView }) {
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState<Record<string, string> | null>(null);
-  const { run: exec, pending, phrase, result, clear } = useGameAction(year, a.category);
+  const { run: exec, pending, locked: waiting, phrase, result, clear } = useGameAction(year, a.category);
   const locked = !!a.reason;
   const needsForm = a.params.length > 0;
   const run = (params: Record<string, string>) =>
@@ -126,7 +126,7 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
           <Icon name="lock" size={14} /> {a.reason}
         </div>
       ) : !needsForm ? (
-        <Button tone={a.confirm ? "danger" : "primary"} size="sm" icon="play" loading={pending} onClick={() => attempt({})}>
+        <Button tone={a.confirm ? "danger" : "primary"} size="sm" icon="play" loading={pending} disabled={waiting} title={waiting ? "Espere a ação em andamento terminar" : undefined} onClick={() => attempt({})}>
           Fazer agora
         </Button>
       ) : !open ? (
@@ -156,7 +156,7 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
             <Button type="button" tone="ghost" size="sm" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" tone="gold" size="sm" icon="play" loading={pending}>
+            <Button type="submit" tone="gold" size="sm" icon="play" loading={pending} disabled={waiting} title={waiting ? "Espere a ação em andamento terminar" : undefined}>
               Fazer
             </Button>
           </div>
