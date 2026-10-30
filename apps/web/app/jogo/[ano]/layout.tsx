@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { canonicalGeo, geoName, type NotificationRow } from "@dp/engine";
 import { GameSidebar } from "@/components/game/GameSidebar";
+import { HashScroll } from "@/components/game/HashScroll";
 import { NotificationBell } from "@/components/game/NotificationBell";
 import { StoryBell } from "@/components/game/StoryCenter";
 import { Toaster } from "@/components/game/Toaster";
@@ -101,6 +102,7 @@ export default async function GameLayout({ children, params }: { children: React
           }}
         />
         <main className="gmain" id="conteudo" tabIndex={-1}>
+          <HashScroll />
           {children}
         </main>
       </div>

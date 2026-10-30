@@ -20,22 +20,6 @@ export function Onboarding({ year, steps }: { year: number; steps: OnboardingSte
   const done = steps.filter((s) => s.done).length;
   const next = steps.find((s) => !s.done);
   if (hidden || !next) return null;
-  // link para outra parte do Painel: rola suavemente e destaca o destino, sem "pulo"
-  const go = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    const [path, hash] = href.split("#");
-    if (!hash || path.replace(/\/$/, "") !== window.location.pathname.replace(/\/$/, "")) return;
-    const el = document.getElementById(hash);
-    if (!el) return;
-    e.preventDefault();
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
-    history.replaceState(null, "", `#${hash}`);
-    el.classList.remove("is-flash");
-    void el.offsetWidth;
-    el.classList.add("is-flash");
-    window.setTimeout(() => el.classList.remove("is-flash"), 1600);
-    el.querySelector<HTMLElement>("button:not(:disabled), a[href]")?.focus({ preventScroll: true });
-  };
   const hide = () => {
     // vale para este mundo, neste navegador, por um ano
     document.cookie = `dp_tutorial_${year}=off; path=/; max-age=31536000; samesite=lax`;
@@ -72,7 +56,7 @@ export function Onboarding({ year, steps }: { year: number; steps: OnboardingSte
               </b>
               <p>{s.text}</p>
               {s === next && (
-                <a className="ui-btn ui-btn--gold ui-btn--sm" href={s.href} onClick={(e) => go(e, s.href)}>
+                <a className="ui-btn ui-btn--gold ui-btn--sm" href={s.href}>
                   <span>{s.cta}</span>
                   <Icon name="arrow" size={14} />
                 </a>
