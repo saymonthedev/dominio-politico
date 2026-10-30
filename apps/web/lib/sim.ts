@@ -8,7 +8,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadCities, loadSnapshot } from "@dp/data";
 import {
   addDays,
+  canonicalGeo,
   careerSummary,
+  geoName,
+  OFFICES,
   Changes,
   clearPlayerData,
   createInitialWorld,
@@ -524,6 +527,8 @@ export interface StepAdvanceResult extends FastForwardResult {
   stop?: "decisao" | "fim" | "limite" | null;
   /** acontecimento que fez o relógio parar (aparece na tela na hora) */
   stopOn?: string;
+  /** dia de votação no período: a apuração da disputa que importa ao jogador */
+  apuracao?: Apuracao;
   /** acontecimentos esperando resposta (os que seguram o tempo primeiro) */
   pending?: StoryEvent[];
   /** dias pedidos e dias que ainda faltam (o relógio retoma daí depois da decisão) */
@@ -533,6 +538,87 @@ export interface StepAdvanceResult extends FastForwardResult {
 
 function activePlayer(state: WorldState, userId: string) {
   return [...state.t.persons.values()].find((x) => x.user_id === userId && x.status === "ACTIVE" && x.kind === "PLAYER") ?? null;
+}
+
+/** Um candidato na apuração. */
+export interface CountRow {
+  id: string;
+  name: string;
+  party: string;
+  color: string;
+  votes: number;
+  share: number;
+  me: boolean;
+  /** resultado final: eleito, vai ao 2º turno ou não */
+  outcome: "ELEITO" | "SEGUNDO_TURNO" | "NAO";
+}
+
+/** Apuração de uma disputa no dia da votação, para a tela acompanhar a contagem. */
+export interface Apuracao {
+  date: string;
+  title: string;
+  round: 1 | 2;
+  majoritarian: boolean;
+  valid: number;
+  seats: number;
+  rows: CountRow[];
+  /** a disputa é a do jogador */
+  mine: boolean;
+}
+
+/**
+ * Disputa a mostrar na apuração de um dia de votação que caiu no período:
+ * a do jogador; se ele não concorre, a mais importante para ele (Presidência
+ * nas gerais, prefeitura da cidade nas municipais).
+ */
+function apuracaoOf(state: WorldState, personId: string, from: string, to: string): Apuracao | undefined {
+  const me = state.t.persons.get(personId);
+  if (!me) return undefined;
+  for (const e of state.t.elections.values()) {
+    const round: 1 | 2 | null = e.first_round > from && e.first_round <= to ? 1 : e.runoff > from && e.runoff <= to ? 2 : null;
+    if (!round) continue;
+    const races = [...state.t.races.values()].filter((r) => r.election_id === e.id);
+    const myCand = [...state.t.candidacies.values()].find((c) => c.election_id === e.id && c.person_id === personId && c.status !== "PRE" && c.status !== "DESISTENTE" && c.status !== "INDEFERIDA");
+    const city = canonicalGeo(me.municipality);
+    const race =
+      (myCand && races.find((r) => r.id === myCand.race_id)) ??
+      (e.kind === "GERAL" ? races.find((r) => r.office_code === "PRESIDENTE") : races.find((r) => r.office_code === "PREFEITO" && r.geo === city) ?? races.find((r) => r.office_code === "PREFEITO" && r.geo.startsWith(me.uf)));
+    const res = round === 2 ? race?.results.runoff : race?.results.first;
+    if (!race || !res?.candidates.length) continue;
+    const majoritarian = OFFICES[race.office_code].system === "MAJORITARIO";
+    const elected = new Set(race.results.elected ?? []);
+    const sorted = [...res.candidates].sort((a, b) => b.votes - a.votes);
+    const top = sorted.slice(0, majoritarian ? 6 : 10);
+    const mine = sorted.find((c) => c.person_id === personId);
+    if (mine && !top.includes(mine)) top.push(mine);
+    const goesRunoff = majoritarian && round === 1;
+    const rows: CountRow[] = top.map((c) => {
+      const party = state.t.parties.get(c.party_id);
+      const cand = state.t.candidacies.get(c.candidacy_id);
+      return {
+        id: c.candidacy_id,
+        name: c.name,
+        party: party?.acronym ?? "",
+        color: party?.color ?? "#64748b",
+        votes: Math.round(c.votes),
+        share: c.share,
+        me: c.person_id === personId,
+        outcome: elected.has(c.candidacy_id) || elected.has(c.person_id) || cand?.status === "ELEITO" ? "ELEITO" : goesRunoff && cand?.status === "SEGUNDO_TURNO" ? "SEGUNDO_TURNO" : "NAO",
+      };
+    });
+    const place = geoName(race.geo, new Ctx(state, "read").s);
+    return {
+      date: round === 2 ? e.runoff : e.first_round,
+      title: `${OFFICES[race.office_code].name} · ${place}`,
+      round,
+      majoritarian,
+      valid: Math.round(res.valid),
+      seats: race.seats,
+      rows,
+      mine: !!myCand,
+    };
+  }
+  return undefined;
 }
 
 /**
@@ -604,6 +690,7 @@ export async function advanceStep(worldId: string, days: number, userId: string)
       diary: step.days,
       stop: step.stop,
       stopOn: step.stopOn,
+      apuracao: manual > 0 ? apuracaoOf(state, me.id, manualFrom, state.world.game_date) : undefined,
       pending: pendingFor(state, me.id),
       requested: days,
       remaining: held ? 0 : Math.max(0, plan.days - manual),

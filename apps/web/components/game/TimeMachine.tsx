@@ -6,12 +6,13 @@ import type { DayDigest, StoryDelta, StoryEvent } from "@dp/engine";
 import { advanceDays, careerEndSummary, quickAction } from "@/app/jogo/actions";
 import type { ActionView } from "@/lib/actions-view";
 import { inviteIdOf, resolveLink } from "@/lib/links";
-import type { CareerEndView, CountrySnapshot, DecideResult, FastForwardResult, StepAdvanceResult } from "@/lib/sim";
+import type { Apuracao as ApuracaoData, CareerEndView, CountrySnapshot, DecideResult, FastForwardResult, StepAdvanceResult } from "@/lib/sim";
 import { useModal } from "../a11y";
 import { Button } from "../forms";
 import { Term } from "../Term";
 import { Icon } from "../Icon";
 import { DeltaChips } from "./ActionFx";
+import { Apuracao } from "./Apuracao";
 import { CareerEndModal } from "./CareerEnd";
 import { EventModal } from "./EventModal";
 import { NEWS_CATEGORIES } from "./NewsList";
@@ -87,7 +88,7 @@ interface Decided {
   deltas?: StoryDelta[];
 }
 
-type Phase = "idle" | "loading" | "playing" | "deciding" | "paused" | "summary" | "ended";
+type Phase = "idle" | "loading" | "playing" | "counting" | "deciding" | "paused" | "summary" | "ended";
 
 const ago = (iso: string) => {
   const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
@@ -141,6 +142,9 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
   const planRef = useRef<PlannedAction[]>([]);
   const askedRef = useRef(0);
   const [planning, setPlanning] = useState<number | null>(null);
+  // apuração do dia de votação: abre quando o diário chega nesse dia
+  const [apu, setApu] = useState<ApuracaoData | null>(null);
+  const apuSeen = useRef(new Set<string>());
   const pause = (v: boolean) => {
     paused.current = v;
     setPauseAsked(v);
@@ -264,6 +268,13 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
     if (phase !== "playing") return;
     if (shown < diary.length) {
       const d = diary[shown];
+      const ap = chunks.map((c) => c.apuracao).find((a) => a && a.date <= d.date && !apuSeen.current.has(a.date));
+      if (ap) {
+        apuSeen.current.add(ap.date);
+        setApu(ap);
+        setPhase("counting");
+        return;
+      }
       const busy = d.events.length + d.pending.length;
       const delay = fast ? 70 : busy ? 950 : d.headline ? 420 : 260;
       const t = setTimeout(() => setShown((n) => n + 1), delay);
@@ -323,7 +334,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
         </h2>
         {live ? (
           <p>
-            {phase === "loading" ? "O país está andando…" : phase === "deciding" ? "O tempo parou: há uma decisão esperando você." : phase === "paused" ? `Pausado. Faltam ${remaining} dia(s).` : `${shown} de ${requested} dia(s)`}
+            {phase === "loading" ? "O país está andando…" : phase === "counting" ? "Dia de votação: a apuração está saindo." : phase === "deciding" ? "O tempo parou: há uma decisão esperando você." : phase === "paused" ? `Pausado. Faltam ${remaining} dia(s).` : `${shown} de ${requested} dia(s)`}
           </p>
         ) : (
           <p>
@@ -471,6 +482,15 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
           onResolved={() => {
             setOpenWaiting(null);
             router.refresh();
+          }}
+        />
+      )}
+      {apu && phase === "counting" && (
+        <Apuracao
+          data={apu}
+          onClose={() => {
+            setApu(null);
+            setPhase("playing");
           }}
         />
       )}
