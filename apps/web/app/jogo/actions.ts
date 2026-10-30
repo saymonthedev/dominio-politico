@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createCharacter, performAction, type ActionResult } from "@dp/engine";
+import { createCharacter, performAction, type ActionResult, type WorldState } from "@dp/engine";
 import { getSession, myCharacters, myWorldId } from "@/lib/game";
 import { asPlayer, clearPlayerWorlds, logError, countPrivateWorlds, dropWorld, ensureWorld, fastForward, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, WORLD_MODES, withWorld, worldIdFor, yearOfWorld, type FastForwardResult, type WorldMode } from "@/lib/sim";
 
@@ -11,7 +11,76 @@ async function tokenOf(sb: Awaited<ReturnType<typeof getSession>>["sb"]): Promis
   return data.session?.access_token ?? null;
 }
 
-export type ActionState = ActionResult & { at?: number };
+/** O que mudou no personagem com a ação (para animar o resultado na tela). */
+export interface ActionDelta {
+  key: string;
+  label: string;
+  value: number;
+  money?: boolean;
+  /** subir é ruim (risco de escândalo, dívida, dinheiro sujo) */
+  bad?: boolean;
+}
+
+export type ActionState = ActionResult & {
+  at?: number;
+  deltas?: ActionDelta[];
+  /** nova etapa da carreira, se a ação fez o personagem subir (ou cair) */
+  stage?: { from: string; to: string };
+  /** novo partido (sigla) ou null ao sair, se a filiação mudou */
+  party?: { from: string | null; to: string | null };
+};
+
+type Vitals = { stage: string; party: string | null; n: Record<string, number> };
+
+/** Fotografia do personagem para medir o efeito de uma ação. */
+function vitalsOf(state: WorldState, personId: string): Vitals | null {
+  const p = state.t.persons.get(personId);
+  const st = state.t.person_states.get(personId);
+  if (!p || !st) return null;
+  return {
+    stage: p.stage,
+    party: p.party_id ? state.t.parties.get(p.party_id)?.acronym ?? null : null,
+    n: {
+      energia: st.energy,
+      caixa: st.money,
+      reputacao: p.reputation,
+      ativismo: st.activism,
+      capital: st.political_capital,
+      prestigio: st.party_standing,
+      debate: st.debate_prep,
+      escandalo: st.scandal,
+      sujo: st.dirty_money,
+      divida: st.debt,
+    },
+  };
+}
+
+const DELTA_META: Array<{ key: string; label: string; money?: boolean; bad?: boolean; min: number }> = [
+  { key: "energia", label: "energia", min: 0.5 },
+  { key: "caixa", label: "caixa", money: true, min: 1 },
+  { key: "reputacao", label: "reputação", min: 0.1 },
+  { key: "ativismo", label: "ativismo", min: 0.1 },
+  { key: "capital", label: "capital político", min: 0.1 },
+  { key: "prestigio", label: "prestígio no partido", min: 0.1 },
+  { key: "debate", label: "preparo p/ debate", min: 0.1 },
+  { key: "escandalo", label: "risco de escândalo", bad: true, min: 0.1 },
+  { key: "sujo", label: "dinheiro não declarado", money: true, bad: true, min: 1 },
+  { key: "divida", label: "dívida", money: true, bad: true, min: 1 },
+];
+
+function diffVitals(a: Vitals | null, b: Vitals | null): Pick<ActionState, "deltas" | "stage" | "party"> {
+  if (!a || !b) return {};
+  const deltas: ActionDelta[] = [];
+  for (const m of DELTA_META) {
+    const d = (b.n[m.key] ?? 0) - (a.n[m.key] ?? 0);
+    if (Math.abs(d) >= m.min) deltas.push({ key: m.key, label: m.label, value: m.money ? Math.round(d) : Math.round(d * 10) / 10, money: m.money, bad: m.bad });
+  }
+  return {
+    deltas,
+    stage: a.stage !== b.stage ? { from: a.stage, to: b.stage } : undefined,
+    party: a.party !== b.party ? { from: a.party, to: b.party } : undefined,
+  };
+}
 
 const META = new Set(["__year", "__action"]);
 
@@ -71,7 +140,9 @@ export async function doAction(_: ActionState, form: FormData): Promise<ActionSt
     const { result } = await asPlayer(await tokenOf(sb), () =>
       withWorld(worldId, (state, mk) => {
         if (state.t.persons.get(st.id)?.user_id !== user.id) return { ok: false, message: "Personagem não pertence a esta conta." };
-        return performAction(mk(st.id), st.id, actionId, params);
+        const before = vitalsOf(state, st.id);
+        const r = performAction(mk(st.id), st.id, actionId, params);
+        return r.ok ? { ...r, ...diffVitals(before, vitalsOf(state, st.id)) } : r;
       }),
     );
     revalidatePath(`/jogo/${year}`, "layout");

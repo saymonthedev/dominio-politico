@@ -6,7 +6,7 @@ import { Toaster } from "@/components/game/Toaster";
 import { UserMenu } from "@/components/game/UserMenu";
 import { LogoMark } from "@/components/Logo";
 import { STAGE_LABEL } from "@/components/ui";
-import { fmtMoney, initials } from "@/lib/format";
+import { initials } from "@/lib/format";
 import { getSession, getWorld, requireMe } from "@/lib/game";
 import { advanceWorld, citiesFor, ensureWorld } from "@/lib/sim";
 
@@ -92,7 +92,7 @@ export default async function GameLayout({ children, params }: { children: React
             photo: null,
             initials: initials(me.person.name),
             energy: Math.round(me.state.energy),
-            money: fmtMoney(me.state.money),
+            money: Math.round(me.state.money),
             reputation: Math.round(me.person.reputation),
           }}
         />

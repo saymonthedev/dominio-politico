@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { usePopover } from "../a11y";
 import { Icon } from "../Icon";
+import { LiveNumber } from "./ActionFx";
 
 type Item = [suffix: string, label: string, icon: string];
 
@@ -36,7 +37,7 @@ export interface SideProfile {
   photo: string | null;
   initials: string;
   energy: number;
-  money: string;
+  money: number;
   reputation: number;
 }
 
@@ -118,7 +119,9 @@ export function GameSidebar({ year, profile, badges }: { year: number; profile: 
             <span>
               <Icon name="zap" size={14} /> Energia
             </span>
-            <b>{profile.energy}</b>
+            <b>
+              <LiveNumber value={profile.energy} />
+            </b>
             <i>
               <em style={{ width: `${Math.min(100, profile.energy)}%` }} />
             </i>
@@ -127,13 +130,17 @@ export function GameSidebar({ year, profile, badges }: { year: number; profile: 
             <span>
               <Icon name="coins" size={14} /> Caixa
             </span>
-            <b>{profile.money}</b>
+            <b>
+              <LiveNumber value={profile.money} format={(v) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`} />
+            </b>
           </div>
           <div>
             <span>
               <Icon name="star" size={14} /> Reputação
             </span>
-            <b>{profile.reputation}</b>
+            <b>
+              <LiveNumber value={profile.reputation} />
+            </b>
             <i>
               <em style={{ width: `${Math.min(100, profile.reputation)}%`, background: "var(--simulacao)" }} />
             </i>

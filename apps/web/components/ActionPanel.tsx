@@ -1,12 +1,10 @@
 "use client";
-import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { quickAction } from "@/app/jogo/actions";
+import { useEffect, useRef, useState } from "react";
 import type { ActionView } from "@/lib/actions-view";
 import { useModal } from "./a11y";
 import { Button, Select, TextField } from "./forms";
 import { Icon } from "./Icon";
-import { useToast } from "./game/Toaster";
+import { DeltaChips, useGameAction } from "./game/ActionFx";
 
 /** Ícone próprio de cada ação; sem entrada, vale o da categoria. */
 const ACTION_ICON: Record<string, string> = {
@@ -65,22 +63,26 @@ function ConfirmDialog({ title, text, onCancel, onConfirm, pending }: { title: s
 function ActionCard({ year, a }: { year: number; a: ActionView }) {
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState<Record<string, string> | null>(null);
-  const [pending, start] = useTransition();
-  const toast = useToast();
-  const router = useRouter();
+  const { run: exec, pending, phrase, result, clear } = useGameAction(year, a.category);
   const locked = !!a.reason;
   const needsForm = a.params.length > 0;
   const run = (params: Record<string, string>) =>
-    start(async () => {
-      const r = await quickAction(year, a.id, params);
-      toast({ tone: r.ok ? "ok" : "err", title: r.ok ? a.label : "Não deu certo", body: r.message });
+    exec(a.id, params, a.label, (r) => {
       if (r.ok) setOpen(false);
       setAsking(null);
-      router.refresh();
     });
   const attempt = (params: Record<string, string>) => (a.confirm ? setAsking(params) : run(params));
+  // o resultado fica no cartão por alguns segundos e some sozinho
+  useEffect(() => {
+    if (!result || pending) return;
+    const t = setTimeout(clear, result.ok ? 3400 : 4500);
+    return () => clearTimeout(t);
+  }, [result, pending, clear]);
+  const state = pending ? " is-running" : result ? (result.ok ? " is-done" : " is-failed") : "";
   return (
-    <article className={`acard${locked ? " is-locked" : ""}${open ? " is-open" : ""}`}>
+    <article className={`acard${locked ? " is-locked" : ""}${open ? " is-open" : ""}${state}`} aria-busy={pending || undefined}>
+      {pending && <span className="acard__progress" aria-hidden="true" />}
+      {result?.ok && result.deltas && result.deltas.length > 0 && <DeltaChips deltas={result.deltas} float />}
       <div className="acard__top">
         <span className={`acard__icon ${CAT[a.category]?.cls ?? ""}`} aria-hidden="true">
           <Icon name={ACTION_ICON[a.id] ?? CAT[a.category]?.icon ?? "flag"} size={18} />
@@ -98,7 +100,22 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
           </div>
         </div>
       </div>
-      <p className="acard__desc">{a.description}</p>
+      {pending ? (
+        <p className="acard__status" role="status">
+          <span className="acard__dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span key={phrase} className="acard__phrase">{phrase}</span>
+        </p>
+      ) : result ? (
+        <p className={`acard__result ${result.ok ? "ok" : "err"}`} role="status">
+          <Icon name={result.ok ? "check" : "alert"} size={15} /> {result.message}
+        </p>
+      ) : (
+        <p className="acard__desc">{a.description}</p>
+      )}
       {a.crime && (
         <p className="acard__law">
           <Icon name="scale" size={13} /> {a.crime.law}

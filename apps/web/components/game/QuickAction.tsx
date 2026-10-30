@@ -1,11 +1,8 @@
 "use client";
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { quickAction } from "@/app/jogo/actions";
 import { Button } from "../forms";
-import { useToast } from "./Toaster";
+import { useGameAction } from "./ActionFx";
 
-/** Executa uma ação do jogo com um clique e mostra o resultado. */
+/** Executa uma ação do jogo com um clique: mostra o andamento no botão e o resultado (com o que mudou) num aviso. */
 export function QuickAction({
   year,
   action,
@@ -28,9 +25,7 @@ export function QuickAction({
   /** chamado depois da resposta do servidor (ex.: esconder os botões de um convite já respondido) */
   onDone?: (ok: boolean) => void;
 }) {
-  const [pending, start] = useTransition();
-  const toast = useToast();
-  const router = useRouter();
+  const { run, pending, phrase } = useGameAction(year);
   return (
     <Button
       type="button"
@@ -39,16 +34,9 @@ export function QuickAction({
       icon={icon}
       full={full}
       loading={pending}
-      onClick={() =>
-        start(async () => {
-          const r = await quickAction(year, action, params);
-          toast({ tone: r.ok ? "ok" : "err", title: r.ok ? label : "Não deu certo", body: r.message });
-          onDone?.(r.ok);
-          router.refresh();
-        })
-      }
+      onClick={() => run(action, params ?? {}, label, (r) => onDone?.(r.ok))}
     >
-      {label}
+      {pending ? phrase : label}
     </Button>
   );
 }
