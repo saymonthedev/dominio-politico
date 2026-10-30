@@ -147,9 +147,9 @@ export function resolveStory(ctx: Ctx, personId: string, eventId: string, choice
   const c = new StoryCtx(ctx, p, st, ctx.rng(`story-resolve:${ev.id}`, choiceId));
   s.pending = s.pending.filter((e) => e.id !== ev.id);
   if (!def || !guard(`valid ${ev.def}`, () => !def.valid || def.valid(c, ev.data), false)) {
-    pushLog(s, { id: ev.id, def: ev.def, on: ctx.date, title: ev.title, tags: ev.tags, kind: ev.kind, outcome: "A situação mudou e a decisão deixou de ser necessária.", auto: true });
+    pushLog(s, { id: ev.id, def: ev.def, on: ctx.date, title: ev.title, tags: ev.tags, kind: ev.kind, outcome: "Isso já foi resolvido em outra tela.", auto: true });
     ctx.save("person_states", st);
-    return { ok: true, message: "A situação mudou e a decisão deixou de ser necessária.", title: ev.title, outcome: "A situação mudou e a decisão deixou de ser necessária." };
+    return { ok: true, message: "Isso já foi resolvido em outra tela.", title: ev.title, outcome: "Isso já foi resolvido em outra tela." };
   }
   let choice = ev.choices.find((x) => x.id === choiceId);
   if (!choice && auto) {

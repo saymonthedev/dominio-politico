@@ -230,6 +230,21 @@ describe("filiação em etapas", () => {
   });
 });
 
+describe("respostas por outra tela", () => {
+  it("convite recusado no resumo some dos acontecimentos e fica no histórico", () => {
+    const { state, p, st } = player("story-convite");
+    const party = [...state.t.parties.values()].find((x) => x.status === "ATIVO")!;
+    state.t.affiliation_requests.set("inv_t", { id: "inv_t", world_id: state.world.id, person_id: p.id, party_id: party.id, kind: "CONVITE", created_on: state.world.game_date, decide_on: "2099-01-01", status: "PENDENTE", breakdown: {}, reason: null });
+    scheduleStory(st, "convite_filiacao", state.world.game_date, { req: "inv_t", party: party.id, inviter: "" });
+    runTicks(state, { target: state.world.tick + 1, maxTicks: 1 });
+    expect(storyOf(st).pending.some((e) => e.def === "convite_filiacao")).toBe(true);
+    const r = performAction(new Ctx(state, `action:${p.id}:7`), p.id, "responder_convite", { request: "inv_t", decision: "RECUSAR" });
+    expect(r.ok).toBe(true);
+    expect(storyOf(st).pending.some((e) => e.def === "convite_filiacao")).toBe(false);
+    expect(storyOf(st).log[0].outcome).toMatch(/recusou/);
+  });
+});
+
 describe("campanha", () => {
   it("apoio conquistado num grupo de eleitores mexe no voto", () => {
     const { state, p } = player("story-segmentos");

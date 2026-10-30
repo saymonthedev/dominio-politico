@@ -97,3 +97,17 @@ export function flagNum(s: StoryState, key: string): number {
 export function seenCount(s: StoryState, def: string): number {
   return s.seen[def]?.n ?? 0;
 }
+
+/**
+ * Fecha um acontecimento pendente que foi resolvido por outra tela (ex.: convite
+ * respondido no resumo do período): sai da lista de pendentes e entra no
+ * histórico com o que foi decidido, para nunca ficar uma escolha "fantasma".
+ */
+export function closeStory(st: PersonStateRow, def: string, key: string, value: string, date: ISODate, choiceLabel: string, outcome: string): void {
+  const s = st.story;
+  if (!s) return;
+  const hit = s.pending.filter((e) => e.def === def && String(e.data[key]) === value);
+  if (!hit.length) return;
+  s.pending = s.pending.filter((e) => !hit.includes(e));
+  for (const ev of hit) pushLog(s, { id: ev.id, def: ev.def, on: date, title: ev.title, tags: ev.tags, kind: ev.kind, choiceLabel, outcome, who: ev.who ?? null });
+}

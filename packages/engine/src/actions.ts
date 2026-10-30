@@ -42,6 +42,7 @@ import { profession } from "./names";
 import { fundableCandidacies, giveFefc, indicableMembers, indicateCandidate, indicationElection, pendingIndications, withdrawIndication } from "./partycampaign";
 import type { Rng } from "./rng";
 import { StoryCtx } from "./story/context";
+import { closeStory } from "./story/state";
 import { reachScale, reputationGain, standingGain } from "./story/effects";
 import { afterAction } from "./story/hooks";
 import { endCareer } from "./story/life";
@@ -439,7 +440,7 @@ export const ACTIONS: ActionDef[] = [
       { name: "decision", label: "Decisão", type: "choice", options: [{ value: "ACEITAR", label: "Aceitar" }, { value: "RECUSAR", label: "Recusar" }] },
     ],
     available: (ctx, p) => ([...ctx.t.affiliation_requests.values()].some((r) => r.person_id === p.id && r.kind === "CONVITE" && r.status === "PENDENTE") ? null : "Nenhum convite pendente."),
-    run: ({ ctx, p, params }) => {
+    run: ({ ctx, p, st, params }) => {
       const req = ctx.t.affiliation_requests.get(params.request);
       if (!req || req.person_id !== p.id || req.status !== "PENDENTE") return { ok: false, message: "Convite inválido." };
       const party = ctx.t.parties.get(req.party_id)!;
@@ -447,10 +448,12 @@ export const ACTIONS: ActionDef[] = [
         req.status = "ACEITO";
         ctx.save("affiliation_requests", req);
         joinParty(ctx, p, party);
+        closeStory(st, "convite_filiacao", "req", req.id, ctx.date, `Aceitar e se filiar ao ${party.acronym}`, `Você aceitou o convite e se filiou ao ${party.acronym}.`);
         return { ok: true, message: `Bem-vindo(a) ao ${party.acronym}!` };
       }
       req.status = "RECUSADO";
       ctx.save("affiliation_requests", req);
+      closeStory(st, "convite_filiacao", "req", req.id, ctx.date, "Recusar o convite", `Você recusou o convite do ${party.acronym}.`);
       return { ok: true, message: "Convite recusado." };
     },
   },
@@ -1011,6 +1014,8 @@ export const ACTIONS: ActionDef[] = [
       if (!offer) return { ok: false, message: "Oferta expirada." };
       const decision = params.decision === "ACEITAR" ? "ACEITAR" : params.decision === "DENUNCIAR" && ctx.person(offer.from) ? "DENUNCIAR" : "RECUSAR";
       const message = respondToOffer(ctx, p, st, offer.id, decision);
+      const label = decision === "ACEITAR" ? "Aceitar" : decision === "DENUNCIAR" ? "Denunciar à Polícia Federal" : "Recusar";
+      for (const def of ["proposta_ilicita", "proposta_financiamento"]) closeStory(st, def, "offer", offer.id, ctx.date, label, message);
       if (decision === "DENUNCIAR") p.reputation = clamp(p.reputation + 3);
       return { ok: true, message };
     },
