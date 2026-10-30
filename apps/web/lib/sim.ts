@@ -618,24 +618,30 @@ export interface DecideResult {
   pending?: StoryEvent[];
   /** a decisão encerrou a carreira (aposentadoria) */
   ended?: boolean;
+  /** a escolha fez a carreira subir de etapa */
+  stage?: { from: string; to: string };
 }
 
 /** Resposta a um acontecimento (sem avançar o relógio). */
 export async function decideStory(worldId: string, userId: string, eventId: string, choiceId: string): Promise<DecideResult> {
   let personId: string | null = null;
+  let stageBefore: string | null = null;
   const { result, state } = await withWorld(
     worldId,
     (state, mk) => {
       const me = activePlayer(state, userId);
       if (!me) return { ok: false, message: "Você não tem personagem ativo neste mundo." };
       personId = me.id;
+      stageBefore = me.stage;
       return resolveStory(mk(me.id), me.id, eventId, choiceId);
     },
     { maxTicks: 0 },
   );
   const r = result ?? { ok: false, message: "Sem resposta." };
   const st = personId ? state.t.person_states.get(personId) : undefined;
-  return { ...r, pending: personId ? pendingFor(state, personId) : [], ended: !!st?.story?.ended };
+  const stageAfter = personId ? state.t.persons.get(personId)?.stage : undefined;
+  const stage = r.ok && stageBefore && stageAfter && stageAfter !== stageBefore ? { from: stageBefore, to: stageAfter } : undefined;
+  return { ...r, pending: personId ? pendingFor(state, personId) : [], ended: !!st?.story?.ended, stage };
 }
 
 export type CareerEndView = CareerSummary & { personId: string };

@@ -7,7 +7,7 @@ import { StoryCtx } from "./context";
 import type { ChoiceDef, EventDef } from "./def";
 import { Effects } from "./effects";
 import { dailyLife } from "./life";
-import { count, pushLog, storyOf } from "./state";
+import { count, promote, pushLog, storyOf } from "./state";
 import type { Binding, StoryDelta, StoryEvent, StoryLogEntry } from "./types";
 
 /**
@@ -173,6 +173,7 @@ export function resolveStory(ctx: Ctx, personId: string, eventId: string, choice
     ctx.save("person_states", st);
     return { ok: true, message: "A situação se resolveu sem você.", title: ev.title, outcome: "A situação se resolveu sem você." };
   }
+  if (promote(p, st)) ctx.save("persons", p);
   if (!auto) {
     // cada resposta conta como ação: novos ids e telas recarregadas
     st.action_seq += 1;
@@ -270,6 +271,7 @@ export function dailyStory(ctx: Ctx): void {
     sweepPending(c);
     runQueue(c);
     if (isPresent(ctx, p.id) && !isJailed(c.st, ctx.date)) contextual(c);
+    if (promote(p, c.st)) ctx.save("persons", p);
     ctx.save("person_states", c.st);
   }
 }

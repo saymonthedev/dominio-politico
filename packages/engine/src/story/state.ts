@@ -111,3 +111,16 @@ export function closeStory(st: PersonStateRow, def: string, key: string, value: 
   s.pending = s.pending.filter((e) => !hit.includes(e));
   for (const ev of hit) pushLog(s, { id: ev.id, def: ev.def, on: date, title: ev.title, tags: ev.tags, kind: ev.kind, choiceLabel, outcome, who: ev.who ?? null });
 }
+
+/** Sobe de etapa assim que o requisito é cumprido, venha o ganho de uma ação, de um acontecimento ou do dia. */
+export function promote(p: PersonRow, st: PersonStateRow): boolean {
+  if (p.stage === "CIDADAO" && st.activism >= 20) {
+    p.stage = "ATIVISTA";
+    return true;
+  }
+  if (p.stage === "FILIADO" && p.party_id && st.party_standing >= 45) {
+    p.stage = "QUADRO";
+    return true;
+  }
+  return false;
+}

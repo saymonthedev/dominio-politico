@@ -24,13 +24,19 @@ export interface EventModalProps {
   onLater?: () => void;
   /** posição numa fila de decisões, se houver */
   queue?: { index: number; total: number };
+  /** comemorar subida de etapa ao continuar (o relógio comemora no fim do período) */
+  celebrate?: boolean;
 }
 
 /**
  * Pop-up de um acontecimento da carreira: quem, o quê, o prazo e as escolhas.
  * Depois da escolha, mostra o que aconteceu e o que mudou no personagem.
  */
-export function EventModal({ year, event, today, onResolved, onLater, queue }: EventModalProps) {
+export function EventModal({ year, event, today, onResolved: resolved, onLater, queue, celebrate = true }: EventModalProps) {
+  const onResolved = (r: DecideResult) => {
+    if (celebrate && r.stage) window.dispatchEvent(new CustomEvent("dp:milestone", { detail: { stage: r.stage } }));
+    resolved(r);
+  };
   const box = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

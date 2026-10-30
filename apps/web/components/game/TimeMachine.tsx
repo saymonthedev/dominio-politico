@@ -240,6 +240,10 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
   };
 
   const reset = () => {
+    // subiu de etapa no período: comemora depois do resumo
+    const b = report?.before;
+    const a = report?.after;
+    if (b && a && b.stage !== a.stage) window.dispatchEvent(new CustomEvent("dp:milestone", { detail: { stage: { from: b.stage, to: a.stage } } }));
     pause(false);
     setPhase("idle");
     setDiary([]);
@@ -384,6 +388,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
           year={year}
           event={decision}
           today={current}
+          celebrate={false}
           onResolved={onDecided}
           onLater={() => {
             setDecision(null);

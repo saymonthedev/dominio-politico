@@ -42,7 +42,7 @@ import { profession } from "./names";
 import { fundableCandidacies, giveFefc, indicableMembers, indicateCandidate, indicationElection, pendingIndications, withdrawIndication } from "./partycampaign";
 import type { Rng } from "./rng";
 import { StoryCtx } from "./story/context";
-import { closeStory } from "./story/state";
+import { closeStory, promote } from "./story/state";
 import { reachScale, reputationGain, standingGain } from "./story/effects";
 import { afterAction } from "./story/hooks";
 import { endCareer } from "./story/life";
@@ -289,7 +289,7 @@ export const ACTIONS: ActionDef[] = [
         bumpRelationship(ctx, p.id, who.id, 4 + 4 * f);
         met = ` Você conheceu ${who.name} (${who.role_label ?? ctx.t.parties.get(who.party_id!)?.acronym ?? ""}).`;
       }
-      if (p.stage === "CIDADAO" && st.activism >= 20) p.stage = "ATIVISTA";
+      promote(p, st);
       return { ok: true, message: `Sua presença foi notada no evento.${met}`, effects: { reputacao: +(2 * f).toFixed(1) } };
     },
   },
@@ -312,7 +312,7 @@ export const ACTIONS: ActionDef[] = [
       p.reputation = clamp(p.reputation + 1 * f);
       p.ideology[axis] = clampAxis(p.ideology[axis] + side * 3);
       st.political_capital = clamp(st.political_capital + 2 * f);
-      if (p.stage === "CIDADAO" && st.activism >= 20) p.stage = "ATIVISTA";
+      promote(p, st);
       return { ok: true, message: `Você se engajou na causa: ${side > 0 ? AXIS_INFO[axis].pos : AXIS_INFO[axis].neg}.` };
     },
   },
@@ -507,7 +507,7 @@ export const ACTIONS: ActionDef[] = [
         const fac = ctx.t.factions.get(p.faction_id);
         if (fac?.leader_id) bumpRelationship(ctx, p.id, fac.leader_id, 3 * f);
       }
-      if (p.stage === "FILIADO" && st.party_standing >= 45) p.stage = "QUADRO";
+      promote(p, st);
       return { ok: true, message: `Prestígio interno: ${Math.round(st.party_standing)}.` };
     },
   },
