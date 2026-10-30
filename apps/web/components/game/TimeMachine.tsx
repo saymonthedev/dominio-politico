@@ -3,7 +3,8 @@ import { InviteActions } from "./InviteActions";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DayDigest, StoryDelta, StoryEvent } from "@dp/engine";
-import { advanceDays, careerEndSummary } from "@/app/jogo/actions";
+import { advanceDays, careerEndSummary, quickAction } from "@/app/jogo/actions";
+import type { ActionView } from "@/lib/actions-view";
 import { inviteIdOf, resolveLink } from "@/lib/links";
 import type { CareerEndView, CountrySnapshot, DecideResult, FastForwardResult, StepAdvanceResult } from "@/lib/sim";
 import { useModal } from "../a11y";
@@ -14,6 +15,7 @@ import { DeltaChips } from "./ActionFx";
 import { CareerEndModal } from "./CareerEnd";
 import { EventModal } from "./EventModal";
 import { NEWS_CATEGORIES } from "./NewsList";
+import { Planner, type PlannedAction } from "./Planner";
 import { dayShort, KIND, TAG } from "./story-ui";
 import { useToast } from "./Toaster";
 
@@ -73,6 +75,8 @@ export interface TimeMachineProps {
   clock?: SharedClock | null;
   /** acontecimentos esperando resposta */
   pending?: StoryEvent[];
+  /** ações que dá para agendar no período (época de eleição: pré-candidatura e campanha) */
+  agenda?: ActionView[];
 }
 
 /** Decisão tomada no meio do avanço (vai para o resumo). */
@@ -116,7 +120,10 @@ function mergeChunks(chunks: StepAdvanceResult[]): FastForwardResult | null {
 }
 
 /** O lugar único para passar o tempo: os dias passam um a um, com pausa nas decisões. */
-export function TimeMachine({ year, date, energy, next, clock, pending = [] }: TimeMachineProps) {
+const isoPlus = (iso: string, n: number) => addDays(iso, n).toISOString().slice(0, 10);
+const daysFrom = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / DAY);
+
+export function TimeMachine({ year, date, energy, next, clock, pending = [], agenda = [] }: TimeMachineProps) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [diary, setDiary] = useState<DayDigest[]>([]);
   const [shown, setShown] = useState(0);
@@ -129,6 +136,11 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
   const [openWaiting, setOpenWaiting] = useState<StoryEvent | null>(null);
   const [pauseAsked, setPauseAsked] = useState(false);
   const paused = useRef(false);
+  // fim do período pedido e ações agendadas para dias dele
+  const endRef = useRef(date);
+  const planRef = useRef<PlannedAction[]>([]);
+  const askedRef = useRef(0);
+  const [planning, setPlanning] = useState<number | null>(null);
   const pause = (v: boolean) => {
     paused.current = v;
     setPauseAsked(v);
@@ -157,6 +169,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
   };
 
   const fetchChunk = async (n: number) => {
+    askedRef.current = n;
     setPhase("loading");
     const r = await advanceDays(year, n);
     if (!r.ok) {
@@ -172,7 +185,49 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
     setPhase("playing");
   };
 
-  const go = (days: number) => {
+  /** Data em que o relógio está agora (depois do último pedaço). */
+  const at = () => last.current?.to ?? date;
+
+  /** Executa as ações agendadas para os dias já alcançados e as põe no diário. */
+  const runDue = async (cur: string) => {
+    const due = planRef.current.filter((a) => a.date <= cur);
+    if (!due.length) return;
+    planRef.current = planRef.current.filter((a) => a.date > cur);
+    setPhase("loading");
+    for (const a of due) {
+      const r = await quickAction(year, a.id, a.params).catch((e: unknown) => ({ ok: false, message: e instanceof Error ? e.message : "Não deu certo." }));
+      const day: DayDigest = {
+        date: cur,
+        weekday: WEEKDAY[new Date(`${cur}T12:00:00Z`).getUTCDay()],
+        line: `Agenda: ${a.label}`,
+        events: [{ id: `agenda-${a.id}-${cur}`, def: "agenda", title: a.label, outcome: r.ok ? r.message : `Não aconteceu: ${r.message}`, kind: "INFO", tags: ["CAMPANHA"] }],
+        pending: [],
+        headline: null,
+        money: 0,
+        energy: 0,
+        quiet: false,
+      };
+      setDiary((d) => [...d, day]);
+      setShown((n) => n + 1);
+      setDecided((d) => [...d, { title: a.label, choice: r.ok ? "feito como agendado" : "não aconteceu", outcome: r.message }]);
+    }
+  };
+
+  /** Segue o período: agenda do dia, próximo pedaço até o próximo agendamento ou o fim, ou resumo. */
+  const proceed = async () => {
+    const cur = at();
+    await runDue(cur);
+    const left = daysFrom(cur, endRef.current);
+    const r = last.current;
+    // relógio compartilhado segurou o avanço (marco com outros jogadores): encerra aqui
+    const held = !!r && !!r.note && (r.remaining ?? 0) === 0 && (r.diary?.length ?? 0) < askedRef.current;
+    if (left <= 0 || held) return finish();
+    if (paused.current) return setPhase("paused");
+    const nextPlan = planRef.current.map((a) => a.date).filter((d) => d > cur).sort()[0];
+    void fetchChunk(Math.min(left, nextPlan ? daysFrom(cur, nextPlan) : left, 31));
+  };
+
+  const go = (days: number, plan: PlannedAction[] = []) => {
     pause(false);
     setFast(false);
     setDiary([]);
@@ -180,8 +235,14 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
     setChunks([]);
     setDecided([]);
     setRequested(days);
-    void fetchChunk(days);
+    last.current = null;
+    endRef.current = isoPlus(date, days);
+    planRef.current = plan;
+    void proceed();
   };
+
+  /** Botão de avanço: em época de eleição, pergunta antes o que fazer no período. */
+  const start = (days: number) => (agenda.length ? setPlanning(days) : go(days));
 
   /** Depois de mostrar um pedaço: decisão, fim da carreira, próximo pedaço ou resumo. */
   const afterChunk = () => {
@@ -195,13 +256,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
       setPhase("deciding");
       return;
     }
-    const rem = r.remaining ?? 0;
-    if (rem > 0 && r.stop === "limite") {
-      if (paused.current) setPhase("paused");
-      else void fetchChunk(rem);
-      return;
-    }
-    finish();
+    void proceed();
   };
 
   // revela um dia por vez: dia tranquilo passa rápido; dia com acontecimento, devagar
@@ -233,10 +288,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
       setDecision(nextBlock);
       return;
     }
-    const rem = last.current?.remaining ?? 0;
-    if (rem > 0 && !paused.current) void fetchChunk(rem);
-    else if (rem > 0) setPhase("paused");
-    else finish();
+    void proceed();
   };
 
   const reset = () => {
@@ -253,7 +305,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
     router.refresh();
   };
 
-  const remaining = last.current?.remaining ?? 0;
+  const remaining = Math.max(0, daysFrom(last.current?.to ?? date, endRef.current));
   const report = phase === "summary" ? mergeChunks(chunks) : null;
   const opportunities = (last.current?.pending ?? []).filter((e) => !e.blocking).length;
 
@@ -306,7 +358,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
                 key={o.days}
                 type="button"
                 className={`tm__opt${o.days === 7 ? " tm__opt--main" : ""}${blocked ? " is-blocked" : ""}`}
-                onClick={() => go(plan?.ok ? plan.days : o.days)}
+                onClick={() => start(plan?.ok ? plan.days : o.days)}
                 disabled={blocked}
                 title={blocked ? plan?.message : undefined}
                 aria-describedby={clock ? "tm-shared" : undefined}
@@ -317,6 +369,19 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
               </button>
             );
           })}
+          {next && toNext !== null && toNext >= 1 && (() => {
+            // relógio compartilhado: o marco respeita o mesmo limite do botão de 1 mês
+            const cap = clock?.plans[30];
+            const blocked = !!cap && !cap.ok;
+            const days = cap?.ok ? Math.min(toNext, cap.days) : toNext;
+            return (
+              <button type="button" className={`tm__opt tm__opt--marco${blocked ? " is-blocked" : ""}`} onClick={() => start(days)} disabled={blocked} title={blocked ? cap?.message : undefined}>
+                <b>Próximo marco</b>
+                <span>{blocked ? "indisponível agora" : `até ${short(addDays(date, days))}`}</span>
+                <small>{days < toNext ? `${days} de ${toNext} dias nesta hora` : next.label}</small>
+              </button>
+            );
+          })()}
         </div>
       ) : (
         <div className="tm__live">
@@ -324,8 +389,8 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
             <span style={{ width: `${Math.min(100, (shown / Math.max(1, requested)) * 100)}%` }} />
           </div>
           <ol className="diary" ref={listRef} aria-label="Diário dos dias">
-            {diary.slice(0, shown).map((d) => (
-              <DayRow key={d.date} d={d} />
+            {diary.slice(0, shown).map((d, i) => (
+              <DayRow key={`${d.date}-${i}`} d={d} />
             ))}
             {phase === "loading" && (
               <li className="diary__day is-loading">
@@ -345,7 +410,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
               </>
             ) : phase === "paused" ? (
               <>
-                <Button tone="gold" size="sm" icon="play" onClick={() => (pause(false), void fetchChunk(remaining))}>
+                <Button tone="gold" size="sm" icon="play" onClick={() => (pause(false), void proceed())}>
                   Continuar ({remaining} dia{remaining === 1 ? "" : "s"})
                 </Button>
                 <button type="button" className="tm__ctl" onClick={finish}>
@@ -406,6 +471,20 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
           onResolved={() => {
             setOpenWaiting(null);
             router.refresh();
+          }}
+        />
+      )}
+      {planning !== null && (
+        <Planner
+          days={planning}
+          start={date}
+          energy={energy}
+          actions={agenda}
+          onCancel={() => setPlanning(null)}
+          onGo={(plan) => {
+            const d = planning;
+            setPlanning(null);
+            go(d, plan);
           }}
         />
       )}

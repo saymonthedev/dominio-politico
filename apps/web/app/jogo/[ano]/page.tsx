@@ -5,6 +5,7 @@ import { NewsList } from "@/components/game/NewsList";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
 import { Onboarding, type OnboardingStep } from "@/components/game/Onboarding";
+import { actionsFor } from "@/lib/actions-view";
 import { TimeMachine, type SharedClock } from "@/components/game/TimeMachine";
 import { StoryInbox } from "@/components/game/StoryCenter";
 import { Icon } from "@/components/Icon";
@@ -126,6 +127,11 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
     },
   ];
 
+  // época de eleição: ações que dá para agendar nos dias que vão passar
+  const schedulable = actionsFor(state, me.person.id, ["PARTIDO", "CAMPANHA"]).filter(
+    (a) => !a.reason && (a.id === "pre_candidatura" || a.category === "CAMPANHA") && a.params.every((p) => p.optional || (p.options?.length ?? 0) > 0),
+  );
+
   return (
     <>
       <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""}, ${Number(state.world.game_date.slice(0, 4)) - me.person.birth_year} anos. Veja o que fazer agora, passe o tempo e acompanhe o país.`}>
@@ -144,6 +150,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
           next={cal[0] ? { label: cal[0].title, date: cal[0].date } : null}
           clock={clock}
           pending={storyPending}
+          agenda={schedulable}
         />
       </div>
 
