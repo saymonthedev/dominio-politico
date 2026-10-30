@@ -2238,7 +2238,7 @@ td.num, th.num { text-align: right; }
 
 /* menu lateral: cidade inteira e atributos da carreira */
 .gside { grid-template-columns: minmax(0, 1fr); overflow-x: hidden; }
-.gprofile { min-width: 0; max-width: 100%; overflow: hidden; }
+.gprofile { min-width: 0; max-width: 100%; overflow-x: clip; flex-shrink: 0; }
 .gprofile__who { grid-template-columns: minmax(0, 1fr); flex: 1 1 auto; }
 .gprofile__who > span { min-width: 0; }
 .gprofile__town { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
