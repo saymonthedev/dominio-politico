@@ -277,7 +277,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
           <p>
             {next && toNext !== null && toNext >= 0 ? (
               <>
-                Próximo marco: <b>{next.label}</b> em {toNext === 0 ? "hoje" : `${toNext} dia${toNext > 1 ? "s" : ""}`}.{" "}
+                Próximo marco: <b>{next.label}</b>, {toNext === 0 ? "hoje" : toNext === 1 ? "amanhã" : `daqui a ${toNext} dias`}.{" "}
               </>
             ) : null}
             Os dias passam um a um: dias tranquilos correm sozinhos e as decisões importantes param o relógio. Energia: {Math.round(energy)}/100 (recupera 25 por dia).

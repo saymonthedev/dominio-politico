@@ -46,6 +46,7 @@ import { closeStory, promote } from "./story/state";
 import { reachScale, reputationGain, standingGain } from "./story/effects";
 import { afterAction } from "./story/hooks";
 import { endCareer } from "./story/life";
+import { partyLeader } from "./story/world";
 import { eraRules, OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
 import type { CandidacyRow, EntryCulture, ElectionRow, PersonRow, PersonStateRow, RaceRow } from "./types";
@@ -252,6 +253,63 @@ function campaignAction(
     },
   };
 }
+
+
+/** Pré-candidatura registrada e ainda não decidida pela convenção. */
+function preCandidacy(ctx: Ctx, p: PersonRow): CandidacyRow | string {
+  const c = activeCandidacy(ctx, p.id);
+  if (!c || c.status !== "PRE") return "Disponível com pré-candidatura registrada, até a convenção.";
+  const e = ctx.t.elections.get(c.election_id);
+  if (e && ctx.date < e.calendar.preCampaignStart) return `A pré-campanha começa em ${formatDatePt(e.calendar.preCampaignStart)}.`;
+  return c;
+}
+
+/**
+ * Ação de pré-campanha (art. 36-A da Lei 9.504/97): apresentar-se, ouvir,
+ * articular e arrecadar sem pedir voto. Prepara a convenção e dá vantagem
+ * na largada da campanha oficial.
+ */
+function preCampaignAction(
+  id: string,
+  label: string,
+  description: string,
+  energy: number,
+  cost: number,
+  effect: (a: RunArgs, c: CandidacyRow) => string,
+  extra?: (ctx: Ctx, p: PersonRow, c: CandidacyRow) => string | null,
+): ActionDef {
+  return {
+    id,
+    label,
+    description,
+    category: "CAMPANHA",
+    energy,
+    costFn: (ctx) => scaledAmount(ctx, cost),
+    available: (ctx, p, st) => {
+      const c = preCandidacy(ctx, p);
+      if (typeof c === "string") return c;
+      const price = scaledAmount(ctx, cost);
+      if (price && st.money < price) return `Recursos insuficientes (${fmtMoney(price)}).`;
+      return extra?.(ctx, p, c) ?? null;
+    },
+    run: (a) => {
+      const c = preCandidacy(a.ctx, a.p) as CandidacyRow;
+      const price = scaledAmount(a.ctx, cost);
+      if (price) spend(a.ctx, a.p, a.st, price, label);
+      const msg = effect(a, c);
+      a.ctx.save("candidacies", c);
+      return { ok: true, message: msg };
+    },
+  };
+}
+
+/** Apoio do eleitor num segmento (-1..1), guardado na candidatura. */
+function preSeg(c: CandidacyRow, keys: string[], v: number): void {
+  const seg = (c.campaign.seg ??= {});
+  for (const k of keys) seg[k] = Math.max(-1, Math.min(1, (seg[k] ?? 0) + v));
+}
+
+const scopeUf = (c: CandidacyRow, p: PersonRow) => (c.geo === "BR" ? p.uf : ufOfGeo(c.geo));
 
 export const ACTIONS: ActionDef[] = [
   // ------------------------------------------------------------------ BASE
@@ -600,6 +658,121 @@ export const ACTIONS: ActionDef[] = [
       };
     },
   },
+  // ------------------------------------------------------------------ PRÉ-CAMPANHA
+  preCampaignAction(
+    "pre_costurar_convencao",
+    "Costurar apoio para a convenção",
+    "Conversas com filiados, delegados e a direção para garantir seu nome na chapa.",
+    15,
+    0,
+    ({ ctx, p, st, dr }) => {
+      const f = dr("pre_convencao");
+      st.party_standing = clamp(st.party_standing + 5 * f);
+      const party = p.party_id ? ctx.t.parties.get(p.party_id) : undefined;
+      if (party) {
+        const leader = partyLeader(ctx, p, party);
+        if (leader.id !== p.id) bumpRelationship(ctx, p.id, leader.id, 4 * f);
+      }
+      return `Você passou a semana em cafés com delegados e dirigentes. Prestígio interno: ${Math.round(st.party_standing)}.`;
+    },
+  ),
+  preCampaignAction(
+    "pre_encontro_liderancas",
+    "Encontro com lideranças",
+    "Reunir lideranças de bairro, igrejas, sindicatos e comércio para apresentar seu projeto.",
+    15,
+    2_000,
+    ({ p, st, rng, dr }, c) => {
+      const f = dr("pre_liderancas");
+      addReach(st, scopeUf(c, p), 0.006 * f);
+      st.political_capital = clamp(st.political_capital + 2 * f);
+      c.campaign.momentum += 0.01 * f;
+      const seg = rng.pick([["trabalhadores_formais", "informais"], ["evangelicos", "aposentados"], ["classe_media", "jovens_urbanos"]]);
+      preSeg(c, seg, 0.02 * f);
+      return "Salão cheio, café e pão de queijo. As lideranças saíram com seu nome e seu telefone.";
+    },
+  ),
+  preCampaignAction(
+    "pre_redes",
+    "Pré-campanha nas redes",
+    "Lives, vídeos curtos e posicionamentos. Pode se apresentar, não pode pedir voto.",
+    10,
+    1_000,
+    ({ p, st, rng, dr }, c) => {
+      const f = dr("pre_redes");
+      addReach(st, scopeUf(c, p), 0.008 * f);
+      preSeg(c, ["jovens_urbanos"], 0.02 * f);
+      if (rng.chance(0.25 + st.traits.charisma * 0.25)) {
+        p.reputation = clamp(p.reputation + 1.5 * f);
+        c.campaign.momentum += 0.01 * f;
+        return "Um vídeo seu rodou bem: muita gente nova sabe quem você é e o que defende.";
+      }
+      return "Conteúdo no ar. Alcance modesto, mas constante — é assim que se forma audiência.";
+    },
+  ),
+  preCampaignAction(
+    "pre_escuta",
+    "Rodas de conversa nos bairros",
+    "Ouvir moradores antes de prometer: o que você aprender vira proposta na campanha.",
+    15,
+    0,
+    ({ p, st, dr }, c) => {
+      const f = dr("pre_escuta");
+      addReach(st, scopeUf(c, p), 0.004 * f);
+      st.activism += 2 * f;
+      preSeg(c, ["trabalhadores_formais", "informais", "aposentados"], 0.015 * f);
+      return "Três noites, três bairros, um caderno cheio. Você sabe agora o que dói em cada canto.";
+    },
+  ),
+  preCampaignAction(
+    "pre_entrevista",
+    "Entrevista como pré-candidato(a)",
+    "Rádio, jornal ou podcast local. Treino para a campanha e chance de aparecer.",
+    10,
+    0,
+    ({ p, st, rng, dr }, c) => {
+      const f = dr("pre_entrevista");
+      st.debate_prep = clamp(st.debate_prep + 3 * f);
+      addReach(st, scopeUf(c, p), 0.005 * f);
+      if (rng.chance(0.4 + st.traits.competence * 0.3)) {
+        p.reputation = clamp(p.reputation + 1 * f);
+        return "Boa entrevista: respostas seguras e um trecho que circulou nos grupos da cidade.";
+      }
+      return "Entrevista morna. Pelo menos você aprendeu onde tropeça.";
+    },
+  ),
+  preCampaignAction(
+    "pre_equipe",
+    "Montar a equipe de pré-campanha",
+    "Voluntários, coordenação e quem cuida das redes, prontos para a largada.",
+    10,
+    8_000,
+    ({ dr }, c) => {
+      const f = dr("pre_equipe");
+      const n = Math.round(15 * f);
+      c.campaign.volunteers += n;
+      c.campaign.team.agenda = Math.max(c.campaign.team.agenda ?? 0, 1);
+      return `${n} voluntários e uma coordenação de agenda. Na largada, você não começa do zero.`;
+    },
+  ),
+  preCampaignAction(
+    "pre_vaquinha",
+    "Abrir vaquinha virtual",
+    "Financiamento coletivo permitido na pré-campanha (a partir de 15 de maio); o dinheiro vai para a campanha.",
+    10,
+    0,
+    ({ ctx, p, rng, dr }, c) => {
+      const f = dr("pre_vaquinha");
+      const v = scaledAmount(ctx, Math.round((1500 + p.reputation * 120) * f * rng.range(0.6, 1.3)));
+      c.campaign.donations += v;
+      c.campaign.budget += v;
+      return `A vaquinha arrecadou ${fmtMoney(v)} de apoiadores. Fica reservado para a campanha oficial.`;
+    },
+    (ctx, _p, c) => {
+      const e = ctx.t.elections.get(c.election_id);
+      return e && ctx.date < `${e.year}-05-15` ? `A vaquinha só pode começar em 15/05/${e.year}.` : null;
+    },
+  ),
   // ------------------------------------------------------------------ CAMPANHA
   campaignAction("comicio", "Comício", "Grande ato público. Muito alcance, custa caro. Retorno decrescente se repetido no mesmo lugar.", 20, 20_000, ({ st, params, dr }, c) => {
     const uf = c.geo === "BR" ? params.uf || UF_CODES[0] : ufOfGeo(c.geo);

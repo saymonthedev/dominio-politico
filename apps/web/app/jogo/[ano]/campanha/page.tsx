@@ -45,7 +45,10 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
     polls = (p.data ?? []) as PollRow[];
     debates = ((d.data ?? []) as DebateRow[]).filter((x) => x.participants.includes(current.id));
   }
-  const campaignActions = actionsFor(state, me.person.id, ["CAMPANHA"]);
+  const allCampaign = actionsFor(state, me.person.id, ["CAMPANHA"]);
+  const campaignActions = allCampaign.filter((a) => !a.id.startsWith("pre_"));
+  // pré-campanha: só enquanto a convenção não decide
+  const preCampaign = current?.status === "PRE" ? allCampaign.filter((a) => a.id.startsWith("pre_")) : [];
   const pre = actionsFor(state, me.person.id, ["PARTIDO"]).filter((a) => a.id === "pre_candidatura");
   const c = current?.campaign;
   const st = current ? STATUS[current.status] : undefined;
@@ -121,6 +124,14 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           {pre.length > 0 && (
             <Panel title="Pré-candidatura" icon="flag" tone="gold">
               <ActionPanel year={year} actions={pre} />
+            </Panel>
+          )}
+          {preCampaign.length > 0 && (
+            <Panel title="Pré-campanha" icon="megaphone" tone="gold">
+              <p className="muted small" style={{ marginTop: 0 }}>
+                Até a convenção você pode se apresentar, ouvir, articular e arrecadar, sem pedir voto. Isso garante seu nome na chapa e dá vantagem quando a campanha oficial começar.
+              </p>
+              <ActionPanel year={year} actions={preCampaign} />
             </Panel>
           )}
           <Panel title="Ações de campanha" icon="play">
