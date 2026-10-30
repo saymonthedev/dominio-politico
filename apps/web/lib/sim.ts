@@ -104,6 +104,11 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   let { data, error } = await call(token);
   // token vencido ou recusado: segue no papel anônimo
   if (error && token && (/^PGRST3/.test(error.code ?? "") || /jwt/i.test(error.message))) ({ data, error } = await call());
+  // banco num pico de carga: tenta de novo (leituras e gravações do motor são idempotentes)
+  for (let i = 0; error && i < 2 && (error.code === "57014" || /statement timeout/i.test(error.message)); i++) {
+    await new Promise((ok) => setTimeout(ok, 400 * (i + 1)));
+    ({ data, error } = await call(token));
+  }
   if (error) throw new SimDbError(fn, error.code, error.message);
   return data as T;
 }
