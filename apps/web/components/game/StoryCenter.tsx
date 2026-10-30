@@ -5,7 +5,7 @@ import type { StoryEvent } from "@dp/engine";
 import { usePopover } from "../a11y";
 import { Icon } from "../Icon";
 import { EventModal } from "./EventModal";
-import { deadline, KIND, TAG } from "./story-ui";
+import { deadline, KIND, STORY_INTRO, TAG } from "./story-ui";
 
 const SEEN_KEY = "dp:eventos-vistos";
 
@@ -30,6 +30,11 @@ function markSeen(id: string) {
 /** Um pop-up por vez em toda a tela (o relógio também abre os seus). */
 export function storyModalOpen(): boolean {
   return typeof document !== "undefined" && !!document.querySelector(".ev-overlay");
+}
+
+/** O relógio está rodando (ou parado numa decisão): ele mesmo mostra as decisões. */
+function clockBusy(): boolean {
+  return typeof document !== "undefined" && !!document.querySelector(".tm.is-live");
 }
 
 function EventRow({ ev, today, onOpen }: { ev: StoryEvent; today: string; onOpen: () => void }) {
@@ -60,10 +65,15 @@ export function StoryInbox({ year, events, today }: { year: number; events: Stor
   const [open, setOpen] = useState<StoryEvent | null>(null);
   const router = useRouter();
   if (!events.length) {
-    return <p className="muted small" style={{ margin: 0 }}>Nada esperando você. Passe o tempo e a vida acontece.</p>;
+    return (
+      <p className="muted small" style={{ margin: 0 }}>
+        {STORY_INTRO} Agora não há nada esperando você: passe o tempo e eles aparecem aqui.
+      </p>
+    );
   }
   return (
     <>
+      <p className="muted small sc__lede">Responda clicando em cada um. Decisões param o tempo; oportunidades podem esperar até o prazo.</p>
       <ul className="sc__list">
         {events.map((ev) => (
           <EventRow key={ev.id} ev={ev} today={today} onOpen={() => setOpen(ev)} />
@@ -100,9 +110,11 @@ export function StoryBell({ year, events, today }: { year: number; events: Story
   // decisão urgente que chegou enquanto você estava fora: aparece uma vez por sessão
   useEffect(() => {
     const urgent = events.find((e) => e.blocking && !seenSet().has(e.id));
-    if (!urgent) return;
+    if (!urgent || clockBusy()) return;
     const t = setTimeout(() => {
-      if (!storyModalOpen()) setOpen(urgent);
+      if (storyModalOpen() || clockBusy()) return;
+      markSeen(urgent.id);
+      setOpen(urgent);
     }, 900);
     return () => clearTimeout(t);
   }, [events]);
@@ -121,6 +133,7 @@ export function StoryBell({ year, events, today }: { year: number; events: Story
         title="Acontecimentos da carreira"
       >
         <Icon name="zap" size={18} />
+        <span className="sc__label">Acontecimentos</span>
         {list.length > 0 && <span className="sc__badge">{list.length}</span>}
       </button>
       {menu && (
@@ -129,6 +142,7 @@ export function StoryBell({ year, events, today }: { year: number; events: Story
             <b>Acontecimentos</b>
             <a href={`/jogo/${year}/carreira#historia`}>Histórico</a>
           </div>
+          <p className="sc__explain">{STORY_INTRO}</p>
           {list.length ? (
             <ul className="sc__list">
               {list.map((ev) => (

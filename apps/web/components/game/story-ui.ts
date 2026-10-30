@@ -1,11 +1,15 @@
 import type { StoryKind, StoryTag } from "@dp/engine";
 
 /** Rótulos e ícones dos acontecimentos da carreira (compartilhados pelas telas). */
-export const KIND: Record<StoryKind, { label: string; icon: string; tone: string }> = {
-  DECISAO: { label: "Decisão", icon: "alert", tone: "decisao" },
-  OPORTUNIDADE: { label: "Oportunidade", icon: "star", tone: "oportunidade" },
-  INFO: { label: "Informativo", icon: "info", tone: "info" },
+export const KIND: Record<StoryKind, { label: string; icon: string; tone: string; means: string }> = {
+  DECISAO: { label: "Decisão", icon: "alert", tone: "decisao", means: "o tempo só segue depois da sua escolha" },
+  OPORTUNIDADE: { label: "Oportunidade", icon: "star", tone: "oportunidade", means: "responda quando quiser, até o prazo" },
+  INFO: { label: "Informativo", icon: "info", tone: "info", means: "só para você saber" },
 };
+
+/** Explicação curta do que são os acontecimentos (para quem está começando). */
+export const STORY_INTRO =
+  "Acontecimentos são a vida da sua carreira acontecendo: convites, crises, propostas, cobranças. Você escolhe como reagir, e cada escolha muda algo no personagem, às vezes só semanas depois.";
 
 export const TAG: Record<StoryTag, { label: string; icon: string }> = {
   VIDA: { label: "Vida", icon: "home" },

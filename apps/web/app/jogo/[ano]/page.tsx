@@ -91,6 +91,15 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
       done: state.world.tick - me.person.created_tick >= 7,
     },
     {
+      id: "acontecimento",
+      title: "Responda a um acontecimento",
+      term: "Acontecimento",
+      text: "Passando o tempo, a vida acontece: convites, crises, propostas. Eles aparecem num pop-up e no ícone de raio do topo. Escolha como reagir; cada escolha tem consequências.",
+      href: `${base}#tempo`,
+      cta: "Passar o tempo",
+      done: (me.state.story?.log ?? []).some((e) => !e.auto && e.kind !== "INFO"),
+    },
+    {
       id: "mes",
       title: "Acompanhe o fechamento do mês",
       term: "Fechamento do mês",
@@ -155,7 +164,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
         </div>
 
         <div className="gstack">
-          <Panel title="Acontecimentos" icon="zap" tone={storyPending.some((e) => e.blocking) ? "gold" : undefined} aside={storyPending.length ? <Pill tone="gold">{storyPending.length}</Pill> : undefined} href={`/jogo/${year}/carreira#historia`} hrefLabel="Histórico">
+          <Panel title={<Term k="Acontecimento">Acontecimentos</Term>} icon="zap" tone={storyPending.some((e) => e.blocking) ? "gold" : undefined} aside={storyPending.length ? <Pill tone="gold">{storyPending.length}</Pill> : undefined} href={`/jogo/${year}/carreira#historia`} hrefLabel="Histórico">
             <StoryInbox year={year} events={storyPending} today={state.world.game_date} />
           </Panel>
 

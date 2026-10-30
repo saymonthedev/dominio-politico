@@ -8,6 +8,9 @@ export interface GlossaryEntry {
 }
 
 const ENTRIES: GlossaryEntry[] = [
+  { term: "Acontecimento", text: "Algo que acontece na vida do seu personagem: um convite, uma crise no bairro, uma proposta, uma cobrança. Você escolhe como reagir, e cada escolha tem consequências, algumas só semanas depois. Os pendentes ficam no ícone de raio, no topo." },
+  { term: "Decisão", text: "Acontecimento que pede resposta: o tempo para até você escolher. Se o prazo vencer, vale a opção mais passiva." },
+  { term: "Oportunidade", text: "Acontecimento que pode esperar: o tempo segue e você responde quando quiser, até o prazo." },
   { term: "Apoiamento", text: "Assinaturas de eleitores não filiados exigidas para registrar um partido novo: 0,5% dos votos válidos da última eleição para a Câmara, espalhados por pelo menos 9 estados." },
   { term: "Caixa dois", text: "Recursos de campanha movimentados à margem da prestação de contas à Justiça Eleitoral." },
   { term: "Cláusula de desempenho", text: "Regra da EC 97/2017: só recebem fundo partidário e tempo de TV os partidos que elegem um número mínimo de deputados federais (ou atingem um percentual de votos). A exigência sobe a cada eleição até 2030." },

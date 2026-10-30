@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { StoryEvent } from "@dp/engine";
 import { answerEvent } from "@/app/jogo/actions";
 import type { DecideResult } from "@/lib/sim";
@@ -7,7 +7,9 @@ import { useModal } from "../a11y";
 import { Button } from "../forms";
 import { Icon } from "../Icon";
 import { DeltaChips } from "./ActionFx";
-import { deadline, dayShort, initialsOf, KIND, TAG, TONE_LABEL } from "./story-ui";
+import { deadline, dayShort, initialsOf, KIND, STORY_INTRO, TAG, TONE_LABEL } from "./story-ui";
+
+const INTRO_KEY = "dp:intro-acontecimentos";
 
 const brl = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
 
@@ -35,6 +37,23 @@ export function EventModal({ year, event, today, onResolved, onLater, queue }: E
   const [result, setResult] = useState<DecideResult | null>(null);
   const kind = KIND[event.kind];
   const info = event.kind === "INFO";
+  // primeira vez: uma apresentação curta do que é isto
+  const [intro, setIntro] = useState(false);
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(INTRO_KEY)) setIntro(true);
+    } catch {
+      /* sem armazenamento: não mostra */
+    }
+  }, []);
+  const closeIntro = () => {
+    setIntro(false);
+    try {
+      localStorage.setItem(INTRO_KEY, "1");
+    } catch {
+      /* ok */
+    }
+  };
   useModal(box, true, () => (result ? onResolved(result) : onLater?.()), { lockScroll: true, initial: result ? ".ev__continue" : ".ev__choice:not(:disabled)" });
 
   const choose = async (choiceId: string) => {
@@ -77,6 +96,24 @@ export function EventModal({ year, event, today, onResolved, onLater, queue }: E
         </header>
 
         <div className="ev__body">
+          {intro && !result && (
+            <div className="ev__intro" role="note">
+              <Icon name="zap" size={16} />
+              <div>
+                <b>Seu primeiro acontecimento</b>
+                <p>{STORY_INTRO} Leia a situação, escolha uma opção e veja o que muda. Não existe resposta sempre certa.</p>
+                <ul>
+                  <li><b>Decisão:</b> o tempo para até você escolher.</li>
+                  <li><b>Oportunidade:</b> pode esperar, até o prazo.</li>
+                  <li>Sem resposta no prazo, vale a opção mais passiva.</li>
+                </ul>
+                <button type="button" className="ev__introok" onClick={closeIntro}>
+                  Entendi
+                </button>
+              </div>
+            </div>
+          )}
+          {!result && <p className="ev__means">{kind.label}: {kind.means}.</p>}
           <div className="ev__tags">
             {event.tags.map((t) => (
               <span key={t} className="ev__tag">
