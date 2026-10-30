@@ -1,5 +1,5 @@
 import { Ctx, explainShift, geoName, mainRival, OFFICES, PERSONA_LABEL, projectList, segmentStandings, type CandidacyRow, type DebateRow, type ElectionRow, type PollRow } from "@dp/engine";
-import { WarRoom, type WarRoomProps } from "@/components/game/WarRoom";
+import { CampaignMoney, Electorate, Momentum, Promises, ScoreBoard, type WarRoomProps } from "@/components/game/WarRoom";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { Icon } from "@/components/Icon";
@@ -119,6 +119,8 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         </Panel>
       )}
 
+      {war && <ScoreBoard {...war} />}
+
       <div className="ggrid ggrid--main">
         <div className="gstack">
           {pre.length > 0 && (
@@ -137,36 +139,12 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           <Panel title="Ações de campanha" icon="play">
             <ActionPanel year={year} actions={campaignActions} empty="As ações de campanha liberam com a candidatura homologada e a campanha oficial aberta." />
           </Panel>
-          {war && <WarRoom {...war} />}
+          {war && <Electorate {...war} />}
         </div>
 
         <div className="gstack">
-          {c && (
-            <Panel title="Recursos" icon="coins">
-              <div className="kpis">
-                <Kpi label="Disponível" value={fmtMoney(c.budget - c.spent)} hint={`de ${fmtMoney(c.budget)}`} tone={c.budget - c.spent < 20_000 ? "warn" : undefined} />
-                <Kpi label={<Term k="FEFC">Fundo eleitoral</Term>} value={fmtMoney(c.fefc)} />
-                <Kpi label="Doações" value={fmtMoney(c.donations)} />
-                <Kpi label="Voluntários" value={fmtNum(c.volunteers)} hint={`equipe: ${Object.values(c.team).reduce((a, b) => a + b, 0)}`} />
-              </div>
-              <div className="mt">
-                <MeterRow label="Momento da campanha" value={(c.momentum + 1) * 50} tone={c.momentum >= 0 ? "ok" : "bad"} hint={c.momentum >= 0 ? "em alta" : "perdendo fôlego"} />
-                <MeterRow label="Dano de boatos" value={Math.min(100, c.rumor_damage * 5)} tone="bad" />
-              </div>
-              {c.proposals.length > 0 && (
-                <div className="mt">
-                  <p className="muted small" style={{ margin: "0 0 6px" }}>Plataforma</p>
-                  <div className="pcard__tags">
-                    {c.proposals.map((p, i) => (
-                      <Pill key={i} tone="sim">
-                        {p.title}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Panel>
-          )}
+          {war && <Momentum {...war} />}
+          {(war?.cand.campaign ?? c) && <CampaignMoney c={(war?.cand.campaign ?? c)!} status={war?.cand.status ?? current?.status ?? ""} />}
 
           <Panel title="Pesquisas" icon="chart">
             {polls.length ? (
@@ -230,6 +208,8 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               )}
             </Panel>
           )}
+
+          {war && <Promises c={war.cand.campaign} />}
 
           {cands.length > 1 && (
             <Panel title="Candidaturas anteriores" icon="clock">
