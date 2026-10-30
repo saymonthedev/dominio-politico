@@ -41,6 +41,8 @@ export interface SideProfile {
   energy: number;
   money: number;
   reputation: number;
+  /** atributos da carreira (ativismo, prestígio, capital…) */
+  attrs?: Array<{ label: string; value: number; goal?: number; bad?: boolean; hint?: string; suffix?: string }>;
 }
 
 function readClosed(): string[] {
@@ -116,7 +118,7 @@ export function GameSidebar({ year, profile, badges }: { year: number; profile: 
             </span>
             <span className="gprofile__city" title={profile.place}>
               {profile.age != null && <span className="gprofile__age">{profile.age} anos</span>}
-              {profile.place}
+              <span className="gprofile__town">{profile.place}</span>
             </span>
           </span>
         </a>
@@ -151,6 +153,29 @@ export function GameSidebar({ year, profile, badges }: { year: number; profile: 
               <em style={{ width: `${Math.min(100, profile.reputation)}%`, background: "var(--simulacao)" }} />
             </i>
           </div>
+          {profile.attrs && profile.attrs.length > 0 && (
+            <details className="gattrs" open>
+              <summary>
+                <span>Atributos</span>
+                <Icon name="chevron" size={14} />
+              </summary>
+              <ul>
+                {profile.attrs.map((a) => (
+                  <li key={a.label} title={a.hint ?? a.label} className={a.bad ? "is-bad" : undefined}>
+                    <span>{a.label}</span>
+                    <b>
+                      {Math.round(a.value)}
+                      {a.suffix ?? ""}
+                      {a.goal ? <small>/{a.goal}</small> : null}
+                    </b>
+                    <i>
+                      <em style={{ width: `${Math.max(0, Math.min(100, a.goal ? (a.value / a.goal) * 100 : a.value))}%` }} />
+                    </i>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
         <nav className="gnav" aria-label="Seções">
           {GROUPS.map((g) => {

@@ -100,6 +100,15 @@ export default async function GameLayout({ children, params }: { children: React
             energy: Math.round(me.state.energy),
             money: Math.round(me.state.money),
             reputation: Math.round(me.person.reputation),
+            attrs: [
+              { label: "Ativismo", value: Math.min(100, me.state.activism), goal: me.person.stage === "CIDADAO" ? 20 : undefined, hint: "Engajamento em causas e na comunidade. Com 20, você vira ativista." },
+              ...(me.party ? [{ label: "Prestígio no partido", value: me.state.party_standing, goal: me.person.stage === "FILIADO" ? 45 : undefined, hint: "Peso dentro do partido: conta na convenção e nas indicações." }] : []),
+              { label: "Capital político", value: me.state.political_capital, hint: "Favores, contatos e influência acumulados." },
+              { label: "Preparo para debates", value: me.state.debate_prep, hint: "Treino de oratória e debate." },
+              { label: "Alcance no estado", value: Math.round((me.state.reach?.[me.person.uf] ?? 0) * 100), suffix: "%", hint: "Quanto do eleitorado do seu estado conhece seu nome." },
+              ...(me.state.story?.health != null ? [{ label: "Saúde", value: me.state.story.health, hint: "Pesa na energia e na longevidade." }] : []),
+              ...(me.state.scandal > 0 ? [{ label: "Escândalo", value: me.state.scandal, bad: true, hint: "Desgaste por denúncias e polêmicas." }] : []),
+            ],
           }}
         />
         <main className="gmain" id="conteudo" tabIndex={-1}>
