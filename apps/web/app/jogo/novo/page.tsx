@@ -4,7 +4,7 @@ import { AXES, AXIS_INFO, CAPITAL_IBGE, ORIGINS, PROFESSIONS, profileFor, UFS } 
 import { CharacterForm } from "@/components/CharacterForm";
 import { Icon } from "@/components/Icon";
 import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
-import { myCharacters } from "@/lib/game";
+import { myActiveCharacters, myCharacters } from "@/lib/game";
 import { countPrivateWorlds, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, yearOfWorld } from "@/lib/sim";
 import { START_POINTS } from "@/lib/startpoints";
 
@@ -25,7 +25,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
   const year = Number((await searchParams).ano ?? 2026);
   if (!isStartYear(year)) redirect("/jogo");
   const chars = await myCharacters();
-  if (chars.some((c) => yearOfWorld(c.world_id) === year)) redirect(`/jogo/${year}`);
+  // quem já tem personagem ativo neste ano vai para o jogo; quem encerrou a carreira pode recomeçar
+  if ((await myActiveCharacters()).some((c) => yearOfWorld(c.world_id) === year)) redirect(`/jogo/${year}`);
   const privateOpen = !chars.some((c) => modeOfWorld(c.world_id) !== "SHARED") && (await countPrivateWorlds().catch(() => MAX_PRIVATE_WORLDS)) < MAX_PRIVATE_WORLDS;
   const sp = START_POINTS.find((s) => s.year === year)!;
   const wc = profileFor(sp.winnerParty, year).color;

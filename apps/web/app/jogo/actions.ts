@@ -2,8 +2,32 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createCharacter, performAction, type ActionResult, type WorldState } from "@dp/engine";
-import { getSession, myCharacters, myWorldId } from "@/lib/game";
-import { asPlayer, clearPlayerWorlds, logError, countPrivateWorlds, dropWorld, ensureWorld, fastForward, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, WORLD_MODES, withWorld, worldIdFor, yearOfWorld, type FastForwardResult, type WorldMode } from "@/lib/sim";
+import { activePersonId, getSession, myActiveCharacters, myCharacters, myWorldId } from "@/lib/game";
+import {
+  advanceStep,
+  asPlayer,
+  careerEnd,
+  clearPlayerWorlds,
+  countPrivateWorlds,
+  decideStory,
+  dropWorld,
+  ensureWorld,
+  fastForward,
+  isStartYear,
+  logError,
+  MAX_PRIVATE_WORLDS,
+  modeOfWorld,
+  WORLD_MODES,
+  withWorld,
+  worldExists,
+  worldIdFor,
+  yearOfWorld,
+  type CareerEndView,
+  type DecideResult,
+  type FastForwardResult,
+  type StepAdvanceResult,
+  type WorldMode,
+} from "@/lib/sim";
 
 /** Token de acesso do jogador: as chamadas ao motor rodam no papel autenticado (mais tempo por comando no banco). */
 async function tokenOf(sb: Awaited<ReturnType<typeof getSession>>["sb"]): Promise<string | null> {
@@ -91,12 +115,13 @@ export async function createCharacterAction(_: ActionState, form: FormData): Pro
   if (!isStartYear(year)) return { ok: false, message: "Ponto de partida inválido." };
   const mode = (WORLD_MODES as readonly string[]).includes(String(form.get("mode"))) ? (String(form.get("mode")) as WorldMode) : "SHARED";
   const chars = await myCharacters();
-  if (chars.some((c) => yearOfWorld(c.world_id) === year)) return { ok: false, message: "Você já tem um personagem neste ponto de partida." };
-  if (mode !== "SHARED") {
-    if (chars.some((c) => modeOfWorld(c.world_id) !== "SHARED")) return { ok: false, message: "Cada conta pode ter um mundo próprio. Apague o personagem do outro mundo próprio para criar este." };
-    if ((await countPrivateWorlds()) >= MAX_PRIVATE_WORLDS) return { ok: false, message: "As vagas para mundos próprios estão esgotadas no momento. Escolha o mundo compartilhado ou tente mais tarde." };
-  }
+  if ((await myActiveCharacters()).some((c) => yearOfWorld(c.world_id) === year)) return { ok: false, message: "Você já tem um personagem neste ponto de partida." };
   const worldId = worldIdFor(year, mode, user.id);
+  if (mode !== "SHARED") {
+    // o mundo próprio de quem encerrou a carreira recebe o novo personagem
+    if (chars.some((c) => modeOfWorld(c.world_id) !== "SHARED" && c.world_id !== worldId)) return { ok: false, message: "Cada conta pode ter um mundo próprio. Apague o personagem do outro mundo próprio para criar este." };
+    if (!(await worldExists(worldId)) && (await countPrivateWorlds()) >= MAX_PRIVATE_WORLDS) return { ok: false, message: "As vagas para mundos próprios estão esgotadas no momento. Escolha o mundo compartilhado ou tente mais tarde." };
+  }
   try {
     const token = await tokenOf(sb);
     await asPlayer(token, () => ensureWorld(year, worldId));
@@ -132,8 +157,9 @@ export async function doAction(_: ActionState, form: FormData): Promise<ActionSt
   const actionId = String(form.get("__action") ?? "");
   if (!isStartYear(year)) return { ok: false, message: "Mundo inválido." };
   const worldId = await myWorldId(year);
-  const { data: st } = await sb.from("person_states").select("id").eq("world_id", worldId).eq("user_id", user.id).maybeSingle();
-  if (!st) return { ok: false, message: "Você não tem personagem neste mundo." };
+  const pid = await activePersonId(worldId);
+  if (!pid) return { ok: false, message: "Você não tem personagem ativo neste mundo." };
+  const st = { id: pid };
   const params: Record<string, string> = {};
   for (const [k, v] of form.entries()) if (!META.has(k) && typeof v === "string" && v !== "") params[k] = v;
   try {
@@ -206,4 +232,50 @@ export async function advanceTime(_: FastForwardResult | null, form: FormData): 
     await logError("action", `passar ${days} dias ${year}`, e);
     return { ok: false, message: e instanceof Error ? e.message : "Erro ao passar o tempo.", days: 0 };
   }
+}
+
+/** Passa o tempo vivendo os dias (para nas decisões que seguram o relógio). */
+export async function advanceDays(year: number, days: number): Promise<StepAdvanceResult> {
+  const { sb, user } = await getSession();
+  if (!user) return { ok: false, message: "Sessão expirada.", days: 0 };
+  if (!isStartYear(year)) return { ok: false, message: "Mundo inválido.", days: 0 };
+  try {
+    const worldId = await myWorldId(year);
+    const res = await asPlayer(await tokenOf(sb), () => advanceStep(worldId, Math.round(days), user.id));
+    if (res.ok) revalidatePath(`/jogo/${year}`, "layout");
+    return res;
+  } catch (e) {
+    await logError("action", `viver ${days} dias ${year}`, e);
+    return { ok: false, message: e instanceof Error ? e.message : "Erro ao passar o tempo.", days: 0 };
+  }
+}
+
+/** Responde a um acontecimento da carreira. */
+export async function answerEvent(year: number, eventId: string, choiceId: string): Promise<DecideResult> {
+  const { sb, user } = await getSession();
+  if (!user) return { ok: false, message: "Sessão expirada." };
+  if (!isStartYear(year) || !eventId || !choiceId) return { ok: false, message: "Pedido inválido." };
+  try {
+    const worldId = await myWorldId(year);
+    const res = await asPlayer(await tokenOf(sb), () => decideStory(worldId, user.id, eventId, choiceId));
+    if (res.ok) revalidatePath(`/jogo/${year}`, "layout");
+    return res;
+  } catch (e) {
+    await logError("action", `responder ${eventId} ${year}`, e);
+    return { ok: false, message: e instanceof Error ? e.message : "Erro ao registrar a decisão." };
+  }
+}
+
+/** Balanço da carreira que acabou de terminar neste mundo (para o pop-up final). */
+export async function careerEndSummary(year: number, personId?: string): Promise<CareerEndView | null> {
+  const { sb, user } = await getSession();
+  if (!user || !isStartYear(year)) return null;
+  const worldId = await myWorldId(year);
+  const mine = (await myCharacters()).filter((c) => c.world_id === worldId).map((c) => c.person_id);
+  const { data } = await sb.from("person_states").select("id, story").eq("world_id", worldId).eq("user_id", user.id);
+  const ended = ((data ?? []) as Array<{ id: string; story: { ended?: { on: string } | null } | null }>)
+    .filter((r) => r.story?.ended && mine.includes(r.id) && (!personId || r.id === personId))
+    .sort((a, b) => (b.story!.ended!.on ?? "").localeCompare(a.story!.ended!.on ?? ""))[0];
+  if (!ended) return null;
+  return asPlayer(await tokenOf(sb), () => careerEnd(worldId, ended.id));
 }

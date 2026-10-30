@@ -2,7 +2,9 @@ import { addDays, diffDays } from "./calendar";
 import { cityName } from "./cities";
 import { UF_BY_CODE } from "./geo";
 import { ideologyAffinity } from "./ideology";
+import { eraRules } from "./ruleset";
 import type { Ctx } from "./state";
+import { scheduleStory, storyOf } from "./story/state";
 import type { AffiliationRequestRow, PartyRow, PersonRow } from "./types";
 
 /**
@@ -95,8 +97,33 @@ export function acceptanceProbability(total: number): number {
   return 1 / (1 + Math.exp(-(total - 30) / 12));
 }
 
+/** Dias de espera depois de uma recusa para pedir de novo ao mesmo partido. */
+export const AFFILIATION_RETRY_DAYS = 60;
+
+/** Motivo para não aceitar um novo pedido agora (recusa recente no mesmo partido). */
+export function affiliationCooldown(ctx: Ctx, person: PersonRow, party: PartyRow): string | null {
+  // a recusa fica na memória do personagem (os pedidos já decididos não voltam do banco)
+  const st = ctx.pstate(person.id);
+  const flagged = st?.story?.flags[`recusa:${party.id}`];
+  const fromRows = [...ctx.t.affiliation_requests.values()]
+    .filter((r) => r.person_id === person.id && r.party_id === party.id && r.kind === "PEDIDO" && r.status === "RECUSADO")
+    .map((r) => r.decide_on)
+    .sort()
+    .pop();
+  const last = [typeof flagged === "string" ? flagged : null, fromRows ?? null].filter((x): x is string => !!x).sort().pop();
+  if (!last) return null;
+  const until = addDays(last, AFFILIATION_RETRY_DAYS);
+  return ctx.date < until ? `O ${party.acronym} recusou seu pedido há pouco. Um novo pedido só será analisado a partir de ${until.split("-").reverse().join("/")}.` : null;
+}
+
+/**
+ * Pedido de filiação. A análise leva de duas a três semanas: no meio dela,
+ * os dirigentes levantam uma objeção (acontecimento da carreira) e o que o
+ * jogador fizer conta na decisão.
+ */
 export function requestAffiliation(ctx: Ctx, person: PersonRow, party: PartyRow): AffiliationRequestRow {
   const rng = ctx.rng("affiliation-delay", person.id);
+  const player = person.kind === "PLAYER";
   const req: AffiliationRequestRow = {
     id: ctx.id("aff", person.id, party.id),
     world_id: ctx.world.id,
@@ -104,13 +131,31 @@ export function requestAffiliation(ctx: Ctx, person: PersonRow, party: PartyRow)
     party_id: party.id,
     kind: "PEDIDO",
     created_on: ctx.date,
-    decide_on: addDays(ctx.date, rng.int(3, 9)),
+    decide_on: addDays(ctx.date, player ? rng.int(12, 24) : rng.int(3, 9)),
     status: "PENDENTE",
     breakdown: {},
     reason: null,
   };
   ctx.save("affiliation_requests", req);
+  const st = ctx.pstate(person.id);
+  if (player && st) {
+    scheduleStory(st, "filiacao_analise", addDays(ctx.date, rng.int(4, 8)), { req: req.id, party: party.id });
+    ctx.save("person_states", st);
+  }
   return req;
+}
+
+export type AffiliationConcern = "ESCANDALOS" | "CULTURA" | "AFINIDADE" | "TRAJETORIA" | "REPUTACAO" | "RELACIONAMENTO";
+
+/** O ponto que mais preocupa a direção na análise de um pedido (null = nada sério). */
+export function affiliationConcern(b: AffiliationBreakdown): AffiliationConcern | null {
+  if (b.historico_de_escandalos < -10) return "ESCANDALOS";
+  if (b.cultura_de_entrada <= -20) return "CULTURA";
+  if (b.afinidade_ideologica < 0) return "AFINIDADE";
+  if (b.trajetoria < 0) return "TRAJETORIA";
+  if (b.reputacao < 0) return "REPUTACAO";
+  if (b.relacionamento_local < 5) return "RELACIONAMENTO";
+  return null;
 }
 
 export function joinParty(ctx: Ctx, person: PersonRow, party: PartyRow): void {
@@ -119,7 +164,8 @@ export function joinParty(ctx: Ctx, person: PersonRow, party: PartyRow): void {
   person.party_id = party.id;
   if (["CIDADAO", "ATIVISTA", "APROXIMACAO"].includes(person.stage)) person.stage = "FILIADO";
   st.filiation_date = ctx.date;
-  st.party_standing = 25;
+  // quem chega não manda: o prestígio interno se conquista com trabalho
+  st.party_standing = person.kind === "PLAYER" ? 10 : 25;
   ctx.save("persons", person);
   ctx.save("person_states", st);
   ctx.save("memberships", {
@@ -144,6 +190,15 @@ export function leaveParty(ctx: Ctx, person: PersonRow, reason: string): void {
       ctx.save("memberships", m);
     }
   }
+  // candidatura registrada pela legenda não sobrevive à saída do partido
+  for (const c of ctx.t.candidacies.values()) {
+    if (c.person_id !== person.id || c.party_id !== person.party_id || !["PRE", "HOMOLOGADA"].includes(c.status)) continue;
+    if (ctx.t.elections.get(c.election_id)?.status === "ENCERRADA") continue;
+    c.status = "DESISTENTE";
+    c.note = `Candidatura cancelada: saída do partido (${reason}).`;
+    ctx.save("candidacies", c);
+    if (person.stage === "PRE_CANDIDATO" || person.stage === "CANDIDATO") person.stage = "APROXIMACAO";
+  }
   const st = ctx.pstate(person.id)!;
   person.party_id = null;
   person.faction_id = null;
@@ -165,9 +220,12 @@ export function processAffiliationRequests(ctx: Ctx): void {
     // partido presidido por jogador: quem decide é o presidente (partyfounding.ts)
     if (party.founder_id && ctx.person(party.president_id)?.kind === "PLAYER") continue;
     const b = computeAffiliation(ctx, person, party, "PEDIDO");
+    // o que o jogador fez durante a análise (conversa com a direção, padrinho)
+    const extra = req.breakdown.apoio_na_analise ?? 0;
+    b.total += extra;
     const p = acceptanceProbability(b.total);
     const accepted = ctx.rng("affiliation", req.id).chance(p);
-    req.breakdown = { ...b, probabilidade: Math.round(p * 100) };
+    req.breakdown = { ...b, apoio_na_analise: extra, probabilidade: Math.round(p * 100) };
     req.status = accepted ? "ACEITO" : "RECUSADO";
     req.reason = accepted ? acceptReason(b) : rejectReason(b, party);
     ctx.save("affiliation_requests", req);
@@ -181,6 +239,12 @@ export function processAffiliationRequests(ctx: Ctx): void {
       });
     } else {
       ctx.notify(person.id, `Filiação recusada: ${party.acronym}`, `O diretório do ${party.acronym} recusou seu pedido. ${req.reason}`, "/jogo/partidos");
+    }
+    const st = ctx.pstate(person.id);
+    if (st && person.kind === "PLAYER") {
+      if (!accepted) storyOf(st).flags[`recusa:${party.id}`] = ctx.date;
+      scheduleStory(st, accepted ? "filiacao_aprovada" : "filiacao_recusada", ctx.date, { req: req.id, party: party.id });
+      ctx.save("person_states", st);
     }
     ctx.emit(accepted ? "AFFILIATION_ACCEPTED" : "AFFILIATION_REJECTED", { actors: [person.id, party.id], geography: person.uf, payload: { breakdown: req.breakdown } });
   }
@@ -238,6 +302,11 @@ export function partyInvitations(ctx: Ctx): void {
         reason: inviter ? `Convite feito por ${inviter.name}${inviter.role_label ? ` (${inviter.role_label})` : ""}.` : `Convite da direção estadual do ${party.acronym}.`,
       });
       ctx.notify(person.id, `Convite de filiação: ${party.acronym}`, `${inviter ? inviter.name : `A direção do ${party.acronym}`} convidou você para se filiar. O convite vale por 30 dias.`, `convite:${inviteId}`);
+      const st = ctx.pstate(person.id);
+      if (st) {
+        scheduleStory(st, "convite_filiacao", ctx.date, { req: inviteId, party: party.id, inviter: inviter?.id ?? "" });
+        ctx.save("person_states", st);
+      }
       ctx.publish("PARTY_INVITATION", { facts: { party: party.acronym, uf: person.uf, municipality: cityName(ctx.s, person.municipality) ?? UF_BY_CODE[person.uf]?.capital ?? person.uf }, geography: person.uf });
       break;
     }
@@ -248,4 +317,28 @@ export function partyInvitations(ctx: Ctx): void {
       ctx.save("affiliation_requests", req);
     }
   }
+}
+
+/** Com mandato proporcional, sair do partido fora da janela custa o mandato (fidelidade partidária). */
+export function infidelityRisk(ctx: Ctx, person: PersonRow): boolean {
+  if (!person.office_code || !["VEREADOR", "DEP_ESTADUAL", "DEP_FEDERAL"].includes(person.office_code)) return false;
+  if (!eraRules(Number(ctx.date.slice(0, 4))).partyFidelity) return false;
+  const e = [...ctx.t.elections.values()].filter((x) => x.status !== "ENCERRADA").sort((a, b) => a.year - b.year)[0];
+  const inWindow = !!e && ctx.date >= e.calendar.partySwitchWindowStart && ctx.date <= e.calendar.partySwitchWindowEnd;
+  return !inWindow;
+}
+
+/** Perda do mandato por infidelidade partidária. */
+export function loseMandateForInfidelity(ctx: Ctx, person: PersonRow): void {
+  for (const m of ctx.t.mandates.values()) {
+    if (m.person_id === person.id && m.status === "ATIVO") {
+      m.status = "ENCERRADO";
+      m.end_on = ctx.date;
+      ctx.save("mandates", m);
+    }
+  }
+  person.office_code = null;
+  person.office_geo = null;
+  person.stage = person.party_id ? "FILIADO" : "CIDADAO";
+  ctx.save("persons", person);
 }

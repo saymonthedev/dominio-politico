@@ -16,6 +16,16 @@ async function login(page: Page) {
   await page.waitForURL(/\/jogo/);
 }
 
+/** Responde (com a primeira opção disponível) os acontecimentos abertos na tela. */
+async function answerOpenEvents(page: Page) {
+  const ev = page.locator(".ev");
+  for (let i = 0; i < 8 && (await ev.isVisible()); i++) {
+    await ev.locator(".ev__choice:not(:disabled)").first().click();
+    await ev.locator(".ev__continue").click();
+    await page.waitForTimeout(400);
+  }
+}
+
 /** Apaga o mundo próprio que tenha sobrado de uma execução anterior. */
 async function dropLeftovers(page: Page) {
   await page.goto("/conta");
@@ -66,10 +76,24 @@ test("carreira num mundo só seu", async ({ page }) => {
   expect(box?.width ?? 0).toBeGreaterThan(10);
   await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
 
-  // passar o tempo: 1 mês, com resumo do período
+  // passar o tempo: a semana vivida dia a dia; as decisões que param o relógio são respondidas no pop-up
   await page.goto("/jogo/2026");
+  await page.waitForTimeout(1500);
+  await answerOpenEvents(page);
+  if (await page.locator(".tm__wait button").count()) {
+    await page.locator(".tm__wait button").click();
+    await answerOpenEvents(page);
+  }
   await page.locator(".tm__opt--main").click();
-  await expect(page.locator(".pr-notes, .pr__foot").first()).toBeVisible({ timeout: 120_000 });
+  await expect(page.locator(".tm.is-live")).toBeVisible();
+  const summary = page.locator(".pr__foot");
+  for (let i = 0; i < 12; i++) {
+    await expect.poll(async () => (await summary.isVisible()) || (await page.locator(".ev").isVisible()), { timeout: 120_000 }).toBe(true);
+    if (await summary.isVisible()) break;
+    await answerOpenEvents(page);
+  }
+  await expect(summary).toBeVisible();
+  await expect(page.locator(".pr h2")).toContainText("Como foram seus dias");
 
   // convite no resumo: depois de responder, os botões somem
   const accept = page.locator(".pr-actions").getByRole("button", { name: "Recusar" }).first();
@@ -78,11 +102,13 @@ test("carreira num mundo só seu", async ({ page }) => {
     await expect(page.getByText("Convite recusado.").first()).toBeVisible();
   }
 
-  // ranking e carreira abrem sem erro
-  for (const path of ["/jogo/2026/ranking", "/jogo/2026/carreira", "/jogo/2026/noticias"]) {
+  // ranking, carreira (com o histórico) e campanha abrem sem erro
+  for (const path of ["/jogo/2026/ranking", "/jogo/2026/carreira", "/jogo/2026/noticias", "/jogo/2026/campanha"]) {
     const res = await page.goto(path);
     expect(res?.status(), path).toBeLessThan(400);
   }
+  await page.goto("/jogo/2026/carreira");
+  await expect(page.locator("#historia")).toBeVisible();
 
   await dropLeftovers(page);
   await page.goto("/jogo");

@@ -50,6 +50,12 @@ export interface WorldState {
   t: Tables;
   /** Dados reais de partida dos municípios (estáticos, não persistidos). Indexados pelo código IBGE. */
   cities?: Map<string, CityBase>;
+  /**
+   * Jogadores "vivendo os dias" agora (avançando o tempo por conta própria).
+   * Só eles recebem acontecimentos sorteados do contexto; para os demais, o
+   * mundo segue e só as continuações marcadas e os fatos do motor chegam.
+   */
+  focus?: Set<string>;
 }
 
 export function emptyTables(): Tables {

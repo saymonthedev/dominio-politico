@@ -6,6 +6,7 @@ import type { ISODate } from "./calendar";
 import type { Ideology } from "./ideology";
 import type { ChargeKind, DetectionChannel, IllicitKind } from "./crimes";
 import type { ElectionKind, OfficeCode } from "./ruleset";
+import type { StoryState } from "./story/types";
 
 export type PersonKind = "REAL_HISTORICAL" | "REAL_ACTIVE_AT_SNAPSHOT" | "FICTIONAL_GENERATED" | "PLAYER";
 
@@ -179,6 +180,8 @@ export interface PersonStateRow {
   jailed_until: ISODate | null;
   /** última condenação */
   sentence: Sentence | null;
+  /** eventos, escolhas, memória e saúde do personagem (só jogadores; null nos demais) */
+  story: StoryState | null;
 }
 
 export type EntryCulture = "ABERTO" | "RELACIONAMENTO" | "CONVITE";
@@ -354,6 +357,24 @@ export interface CampaignState {
   debate_score: number;
   proposals: Array<{ axis: string; value: number; title: string }>;
   rumor_damage: number;
+  /** segmentos de eleitores priorizados pela estratégia */
+  focus?: string[];
+  /** tom da campanha */
+  tone?: "PROPOSITIVO" | "ATAQUE" | "DEFENSIVO";
+  /** apoio conquistado (ou perdido) em cada segmento de eleitores (-1..1) */
+  seg?: Record<string, number>;
+  /** promessas feitas a grupos de eleitores (cobradas no mandato) */
+  promises?: Array<{ id: string; title: string; segment: string; on: string; kept?: boolean }>;
+  /** o que moveu a campanha desde a última pesquisa (para explicar as oscilações) */
+  journal?: Array<{ on: string; cause: string; delta: number }>;
+  /** última pesquisa vista pela campanha */
+  last_poll?: { on: string; pct: number; rank: number; leader: string; leader_pct: number } | null;
+  /** gastos por categoria (prestação de contas) */
+  costs?: Record<string, number>;
+  /** cabos eleitorais contratados (legais) */
+  canvassers?: number;
+  /** personalidade da campanha (NPCs): agressiva, populista, técnica, veterana */
+  persona?: "AGRESSIVA" | "POPULISTA" | "TECNICA" | "VETERANA";
 }
 
 export interface CandidacyRow {
@@ -512,10 +533,12 @@ export interface DebateRow {
   race_id: string;
   outlet: string;
   scheduled_on: ISODate;
-  status: "AGENDADO" | "REALIZADO";
+  /** AO_VIVO: aconteceu, mas espera a escolha de um jogador para fechar o placar */
+  status: "AGENDADO" | "AO_VIVO" | "REALIZADO";
   participants: string[];
   results: Record<string, number>;
-  player_choices: Record<string, { theme: string; stance: string; risk: number }>;
+  /** estratégia de cada jogador; live = resultado do momento decisivo respondido ao vivo */
+  player_choices: Record<string, { theme: string; stance: string; risk: number; live?: number }>;
 }
 
 export interface VoterSegmentRow {

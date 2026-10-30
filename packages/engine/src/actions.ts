@@ -1,5 +1,5 @@
 import { checkAchievements } from "./achievements";
-import { joinParty, leaveParty, relKey, requestAffiliation } from "./affiliation";
+import { affiliationCooldown, infidelityRisk, joinParty, leaveParty, loseMandateForInfidelity, relKey, requestAffiliation } from "./affiliation";
 import { addDays, formatDatePt } from "./calendar";
 import {
   canBeTargeted,
@@ -11,6 +11,7 @@ import {
   isJailed,
   openInvestigation,
   partyLedBy,
+  respondToOffer,
   stopScheme,
   type SchemeResult,
 } from "./crime";
@@ -40,6 +41,10 @@ import {
 import { profession } from "./names";
 import { fundableCandidacies, giveFefc, indicableMembers, indicateCandidate, indicationElection, pendingIndications, withdrawIndication } from "./partycampaign";
 import type { Rng } from "./rng";
+import { StoryCtx } from "./story/context";
+import { reachScale, reputationGain, standingGain } from "./story/effects";
+import { afterAction } from "./story/hooks";
+import { endCareer } from "./story/life";
 import { eraRules, OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
 import type { CandidacyRow, EntryCulture, ElectionRow, PersonRow, PersonStateRow, RaceRow } from "./types";
@@ -410,6 +415,8 @@ export const ACTIONS: ActionDef[] = [
     run: ({ ctx, p, params }) => {
       const party = ctx.t.parties.get(params.party);
       if (!party || party.status !== "ATIVO") return { ok: false, message: "Partido inválido." };
+      const wait = affiliationCooldown(ctx, p, party);
+      if (wait) return { ok: false, message: wait };
       const req = requestAffiliation(ctx, p, party);
       const president = party.founder_id ? ctx.person(party.president_id) : undefined;
       if (president?.kind === "PLAYER") {
@@ -418,7 +425,7 @@ export const ACTIONS: ActionDef[] = [
         ctx.notify(president.id, `Pedido de filiação ao ${party.acronym}`, `${p.name} (jogador, ${p.uf}) quer entrar no partido.`, "/jogo/meu-partido");
         return { ok: true, message: `Pedido enviado à presidência do ${party.acronym}, que tem até ${formatDatePt(req.decide_on)} para responder.` };
       }
-      return { ok: true, message: `Pedido enviado ao ${party.acronym}. Resposta prevista até ${formatDatePt(req.decide_on)}.` };
+      return { ok: true, message: `Pedido enviado ao ${party.acronym}. A direção vai analisar seu perfil, conversar com quem conhece você e responder até ${formatDatePt(req.decide_on)}.` };
     },
   },
   {
@@ -448,6 +455,20 @@ export const ACTIONS: ActionDef[] = [
     },
   },
   {
+    id: "aposentar",
+    confirm: "Você vai encerrar a carreira deste personagem. Ele deixa cargos, candidaturas e o partido, e o jogo mostra o balanço da trajetória. Não dá para desfazer.",
+    label: "Encerrar a carreira",
+    description: "Anunciar a aposentadoria da vida pública. A trajetória vira um balanço final com cargos, eleições, conquistas e escândalos.",
+    category: "BASE",
+    energy: 0,
+    available: () => null,
+    run: ({ ctx, p, st }) => {
+      const c = new StoryCtx(ctx, p, st, ctx.rng("aposentar", p.id));
+      endCareer(c, "APOSENTADORIA", "aposentadoria anunciada");
+      return { ok: true, message: "Você anunciou que deixa a vida pública. Veja o balanço da sua carreira." };
+    },
+  },
+  {
     id: "desfiliar",
     confirm: "Você vai deixar o partido. Com mandato proporcional, fora da janela partidária, perde o cargo.",
     label: "Desfiliar-se do partido",
@@ -457,21 +478,10 @@ export const ACTIONS: ActionDef[] = [
     available: (_c, p) => (p.party_id ? null : "Você não é filiado(a)."),
     run: ({ ctx, p }) => {
       const party = ctx.t.parties.get(p.party_id!)!;
-      const e = nextElection(ctx);
-      const inWindow = e && ctx.date >= e.calendar.partySwitchWindowStart && ctx.date <= e.calendar.partySwitchWindowEnd;
-      const proportional = p.office_code && OFFICES[p.office_code].system === "PROPORCIONAL";
+      const loses = infidelityRisk(ctx, p);
       leaveParty(ctx, p, "desfiliação voluntária");
-      if (proportional && !inWindow && eraRules(Number(ctx.date.slice(0, 4))).partyFidelity) {
-        for (const m of ctx.t.mandates.values()) {
-          if (m.person_id === p.id && m.status === "ATIVO") {
-            m.status = "ENCERRADO";
-            m.end_on = ctx.date;
-            ctx.save("mandates", m);
-          }
-        }
-        p.office_code = null;
-        p.office_geo = null;
-        p.stage = "CIDADAO";
+      if (loses) {
+        loseMandateForInfidelity(ctx, p);
         return { ok: true, message: `Você deixou o ${party.acronym} fora da janela partidária e perdeu o mandato por infidelidade partidária.` };
       }
       return { ok: true, message: `Você deixou o ${party.acronym}.` };
@@ -999,26 +1009,10 @@ export const ACTIONS: ActionDef[] = [
     run: ({ ctx, p, st, params }) => {
       const offer = st.offers.find((o) => o.id === params.offer) ?? st.offers[0];
       if (!offer) return { ok: false, message: "Oferta expirada." };
-      st.offers = st.offers.filter((o) => o.id !== offer.id);
-      const broker = ctx.person(offer.from);
-      if (params.decision === "ACEITAR") {
-        const c = activeCandidacy(ctx, p.id);
-        if (c && offer.kind === "CAIXA_DOIS") {
-          c.campaign.budget += offer.amount;
-          ctx.save("candidacies", c);
-        } else {
-          st.dirty_money += offer.amount;
-        }
-        createIllicitAct(ctx, p, offer.kind, { amount: offer.amount, partners: broker ? [broker.id] : [], description: offer.kind === "PROPINA" ? `Vantagem indevida oferecida por ${broker?.name ?? "intermediário"}` : `Caixa dois oferecido por ${broker?.name ?? "intermediário"}` });
-        return { ok: true, message: `Você aceitou ${fmtMoney(offer.amount)} ${c && offer.kind === "CAIXA_DOIS" ? "para a campanha, fora da prestação de contas" : "em dinheiro não declarado"}. Ninguém precisa saber... por enquanto.` };
-      }
-      if (params.decision === "DENUNCIAR" && broker) {
-        const act = createIllicitAct(ctx, broker, offer.kind === "PROPINA" ? "CORRUPCAO_ATIVA" : "CAIXA_DOIS", { amount: offer.amount, description: `Oferta de vantagem indevida a ${p.name}`, witnesses: 1, paperTrail: 0.6 });
-        openInvestigation(ctx, broker, { authority: "PF", openedBy: p.id, initialEvidence: 0.45, actIds: [act.id], reason: `Denúncia de tentativa de corrupção feita por ${p.name}`, channel: "DENUNCIA" });
-        p.reputation = clamp(p.reputation + 3);
-        return { ok: true, message: `Você denunciou ${broker.name} à Polícia Federal.` };
-      }
-      return { ok: true, message: "Você recusou a oferta." };
+      const decision = params.decision === "ACEITAR" ? "ACEITAR" : params.decision === "DENUNCIAR" && ctx.person(offer.from) ? "DENUNCIAR" : "RECUSAR";
+      const message = respondToOffer(ctx, p, st, offer.id, decision);
+      if (decision === "DENUNCIAR") p.reputation = clamp(p.reputation + 3);
+      return { ok: true, message };
     },
   },
   {
@@ -1673,8 +1667,30 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
     usedKeys.push(key);
     return diminishing(st, key, ctx.tick);
   };
+  const repBefore = p.reputation;
+  const standingBefore = st.party_standing;
+  const reachBefore = { ...st.reach };
   const result = def.run({ ctx, p, st, params, rng, dr });
   if (!result.ok) return result;
+  // quanto mais alto, mais devagar se sobe (as quedas valem por inteiro); e reputação não se fabrica em série:
+  // o que passa de ~2,5 pontos por semana em ações rende só uma fração
+  if (p.reputation > repBefore) {
+    const gain = reputationGain(repBefore, p.reputation - repBefore);
+    const log = st.action_log.__rep;
+    const used = log ? log.n * Math.pow(0.5, (ctx.tick - log.last_tick) / 7) : 0;
+    const room = Math.max(0, 2.5 - used);
+    const granted = Math.min(gain, room) + Math.max(0, gain - room) * 0.15;
+    p.reputation = repBefore + granted;
+    st.action_log.__rep = { n: Math.round((used + granted) * 100) / 100, last_tick: ctx.tick };
+  }
+  if (st.party_standing > standingBefore && p.party_id) st.party_standing = standingBefore + standingGain(standingBefore, st.party_standing - standingBefore);
+  // fora da campanha, o nome se espalha devagar pelo estado (mais devagar nos estados grandes)
+  if (def.category !== "CAMPANHA") {
+    for (const [uf, v] of Object.entries(st.reach)) {
+      const b = reachBefore[uf] ?? 0;
+      if (v > b) st.reach[uf] = b + (v - b) * reachScale(uf);
+    }
+  }
   st.energy = Math.max(0, st.energy - def.energy);
   st.action_seq += 1;
   st.last_action_tick = ctx.tick;
@@ -1683,6 +1699,7 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
   ctx.save("persons", p);
   ctx.save("person_states", st);
   ctx.emit("PLAYER_ACTION", { actors: [personId], geography: p.uf, payload: { action: actionId, params, message: result.message } });
+  afterAction(ctx, personId, actionId, params);
   checkAchievements(ctx, p);
   return result;
 }

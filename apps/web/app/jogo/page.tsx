@@ -27,6 +27,8 @@ export default async function Page() {
     }),
   );
   const active = details.filter((d) => d.person?.status === "ACTIVE").sort((a, b) => a.year - b.year);
+  // carreiras encerradas (morte ou aposentadoria) ficam como legado, com o balanço
+  const ended = details.filter((d) => d.person && d.person.status !== "ACTIVE").sort((a, b) => a.year - b.year);
   const taken = new Set(active.map((d) => d.year));
   return (
     <>
@@ -83,6 +85,28 @@ export default async function Page() {
             </span>
             <b>Nenhum personagem ainda</b>
             <p>Escolha um ponto de partida abaixo. Você pode ter um personagem em cada mundo.</p>
+          </div>
+        )}
+
+        {ended.length > 0 && (
+          <div className="legacy">
+            <div className="section-kicker">Trajetórias encerradas</div>
+            <ul>
+              {ended.map((d) => (
+                <li key={d.person_id}>
+                  <span className="avatar" aria-hidden="true">
+                    {initials(d.person?.name ?? "?")}
+                  </span>
+                  <span>
+                    <b>{d.person?.name}</b>
+                    <small>Brasil pós-{d.year}</small>
+                  </span>
+                  <a href={`/jogo/fim/${d.year}?p=${encodeURIComponent(d.person_id)}`}>
+                    Ver o balanço <Icon name="arrow" size={14} />
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

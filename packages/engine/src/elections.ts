@@ -10,7 +10,7 @@ import { rngFor, Rng } from "./rng";
 import { eraRules, inaugurationDate, OFFICES, officesForElection, senateSeatsForYear, termEnd, type OfficeCode } from "./ruleset";
 import type { Ctx, WorldState } from "./state";
 import { ufShares, type Contender } from "./support";
-import type { CampaignState, CandidacyRow, CandidateResult, ElectionRow, PartyListResult, PartyRow, PersonRow, RaceRow, VoterSegmentRow } from "./types";
+import type { CampaignState, CandidacyRow, CandidateResult, DebateRow, ElectionRow, PartyListResult, PartyRow, PersonRow, RaceRow, VoterSegmentRow } from "./types";
 
 export const emptyCampaign = (): CampaignState => ({
   budget: 0, spent: 0, fefc: 0, donations: 0, volunteers: 0, team: {}, momentum: 0, debate_score: 0, proposals: [], rumor_damage: 0,
@@ -173,7 +173,37 @@ export function contenderFor(ctx: Ctx, c: CandidacyRow, uf: string): Contender {
     momentum: c.campaign.momentum + c.campaign.debate_score,
     scandal: (st?.scandal ?? 0) + c.campaign.rumor_damage,
     noise: latentNoise(ctx, c.id, uf),
+    seg: c.campaign.seg,
   };
+}
+
+/**
+ * Força de um jogador na lista do partido (cargos proporcionais): nome
+ * conhecido, reputação, fôlego, gastos, apoio nos grupos de eleitores e
+ * gente na rua (voluntários e cabos eleitorais).
+ */
+export function playerListStrength(ctx: Ctx, race: RaceRow, c: CandidacyRow, noise = 0): number {
+  const uf = ufOfGeo(race.geo);
+  const p = ctx.person(c.person_id)!;
+  const st = ctx.pstate(p.id)!;
+  const spentFactor = Math.min(1, c.campaign.spent / Math.max(1, ctx.s.ruleset.spendingCapPerVoter[race.office_code] * race.electorate * 0.3));
+  const segs = segmentsOf(ctx, uf);
+  const totalW = segs.reduce((s, sg) => s + sg.weight, 0) || 1;
+  const segBonus = segs.reduce((s, sg) => s + (c.campaign.seg?.[sg.segment] ?? 0) * sg.weight, 0) / totalW;
+  const street = c.campaign.volunteers + (c.campaign.canvassers ?? 0) * 3;
+  const ground = Math.min(0.6, street / Math.max(150, race.electorate / 1500));
+  return Math.exp(
+    -1.25 +
+      3 * (st.reach[uf] ?? 0) +
+      0.8 * ((p.reputation - 50) / 50) +
+      0.6 * c.campaign.momentum +
+      spentFactor +
+      1.4 * segBonus +
+      0.5 * ground -
+      (st.scandal / 100) * 1.5 -
+      c.campaign.rumor_damage / 60 +
+      noise,
+  );
 }
 
 function segmentsOf(ctx: Ctx, uf: string): VoterSegmentRow[] {
@@ -487,7 +517,8 @@ export function dailyCampaign(ctx: Ctx, e: ElectionRow): void {
   }
 }
 
-export function runPolls(ctx: Ctx, e: ElectionRow, onlyImportant: boolean): void {
+export function runPolls(ctx: Ctx, e: ElectionRow, onlyImportant: boolean): RaceRow[] {
+  const polled: RaceRow[] = [];
   const daysLeft = diffDays(e.status === "SEGUNDO_TURNO" ? e.runoff : e.first_round, ctx.date);
   const races = [...ctx.t.races.values()].filter((r) => r.election_id === e.id && OFFICES[r.office_code].system === "MAJORITARIO" && r.status !== "ENCERRADA");
   for (const race of races) {
@@ -525,6 +556,7 @@ export function runPolls(ctx: Ctx, e: ElectionRow, onlyImportant: boolean): void
     });
     race.latest_poll = Object.fromEntries(results.map((r) => [r.id, r.pct]));
     ctx.save("races", race);
+    polled.push(race);
     if (important && results.length >= 2) {
       ctx.publish("POLL_RELEASE", {
         facts: {
@@ -545,6 +577,7 @@ export function runPolls(ctx: Ctx, e: ElectionRow, onlyImportant: boolean): void
       });
     }
   }
+  return polled;
 }
 
 /** Debates: presidenciais e os que envolvem jogadores. */
@@ -574,63 +607,116 @@ export function scheduleDebates(ctx: Ctx, e: ElectionRow, round: 1 | 2): void {
   }
 }
 
-const DEBATE_THEMES = ["economia", "segurança pública", "saúde", "educação", "corrupção", "meio ambiente", "emprego"];
+export const DEBATE_THEMES = ["economia", "segurança pública", "saúde", "educação", "corrupção", "meio ambiente", "emprego"];
 
-export function runDebates(ctx: Ctx): void {
+/** Tema que vai dominar o debate (sorteado no dia, estável por debate). */
+export function debateTheme(ctx: Ctx, d: DebateRow): string {
+  return rngFor(ctx.world.seed, "debate-theme", 0, d.id).pick(DEBATE_THEMES);
+}
+
+/**
+ * Debates do dia. Com jogador no palco, o debate fica "ao vivo": cada jogador
+ * responde ao momento decisivo (acontecimento da carreira) e o placar fecha
+ * quando todos tiverem respondido, ou no máximo dois dias depois.
+ */
+export function runDebates(ctx: Ctx): DebateRow[] {
+  const live: DebateRow[] = [];
   for (const d of ctx.t.debates.values()) {
+    if (d.status === "AO_VIVO" && diffDays(ctx.date, d.scheduled_on) >= 2) {
+      finishDebate(ctx, d);
+      continue;
+    }
     if (d.status !== "AGENDADO" || d.scheduled_on !== ctx.date) continue;
-    const race = ctx.t.races.get(d.race_id);
-    if (!race) continue;
-    const rng = ctx.rng("debate", d.id);
-    const theme = rng.pick(DEBATE_THEMES);
-    const scores: Record<string, number> = {};
-    for (const cid of d.participants) {
+    const players = d.participants.filter((cid) => {
       const c = ctx.t.candidacies.get(cid);
-      if (!c) continue;
-      const p = ctx.person(c.person_id)!;
-      const st = ctx.pstate(p.id);
-      const traits = st?.traits;
-      const choice = d.player_choices[cid];
-      // preparação, conhecimento, retórica, coerência, fadiga, histórico, adequação ao público e risco
-      const prep = (st?.debate_prep ?? 20) / 100;
-      const knowledge = traits?.competence ?? 0.5;
-      const rhetoric = traits?.charisma ?? 0.5;
-      const fatigue = st ? (100 - st.energy) / 200 : 0;
-      const history = (st?.scandal ?? 0) / 150;
-      const segs = segmentsOf(ctx, race.geo === "BR" ? "SP" : ufOfGeo(race.geo));
-      const fit = segs.reduce((s, sg) => s + ideologyAffinity(sg.ideology, p.ideology) * sg.weight, 0);
-      let risk = 0.15;
-      let stanceBonus = 0;
-      if (choice) {
-        risk = choice.risk;
-        stanceBonus = choice.stance === "ATAQUE" ? 0.05 : choice.stance === "PROPOSITIVO" ? 0.04 : 0.02;
-        if (choice.theme === theme) stanceBonus += 0.08;
-      } else if (c.is_player) {
-        stanceBonus = -0.1;
-      }
-      const score = prep * 0.25 + knowledge * 0.2 + rhetoric * 0.2 + fit * 0.2 - fatigue - history + stanceBonus + rng.normal(0, 0.05 + risk * 0.2);
-      scores[cid] = Math.round(score * 1000) / 1000;
+      const p = c && ctx.person(c.person_id);
+      return !!c?.is_player && p?.status === "ACTIVE";
+    });
+    if (players.length) {
+      d.status = "AO_VIVO";
+      ctx.save("debates", d);
+      live.push(d);
+      continue;
     }
-    const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-    const mean = ranked.reduce((s, [, v]) => s + v, 0) / (ranked.length || 1);
-    for (const [cid, v] of ranked) {
-      const c = ctx.t.candidacies.get(cid)!;
-      c.campaign.debate_score = Math.max(-0.6, Math.min(0.6, c.campaign.debate_score * 0.5 + (v - mean) * 1.5));
-      ctx.save("candidacies", c);
-      if (c.is_player) ctx.notify(c.person_id, "Resultado do debate", `Sua avaliação no debate da ${d.outlet}: ${v >= mean ? "acima" : "abaixo"} da média dos adversários. Tema mais citado: ${theme}.`, "/jogo/campanha");
+    finishDebate(ctx, d);
+  }
+  return live;
+}
+
+/** Registra a resposta de um jogador no momento decisivo do debate; fecha o placar quando todos responderem. */
+export function settleDebateMoment(ctx: Ctx, debateId: string, candidacyId: string, bonus: number): DebateRow | null {
+  const d = ctx.t.debates.get(debateId);
+  if (!d || d.status !== "AO_VIVO") return null;
+  const prev = d.player_choices[candidacyId] ?? { theme: "", stance: "PROPOSITIVO", risk: 0.2 };
+  d.player_choices[candidacyId] = { ...prev, live: Math.round(bonus * 1000) / 1000 };
+  ctx.save("debates", d);
+  const waiting = d.participants.some((cid) => {
+    const c = ctx.t.candidacies.get(cid);
+    const p = c && ctx.person(c.person_id);
+    return !!c?.is_player && p?.status === "ACTIVE" && d.player_choices[cid]?.live === undefined;
+  });
+  if (!waiting) finishDebate(ctx, d);
+  return d;
+}
+
+/** Placar do debate: preparo, conhecimento, retórica, sintonia com o eleitorado, cansaço, histórico, estratégia e o momento decisivo. */
+export function finishDebate(ctx: Ctx, d: DebateRow): void {
+  if (d.status === "REALIZADO") return;
+  const race = ctx.t.races.get(d.race_id);
+  if (!race) return;
+  const rng = ctx.rng("debate", d.id);
+  const theme = debateTheme(ctx, d);
+  const scores: Record<string, number> = {};
+  for (const cid of d.participants) {
+    const c = ctx.t.candidacies.get(cid);
+    if (!c) continue;
+    const p = ctx.person(c.person_id)!;
+    const st = ctx.pstate(p.id);
+    const traits = st?.traits;
+    const choice = d.player_choices[cid];
+    const prep = (st?.debate_prep ?? 20) / 100;
+    const knowledge = traits?.competence ?? 0.5;
+    const rhetoric = traits?.charisma ?? 0.5;
+    const fatigue = st ? (100 - st.energy) / 200 : 0;
+    const history = (st?.scandal ?? 0) / 150;
+    const segs = segmentsOf(ctx, race.geo === "BR" ? "SP" : ufOfGeo(race.geo));
+    const fit = segs.reduce((s, sg) => s + ideologyAffinity(sg.ideology, p.ideology) * sg.weight, 0);
+    let risk = 0.15;
+    let stanceBonus = 0;
+    if (choice) {
+      risk = choice.risk;
+      stanceBonus = choice.stance === "ATAQUE" ? 0.05 : choice.stance === "PROPOSITIVO" ? 0.04 : 0.02;
+      if (choice.theme === theme) stanceBonus += 0.08;
+      stanceBonus += choice.live ?? 0;
+    } else if (c.is_player) {
+      stanceBonus = -0.1;
     }
-    d.status = "REALIZADO";
-    d.results = scores;
-    ctx.save("debates", d);
-    const winner = ctx.person(ctx.t.candidacies.get(ranked[0][0])?.person_id);
-    const loser = ctx.person(ctx.t.candidacies.get(ranked[ranked.length - 1][0])?.person_id);
-    if (winner && loser) {
-      ctx.publish("DEBATE_RESULT", {
-        facts: { outlet: d.outlet, winner: winner.name, loser: loser.name, office: OFFICES[race.office_code].name.toLowerCase(), geoName: geoName(race.geo, ctx.s), theme },
-        personIds: [winner.id, loser.id],
-        geography: ufOfGeo(race.geo),
-      });
+    const score = prep * 0.25 + knowledge * 0.2 + rhetoric * 0.2 + fit * 0.2 - fatigue - history + stanceBonus + rng.normal(0, 0.05 + risk * 0.2);
+    scores[cid] = Math.round(score * 1000) / 1000;
+  }
+  const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const mean = ranked.reduce((s, [, v]) => s + v, 0) / (ranked.length || 1);
+  for (const [cid, v] of ranked) {
+    const c = ctx.t.candidacies.get(cid)!;
+    c.campaign.debate_score = Math.max(-0.6, Math.min(0.6, c.campaign.debate_score * 0.5 + (v - mean) * 1.5));
+    if (c.is_player) {
+      (c.campaign.journal ??= []).push({ on: ctx.date, cause: `debate na ${d.outlet}`, delta: Math.round((v - mean) * 1.5 * 1000) / 1000 });
+      const pos = ranked.findIndex(([id]) => id === cid) + 1;
+      ctx.notify(c.person_id, "Resultado do debate", `Na avaliação dos analistas, você ficou em ${pos}º de ${ranked.length} no debate da ${d.outlet} (${v >= mean ? "acima" : "abaixo"} da média). Tema mais citado: ${theme}.`, "/jogo/campanha");
     }
+    ctx.save("candidacies", c);
+  }
+  d.status = "REALIZADO";
+  d.results = scores;
+  ctx.save("debates", d);
+  const winner = ranked.length ? ctx.person(ctx.t.candidacies.get(ranked[0][0])?.person_id) : undefined;
+  const loser = ranked.length ? ctx.person(ctx.t.candidacies.get(ranked[ranked.length - 1][0])?.person_id) : undefined;
+  if (winner && loser && winner !== loser) {
+    ctx.publish("DEBATE_RESULT", {
+      facts: { outlet: d.outlet, winner: winner.name, loser: loser.name, office: OFFICES[race.office_code].name.toLowerCase(), geoName: geoName(race.geo, ctx.s), theme },
+      personIds: [winner.id, loser.id],
+      geography: ufOfGeo(race.geo),
+    });
   }
 }
 
@@ -882,11 +968,8 @@ export function runProportional(ctx: Ctx, e: ElectionRow, race: RaceRow): void {
       named.push({ id: p.id, strength: Math.exp(-0.2 + 2.2 * (st?.reach[uf] ?? 0.2) + rng.normal(0, 0.5)), isPlayer: false });
     }
     for (const c of playerCands.filter((c) => c.party_id === party.id)) {
-      const p = ctx.person(c.person_id)!;
-      const st = ctx.pstate(p.id)!;
-      const spentFactor = Math.min(1, c.campaign.spent / Math.max(1, ctx.s.ruleset.spendingCapPerVoter[race.office_code] * race.electorate * 0.3));
-      const strength = Math.exp(-1 + 3 * (st.reach[uf] ?? 0) + 0.8 * ((p.reputation - 50) / 50) + 0.6 * c.campaign.momentum + spentFactor - (st.scandal / 100) * 1.5 + rng.normal(0, 0.3));
-      named.push({ id: p.id, strength, isPlayer: true, candidacy: c });
+      const strength = playerListStrength(ctx, race, c, rng.normal(0, 0.3));
+      named.push({ id: c.person_id, strength, isPlayer: true, candidacy: c });
     }
     const listSize = Math.max(won + 1, Math.min(seats + 1, Math.round(won * 2.5 + 3)));
     const abstract: number[] = [];

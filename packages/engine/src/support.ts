@@ -19,6 +19,8 @@ export const SUPPORT_PARAMS = {
   scandal: 2.5,
   invalidUtility: -1.6,
   unknownPenalty: 0.9,
+  /** apoio conquistado na campanha junto a cada grupo de eleitores */
+  segment: 1.2,
 };
 
 export interface Contender {
@@ -38,6 +40,8 @@ export interface Contender {
   scandal: number;
   /** ruído latente fixo da disputa */
   noise: number;
+  /** apoio conquistado (ou perdido) em cada segmento de eleitores, -1..1 */
+  seg?: Record<string, number>;
 }
 
 export interface ShareResult {
@@ -63,6 +67,7 @@ export function segmentUtility(seg: VoterSegmentRow, c: Contender, approval: num
     p.momentum * c.momentum -
     p.scandal * (c.scandal / 100) +
     c.noise +
+    p.segment * (c.seg?.[seg.segment] ?? 0) +
     (c.incumbent ? seg.mood * 0.5 : 0)
   );
 }

@@ -123,6 +123,7 @@ export function buildPerson(input: NewPersonInput): { person: PersonRow; state: 
     achievements: {},
     jailed_until: null,
     sentence: null,
+    story: null,
   };
   return { person, state };
 }

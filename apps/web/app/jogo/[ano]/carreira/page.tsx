@@ -4,6 +4,7 @@ import { ActionPanel } from "@/components/ActionPanel";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
+import { StoryHistory } from "@/components/game/StoryHistory";
 import { Icon } from "@/components/Icon";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { PartyChip, STAGE_LABEL } from "@/components/ui";
@@ -148,6 +149,12 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             )}
           </Panel>
 
+          <div id="historia">
+            <Panel title="Sua história" icon="zap">
+              <StoryHistory log={st.story?.log ?? []} />
+            </Panel>
+          </div>
+
           <Panel title="Sua trajetória" icon="clock">
             {events.length ? (
               <ol className="tline">
@@ -184,6 +191,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             </ul>
           </Panel>
           <Panel title="Indicadores" icon="chart">
+            {st.story && <MeterRow label="Saúde" value={st.story.health} tone={st.story.health < 45 ? "bad" : "ok"} hint={st.story.health < 45 ? "o desgaste aumenta o risco de adoecer" : "cai com estresse, campanha e idade"} />}
             <MeterRow label="Reputação" value={me.person.reputation} tone="sim" />
             <MeterRow label="Visibilidade" value={me.person.visibility} />
             <MeterRow label={`Reconhecimento em ${me.person.uf}`} value={(st.reach[me.person.uf] ?? 0) * 100} hint="parte do eleitorado do estado que conhece você" />

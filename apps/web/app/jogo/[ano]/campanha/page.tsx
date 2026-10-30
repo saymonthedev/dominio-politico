@@ -1,4 +1,5 @@
-import { OFFICES, geoName, type CandidacyRow, type DebateRow, type ElectionRow, type PollRow } from "@dp/engine";
+import { Ctx, explainShift, geoName, mainRival, OFFICES, PERSONA_LABEL, projectList, segmentStandings, type CandidacyRow, type DebateRow, type ElectionRow, type PollRow } from "@dp/engine";
+import { WarRoom, type WarRoomProps } from "@/components/game/WarRoom";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { Icon } from "@/components/Icon";
@@ -52,6 +53,22 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const myPct = latest?.results.find((r) => r.id === current?.id)?.pct;
   const leader = latest?.results[0];
   const decisive = election ? (current?.status === "SEGUNDO_TURNO" ? election.runoff : election.first_round) : undefined;
+  // sala de guerra: calculada sobre o estado do mundo (a candidatura viva está na memória do motor)
+  let war: WarRoomProps | null = null;
+  const live = current ? state.t.candidacies.get(current.id) : undefined;
+  if (live && ["PRE", "HOMOLOGADA", "SEGUNDO_TURNO"].includes(live.status)) {
+    const rctx = new Ctx(state, "read");
+    const majoritarian = OFFICES[live.office_code].system === "MAJORITARIO";
+    const rv = majoritarian && live.status !== "PRE" ? mainRival(rctx, live) : null;
+    war = {
+      cand: live,
+      standings: segmentStandings(rctx, live),
+      majoritarian,
+      rival: rv ? { name: rv.person.name, party: rv.party?.acronym ?? null, pct: rv.pct, persona: rv.cand.campaign.persona ? PERSONA_LABEL[rv.cand.campaign.persona] : null } : null,
+      projection: majoritarian ? null : projectList(rctx, live),
+      why: explainShift(live),
+    };
+  }
 
   return (
     <>
@@ -109,6 +126,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           <Panel title="Ações de campanha" icon="play">
             <ActionPanel year={year} actions={campaignActions} empty="As ações de campanha liberam com a candidatura homologada e a campanha oficial aberta." />
           </Panel>
+          {war && <WarRoom {...war} />}
         </div>
 
         <div className="gstack">

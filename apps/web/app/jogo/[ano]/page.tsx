@@ -6,6 +6,7 @@ import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game
 import { QuickAction } from "@/components/game/QuickAction";
 import { Onboarding, type OnboardingStep } from "@/components/game/Onboarding";
 import { TimeMachine, type SharedClock } from "@/components/game/TimeMachine";
+import { StoryInbox } from "@/components/game/StoryCenter";
 import { Icon } from "@/components/Icon";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { STAGE_LABEL } from "@/components/ui";
@@ -49,6 +50,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const others = parties.slice(8).reduce((s, p) => s + (p.seats.camara ?? 0), 0);
   const firstName = me.person.name.split(" ")[0];
   const pendCount = todo.invites.length + todo.offers.length + todo.investigations + todo.partyRequests.length;
+  const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
   // relógio compartilhado: só aparece quando há outros jogadores ativos no mundo
   const clock: SharedClock | null = clockNow.shared
     ? {
@@ -126,7 +128,14 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
       {!tutorialOff && <Onboarding year={year} steps={onboarding} />}
 
       <div id="tempo" className="mb">
-        <TimeMachine year={year} date={state.world.game_date} energy={me.state.energy} next={cal[0] ? { label: cal[0].title, date: cal[0].date } : null} clock={clock} />
+        <TimeMachine
+          year={year}
+          date={state.world.game_date}
+          energy={me.state.energy}
+          next={cal[0] ? { label: cal[0].title, date: cal[0].date } : null}
+          clock={clock}
+          pending={storyPending}
+        />
       </div>
 
       <div className="ggrid ggrid--main">
@@ -146,6 +155,10 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
         </div>
 
         <div className="gstack">
+          <Panel title="Acontecimentos" icon="zap" tone={storyPending.some((e) => e.blocking) ? "gold" : undefined} aside={storyPending.length ? <Pill tone="gold">{storyPending.length}</Pill> : undefined} href={`/jogo/${year}/carreira#historia`} hrefLabel="Histórico">
+            <StoryInbox year={year} events={storyPending} today={state.world.game_date} />
+          </Panel>
+
           <Panel title="Pendências" icon="inbox" tone={pendCount ? "gold" : undefined} aside={pendCount ? <Pill tone="gold">{pendCount}</Pill> : undefined}>
             {todo.invites.map((inv) => (
               <div key={inv.id} className="pend">

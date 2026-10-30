@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { canonicalGeo, geoName, type NotificationRow } from "@dp/engine";
 import { GameSidebar } from "@/components/game/GameSidebar";
 import { NotificationBell } from "@/components/game/NotificationBell";
+import { StoryBell } from "@/components/game/StoryCenter";
 import { Toaster } from "@/components/game/Toaster";
 import { UserMenu } from "@/components/game/UserMenu";
 import { LogoMark } from "@/components/Logo";
@@ -30,6 +31,8 @@ export default async function GameLayout({ children, params }: { children: React
     citiesFor(year),
   ]);
   const unread = unreadQ.count ?? 0;
+  // acontecimentos esperando resposta (os que seguram o tempo primeiro)
+  const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
   const invites = (invitesQ.data ?? []).map((r) => r.id as string);
 
   // O mundo segue andando: se o relógio está atrasado, avança em segundo plano
@@ -71,6 +74,7 @@ export default async function GameLayout({ children, params }: { children: React
             )}
           </a>
           <span className="gtop__spacer" />
+          <StoryBell year={year} events={storyPending} today={world?.game_date ?? storyPending[0]?.on ?? ""} />
           <NotificationBell
             year={year}
             unread={unread}

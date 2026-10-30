@@ -176,8 +176,10 @@ export function monthlyStatement(ctx: Ctx, p: PersonRow, st: PersonStateRow, dat
   const jailed = !!st.jailed_until && st.jailed_until > date;
   const subsidy = p.office_code && !jailed ? subsidyFor(ctx, p.office_code, p.office_geo, date) : 0;
   // durante o mandato, a atividade profissional fica em segundo plano
-  const work = jailed ? 0 : professionIncome(p, priceLevelAt(ctx, date)) * (p.office_code ? 0.15 : 1);
-  if (work > 0) items.push({ kind: "RENDA", label: p.office_code ? "Rendimentos da atividade privada" : "Salário e rendimentos da profissão", amount: Math.round(work) });
+  // jornada de trabalho combinada nos acontecimentos da carreira (licença, meio período, demissão)
+  const share = typeof st.story?.flags.jornada === "number" ? Math.max(0, Math.min(1, st.story.flags.jornada)) : 1;
+  const work = jailed ? 0 : professionIncome(p, priceLevelAt(ctx, date)) * (p.office_code ? 0.15 : 1) * share;
+  if (work > 0) items.push({ kind: "RENDA", label: p.office_code ? "Rendimentos da atividade privada" : share < 1 ? "Salário (jornada reduzida)" : "Salário e rendimentos da profissão", amount: Math.round(work) });
   if (subsidy > 0) items.push({ kind: "SUBSIDIO", label: `Subsídio de ${p.office_code === "PRESIDENTE" ? "presidente" : "parlamentar ou chefe do Executivo"}`, amount: Math.round(subsidy) });
   const tax = incomeTax(work + subsidy, date);
   if (tax > 0) items.push({ kind: "IMPOSTO", label: "Imposto de Renda retido (estimativa)", amount: -Math.round(tax) });

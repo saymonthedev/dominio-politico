@@ -22,6 +22,9 @@ import { creditPartyFunds, returnUnusedFunds } from "./partycampaign";
 import { checkAchievements } from "./achievements";
 import { eraRules } from "./ruleset";
 import { scheduledElection } from "./bootstrap";
+import { afterPolls, rivalsDaily } from "./story/campaign";
+import { dailyStory } from "./story/director";
+import { afterConventions, afterVote, campaignKickoff, scheduleLiveDebates } from "./story/hooks";
 import { Ctx, type WorldState } from "./state";
 import type { ElectionRow } from "./types";
 
@@ -60,28 +63,33 @@ function electionCalendarDay(ctx: Ctx, e: ElectionRow): void {
   if (d === cal.conventionEnd) {
     runConventions(ctx, e);
     creditPartyFunds(ctx, e);
+    afterConventions(ctx, e);
   }
   if (d === cal.campaignStart && (e.status === "CONVENCOES" || e.status === "PRE_CAMPANHA")) {
     e.status = "CAMPANHA";
     ctx.save("elections", e);
     scheduleDebates(ctx, e, 1);
+    campaignKickoff(ctx, e);
     ctx.publish("ELECTION_CALENDAR", { facts: { title: "Começa a campanha eleitoral oficial", body: `Propaganda nas ruas e na internet está liberada. Primeiro turno em ${e.first_round}.` }, importance: 2 });
   }
   if (e.status === "CAMPANHA" || e.status === "SEGUNDO_TURNO") {
     dailyCampaign(ctx, e);
+    rivalsDaily(ctx, e.id);
     const target = e.status === "SEGUNDO_TURNO" ? e.runoff : e.first_round;
     const left = diffDays(target, d);
-    if (left > 0 && left <= 60 && weekday(d) === 5) runPolls(ctx, e, true);
-    if (left > 0 && left <= 60 && weekday(d) === 2 && left % 14 < 7) runPolls(ctx, e, false);
+    if (left > 0 && left <= 60 && weekday(d) === 5) afterPolls(ctx, runPolls(ctx, e, true));
+    if (left > 0 && left <= 60 && weekday(d) === 2 && left % 14 < 7) afterPolls(ctx, runPolls(ctx, e, false));
   }
   if (e.status === "PRE_CAMPANHA" && day(d) === 15 && [3, 5, 6].includes(month(d))) runPolls(ctx, e, true);
   if (d === e.first_round && e.status === "CAMPANHA") {
     returnUnusedFunds(ctx, e);
     runFirstRound(ctx, e);
     updateTerritoryFromResults(ctx, e);
+    afterVote(ctx, e, 1);
   }
   if (d === e.runoff && e.status === "SEGUNDO_TURNO") {
     runRunoff(ctx, e);
+    afterVote(ctx, e, 2);
   }
 }
 
@@ -117,7 +125,7 @@ export function advanceDay(ctx: Ctx): void {
     if (e.status === "ENCERRADA") continue;
     electionCalendarDay(ctx, e);
   }
-  runDebates(ctx);
+  scheduleLiveDebates(ctx, runDebates(ctx));
   dailyCrime(ctx);
   dailyPolicies(ctx);
   dailyBillVotes(ctx);
@@ -136,6 +144,8 @@ export function advanceDay(ctx: Ctx): void {
     monthlyPartyFinances(ctx);
   }
   if (month(d) === 1 && day(d) === 2) yearlyRenewal(ctx);
+  // a vida de cada jogador: saúde, prazos, continuações e (para quem está vivendo os dias) o acaso
+  dailyStory(ctx);
   for (const p of ctx.t.persons.values()) if (p.kind === "PLAYER" && p.status === "ACTIVE") checkAchievements(ctx, p);
   ctx.saveWorld();
 }

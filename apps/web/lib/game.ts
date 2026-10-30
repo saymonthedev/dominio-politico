@@ -19,6 +19,19 @@ export const myCharacters = cache(async (): Promise<Array<{ world_id: string; pe
   return (data as Array<{ world_id: string; person_id: string }>) ?? [];
 });
 
+/** Personagens com a situação de cada um (a carreira pode ter acabado: morte ou aposentadoria). */
+export const myCharacterStatus = cache(async (): Promise<Array<{ world_id: string; person_id: string; status: string }>> => {
+  const chars = await myCharacters();
+  if (!chars.length) return [];
+  const { sb } = await getSession();
+  const { data } = await sb.from("persons").select("id, world_id, status").in("id", chars.map((c) => c.person_id));
+  const rows = (data ?? []) as Array<{ id: string; world_id: string; status: string }>;
+  return chars.map((c) => ({ ...c, status: rows.find((r) => r.id === c.person_id && r.world_id === c.world_id)?.status ?? "ACTIVE" }));
+});
+
+/** Personagens em atividade (um por ponto de partida). */
+export const myActiveCharacters = cache(async () => (await myCharacterStatus()).filter((c) => c.status === "ACTIVE"));
+
 /**
  * O mundo do jogador neste ponto de partida: o próprio (só dele ou fictício),
  * se tiver personagem em um; senão, o compartilhado.
@@ -44,16 +57,30 @@ export interface Me {
   party: PartyRow | null;
 }
 
-/** Personagem do usuário neste mundo; redireciona para a criação se não houver. */
+/** Personagem ativo do usuário num mundo (quem morreu ou se aposentou fica no histórico, ao lado do novo). */
+export async function activePersonId(worldId: string): Promise<string | null> {
+  const { sb, user } = await getSession();
+  if (!user) return null;
+  const { data: states } = await sb.from("person_states").select("id").eq("world_id", worldId).eq("user_id", user.id);
+  const ids = ((states ?? []) as Array<{ id: string }>).map((s) => s.id);
+  if (!ids.length) return null;
+  const { data: persons } = await sb.from("persons").select("id, status").eq("world_id", worldId).in("id", ids);
+  return ((persons ?? []) as Array<{ id: string; status: string }>).find((p) => p.status === "ACTIVE")?.id ?? null;
+}
+
+/** Personagem do usuário neste mundo; sem personagem ativo, vai para o balanço da carreira encerrada ou para a criação. */
 export const requireMe = cache(async (year: number): Promise<Me> => {
   if (!isStartYear(year)) redirect("/jogo");
   const { sb, user } = await getSession();
   if (!user) redirect(`/entrar?next=/jogo/${year}`);
   const worldId = await myWorldId(year);
-  const { data: st } = await sb.from("person_states").select("*").eq("world_id", worldId).eq("user_id", user.id).maybeSingle();
-  if (!st) redirect(`/jogo/novo?ano=${year}`);
-  const { data: person } = await sb.from("persons").select("*").eq("world_id", worldId).eq("id", st.id).maybeSingle();
-  if (!person || person.status !== "ACTIVE") redirect(`/jogo/novo?ano=${year}`);
+  const { data: states } = await sb.from("person_states").select("*").eq("world_id", worldId).eq("user_id", user.id);
+  const rows = (states ?? []) as PersonStateRow[];
+  if (!rows.length) redirect(`/jogo/novo?ano=${year}`);
+  const { data: persons } = await sb.from("persons").select("*").eq("world_id", worldId).in("id", rows.map((r) => r.id));
+  const person = ((persons ?? []) as PersonRow[]).find((p) => p.status === "ACTIVE");
+  if (!person) redirect(rows.some((r) => r.story?.ended) ? `/jogo/fim/${year}` : `/jogo/novo?ano=${year}`);
+  const st = rows.find((r) => r.id === person.id)!;
   let party: PartyRow | null = null;
   if (person.party_id) {
     const { data } = await sb.from("parties").select("*").eq("world_id", worldId).eq("id", person.party_id).maybeSingle();

@@ -8,12 +8,16 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadCities, loadSnapshot } from "@dp/data";
 import {
   addDays,
+  careerSummary,
   Changes,
   clearPlayerData,
   createInitialWorld,
   MILESTONE_HOLD_MIN,
+  pendingFor,
   planAdvance,
   PRIVATE_FLAG,
+  resolveStory,
+  stepDays,
   SHARED_DAYS_PER_HOUR,
   Ctx,
   DEFAULT_RULESET,
@@ -28,9 +32,13 @@ import {
   START_YEARS,
   targetTick,
   type CityBase,
+  type CareerSummary,
   type ClockAdvance,
   type ClockStatus,
+  type DayDigest,
   type EconomyRow,
+  type StoryDelta,
+  type StoryEvent,
   type WorldRow,
   type WorldState,
 } from "@dp/engine";
@@ -500,6 +508,159 @@ export async function fastForward(worldId: string, days: number, userId: string)
   } finally {
     await rpc("sim_release", { p_world: worldId, p_holder: holder }).catch(() => undefined);
   }
+}
+
+/* ---------- viver os dias: avanço dia a dia, com pausa nas decisões ---------- */
+
+export interface StepAdvanceResult extends FastForwardResult {
+  /** diário do período: um item por dia vivido */
+  diary?: DayDigest[];
+  /** por que parou antes do fim: decisão que segura o tempo, fim da carreira ou limite de processamento */
+  stop?: "decisao" | "fim" | "limite" | null;
+  /** acontecimentos esperando resposta (os que seguram o tempo primeiro) */
+  pending?: StoryEvent[];
+  /** dias pedidos e dias que ainda faltam (o relógio retoma daí depois da decisão) */
+  requested?: number;
+  remaining?: number;
+}
+
+function activePlayer(state: WorldState, userId: string) {
+  return [...state.t.persons.values()].find((x) => x.user_id === userId && x.status === "ACTIVE" && x.kind === "PLAYER") ?? null;
+}
+
+/**
+ * Passar o tempo vivendo cada dia: o relógio automático alcança o presente
+ * (sem acontecimentos sorteados) e então os dias pedidos passam um a um para o
+ * jogador, parando quando surge uma decisão que segura o tempo. A tela anima
+ * o diário e, depois da resposta, pede o resto dos dias.
+ */
+export async function advanceStep(worldId: string, days: number, userId: string): Promise<StepAdvanceResult> {
+  if (!Number.isInteger(days) || days < 1 || days > 31) return { ok: false, message: "Escolha entre 1 e 31 dias.", days: 0 };
+  const holder = crypto.randomUUID();
+  if (!(await acquire(worldId, holder))) return { ok: false, message: "O mundo está processando outro avanço. Tente em instantes.", days: 0 };
+  try {
+    const state = await loadState(worldId);
+    const me = activePlayer(state, userId);
+    if (!me) return { ok: false, message: "Você não tem personagem ativo neste mundo.", days: 0, stop: "fim" };
+    const clock = await clockStatus(worldId, me.id);
+    const before = snapshotOf(state, userId);
+    const countryBefore = countryOf(state);
+    const expected = state.world.tick;
+    const now = new Date().toISOString();
+    const caughtUp = Math.max(targetTick(state, now), state.world.tick);
+    const manualFrom = addDays(state.world.game_date, caughtUp - state.world.tick);
+    const plan = planAdvance(state, clock, manualFrom, days);
+    if (!plan.ok) return { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
+    const from = state.world.game_date;
+    // 1) o relógio automático alcança o presente
+    const auto = runTicks(state, { target: caughtUp, maxTicks: MAX_CATCHUP, budgetMs: 12_000, now: () => Date.now() });
+    // 2) os dias vividos pelo jogador, um a um
+    const step = stepDays(state, me.id, { days: plan.days, budgetMs: 30_000, now: () => Date.now() });
+    const manual = step.ticks;
+    state.world.anchor_tick = state.world.tick;
+    state.world.anchor_real_at = now;
+    step.ctx.saveWorld();
+    if (manual > 0) {
+      step.ctx.emit("TIME_ADVANCED", { actors: [me.id], geography: "BR", payload: { days: manual, from: manualFrom, to: state.world.game_date } });
+      for (const id of clock.others) {
+        step.ctx.notify(id, "Outro jogador passou o tempo", `${me.name} avançou o relógio do mundo em ${manual === 1 ? "1 dia" : `${manual} dias`}: agora é ${formatDatePt(state.world.game_date)}. Veja no Painel o que mudou.`, "/jogo/");
+      }
+    }
+    const changes = new Changes();
+    changes.merge(auto.ctx.changes);
+    changes.merge(step.ctx.changes);
+    await persist(worldId, changes, expected);
+    cache.set(worldId, { state, at: Date.now() });
+    const news = changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
+    const headlines = news
+      .sort((a, b) => b.importance - a.importance || b.tick - a.tick)
+      .slice(0, 16)
+      .map((n) => ({ headline: n.headline, lede: firstSentence(n.body), category: n.category, date: n.game_date, factual: n.factual, importance: n.importance }));
+    const notifications = changes
+      .get("notifications")
+      .filter((n) => n.user_id === userId)
+      .map((n) => ({ title: n.title, body: n.body, link: n.link }));
+    const held = plan.stop && manual === plan.days && plan.days < days;
+    return {
+      ok: true,
+      message: `${manual} dia(s) vivido(s).`,
+      days: auto.ticks + manual,
+      from,
+      to: state.world.game_date,
+      headlines,
+      newsCount: news.length,
+      notifications,
+      before,
+      after: snapshotOf(state, userId),
+      country: { before: countryBefore, after: countryOf(state) },
+      note: held ? `O relógio parou na véspera do ${plan.stop!.label}: com outros jogadores no mundo, os marcos esperam ${MILESTONE_HOLD_MIN} min antes de serem cruzados.` : undefined,
+      diary: step.days,
+      stop: step.stop,
+      pending: pendingFor(state, me.id),
+      requested: days,
+      remaining: held ? 0 : Math.max(0, plan.days - manual),
+    };
+  } finally {
+    await rpc("sim_release", { p_world: worldId, p_holder: holder }).catch(() => undefined);
+  }
+}
+
+export interface DecideResult {
+  ok: boolean;
+  message: string;
+  title?: string;
+  outcome?: string;
+  choiceLabel?: string;
+  deltas?: StoryDelta[];
+  pending?: StoryEvent[];
+  /** a decisão encerrou a carreira (aposentadoria) */
+  ended?: boolean;
+}
+
+/** Resposta a um acontecimento (sem avançar o relógio). */
+export async function decideStory(worldId: string, userId: string, eventId: string, choiceId: string): Promise<DecideResult> {
+  let personId: string | null = null;
+  const { result, state } = await withWorld(
+    worldId,
+    (state, mk) => {
+      const me = activePlayer(state, userId);
+      if (!me) return { ok: false, message: "Você não tem personagem ativo neste mundo." };
+      personId = me.id;
+      return resolveStory(mk(me.id), me.id, eventId, choiceId);
+    },
+    { maxTicks: 0 },
+  );
+  const r = result ?? { ok: false, message: "Sem resposta." };
+  const st = personId ? state.t.person_states.get(personId) : undefined;
+  return { ...r, pending: personId ? pendingFor(state, personId) : [], ended: !!st?.story?.ended };
+}
+
+export type CareerEndView = CareerSummary & { personId: string };
+
+/**
+ * Balanço de uma carreira encerrada. Mandatos, candidaturas e filiações antigas
+ * não ficam na memória do mundo: vêm do banco e entram só nesta leitura.
+ */
+export async function careerEnd(worldId: string, personId: string): Promise<CareerEndView | null> {
+  const state = await cachedState(worldId);
+  if (!state.t.persons.get(personId)) return null;
+  const read = db(playerToken.getStore());
+  const [cands, mems, mands] = await Promise.all([
+    read.from("candidacies").select("*").eq("world_id", worldId).eq("person_id", personId),
+    read.from("memberships").select("*").eq("world_id", worldId).eq("person_id", personId),
+    read.from("mandates").select("*").eq("world_id", worldId).eq("person_id", personId),
+  ]);
+  const merged = <K extends "candidacies" | "memberships" | "mandates">(name: K, rows: unknown[] | null) => {
+    const m = new Map(state.t[name] as Map<string, unknown>);
+    for (const row of (rows ?? []) as Array<{ id: string }>) if (!m.has(row.id)) m.set(row.id, row);
+    return m as WorldState["t"][K];
+  };
+  const view: WorldState = {
+    ...state,
+    t: { ...state.t, candidacies: merged("candidacies", cands.data), memberships: merged("memberships", mems.data), mandates: merged("mandates", mands.data) },
+  };
+  const sum = careerSummary(new Ctx(view, "read"), personId);
+  return sum ? { ...sum, personId } : null;
 }
 
 /** Exclusão de conta: o motor limpa os dados do jogador em cada mundo antes de o banco anonimizar o personagem. */

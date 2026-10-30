@@ -15,6 +15,7 @@ import { spawnProceduralCadre } from "./npc";
 import { eraRules, OFFICES, type OfficeCode } from "./ruleset";
 import type { Rng } from "./rng";
 import type { Ctx } from "./state";
+import { scheduleStory } from "./story/state";
 import type {
   Authority,
   Finding,
@@ -551,6 +552,11 @@ export function openInvestigation(ctx: Ctx, target: PersonRow | null, opts: Open
   }
   const ev = ctx.emit("INVESTIGATION_OPENED", { actors: target ? [target.id] : [], geography: target?.uf ?? "BR", payload: { authority: opts.authority, investigation: inv.id, party: partyTarget?.id ?? null } });
   if (target) {
+    const tst = target.kind === "PLAYER" ? ctx.pstate(target.id) : undefined;
+    if (tst) {
+      scheduleStory(tst, "investigacao_aberta", ctx.date, { inv: inv.id });
+      ctx.save("person_states", tst);
+    }
     ctx.notify(target.id, "Você é alvo de uma investigação", `${capitalize(AUTHORITY_LABEL[opts.authority])} abriu um caso envolvendo você (${inv.crimes.length ? chargesText(inv.crimes) : "suspeita ainda genérica"}). Prepare sua defesa.`, "/jogo/investigacoes");
   } else if (partyTarget?.president_id) {
     ctx.notify(partyTarget.president_id, `Investigação sobre o ${partyTarget.acronym}`, `${capitalize(AUTHORITY_LABEL[opts.authority])} abriu apuração sobre as contas e a atuação do partido.`, "/jogo/investigacoes");
@@ -999,6 +1005,9 @@ export function monthlyCrime(ctx: Ctx): void {
       const amount = Math.round((rng.range(30_000, 400_000) * (p.office_code ? 2 : 1) * worldPriceLevel(ctx.world)) / 1000) * 1000;
       const offer: Offer = { id: ctx.id("ofr", p.id), kind, from: broker.id, amount, expires_tick: ctx.tick + 15 };
       st.offers.push(offer);
+      // vira um acontecimento da carreira: quem ofereceu, quanto e o que quer em troca
+      const campaigning = [...ctx.t.candidacies.values()].some((c) => c.person_id === p.id && (c.status === "HOMOLOGADA" || c.status === "SEGUNDO_TURNO"));
+      scheduleStory(st, kind === "CAIXA_DOIS" && campaigning ? "proposta_financiamento" : "proposta_ilicita", ctx.date, { offer: offer.id, broker: broker.id, amount });
       ctx.save("person_states", st);
       ctx.notify(
         p.id,
@@ -1018,6 +1027,38 @@ export function monthlyCrime(ctx: Ctx): void {
       ctx.save("parties", party);
     }
   }
+}
+
+/**
+ * Resposta a uma oferta ilícita (pela tela de ações ou pelo acontecimento da
+ * carreira). Aceitar traz dinheiro e risco; denunciar abre caso contra quem ofereceu.
+ */
+export function respondToOffer(ctx: Ctx, p: PersonRow, st: PersonStateRow, offerId: string, decision: "ACEITAR" | "RECUSAR" | "DENUNCIAR"): string {
+  const offer = st.offers.find((o) => o.id === offerId);
+  if (!offer) return "A oferta não está mais de pé.";
+  st.offers = st.offers.filter((o) => o.id !== offer.id);
+  ctx.save("person_states", st);
+  const broker = ctx.person(offer.from);
+  const fmt = `R$ ${Math.round(offer.amount).toLocaleString("pt-BR")}`;
+  if (decision === "ACEITAR") {
+    const c = [...ctx.t.candidacies.values()].find(
+      (x) => x.person_id === p.id && ["PRE", "HOMOLOGADA", "SEGUNDO_TURNO"].includes(x.status) && ctx.t.elections.get(x.election_id)?.status !== "ENCERRADA",
+    );
+    if (c && offer.kind === "CAIXA_DOIS") {
+      c.campaign.budget += offer.amount;
+      ctx.save("candidacies", c);
+    } else {
+      st.dirty_money += offer.amount;
+    }
+    createIllicitAct(ctx, p, offer.kind, { amount: offer.amount, partners: broker ? [broker.id] : [], description: offer.kind === "PROPINA" ? `Vantagem indevida oferecida por ${broker?.name ?? "intermediário"}` : `Caixa dois oferecido por ${broker?.name ?? "intermediário"}` });
+    return `Você aceitou ${fmt} ${c && offer.kind === "CAIXA_DOIS" ? "para a campanha, fora da prestação de contas" : "em dinheiro não declarado"}. Ninguém precisa saber... por enquanto.`;
+  }
+  if (decision === "DENUNCIAR" && broker) {
+    const act = createIllicitAct(ctx, broker, offer.kind === "PROPINA" ? "CORRUPCAO_ATIVA" : "CAIXA_DOIS", { amount: offer.amount, description: `Oferta de vantagem indevida a ${p.name}`, witnesses: 1, paperTrail: 0.6 });
+    openInvestigation(ctx, broker, { authority: "PF", openedBy: p.id, initialEvidence: 0.45, actIds: [act.id], reason: `Denúncia de tentativa de corrupção feita por ${p.name}`, channel: "DENUNCIA" });
+    return `Você denunciou ${broker.name} à Polícia Federal.`;
+  }
+  return "Você recusou a oferta.";
 }
 
 /** Lista de atos de um jogador, com os esquemas em andamento primeiro (para telas). */
