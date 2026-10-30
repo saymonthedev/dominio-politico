@@ -67,3 +67,24 @@ export const initialsOf = (name: string) =>
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("") || "?";
+
+const SEEN_KEY = "dp:eventos-vistos";
+
+/** Acontecimentos já mostrados nesta sessão: não abrem sozinhos de novo. */
+export function seenSet(): Set<string> {
+  try {
+    return new Set(JSON.parse(sessionStorage.getItem(SEEN_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+export function markSeen(id: string) {
+  try {
+    const s = seenSet();
+    s.add(id);
+    sessionStorage.setItem(SEEN_KEY, JSON.stringify([...s].slice(-60)));
+  } catch {
+    /* sessão sem armazenamento: só não lembra */
+  }
+}

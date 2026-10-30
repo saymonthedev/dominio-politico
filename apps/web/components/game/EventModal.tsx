@@ -7,7 +7,7 @@ import { useModal } from "../a11y";
 import { Button } from "../forms";
 import { Icon } from "../Icon";
 import { DeltaChips } from "./ActionFx";
-import { deadline, dayShort, initialsOf, KIND, STORY_INTRO, TAG, TONE_LABEL } from "./story-ui";
+import { deadline, dayShort, initialsOf, KIND, markSeen, STORY_INTRO, TAG, TONE_LABEL } from "./story-ui";
 
 const INTRO_KEY = "dp:intro-acontecimentos";
 
@@ -45,6 +45,8 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
   const info = event.kind === "INFO";
   // primeira vez: uma apresentação curta do que é isto
   const [intro, setIntro] = useState(false);
+  // visto em qualquer tela (relógio, sino, painel): não volta a abrir sozinho
+  useEffect(() => markSeen(event.id), [event.id]);
   useEffect(() => {
     try {
       if (!localStorage.getItem(INTRO_KEY)) setIntro(true);

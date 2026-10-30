@@ -6,7 +6,7 @@ import { advanceDay } from "../tick";
 import { StoryCtx } from "./context";
 import { pendingBlocking } from "./state";
 import { WEEKDAYS } from "./time";
-import type { StoryDelta, StoryEvent, StoryKind, StoryState, StoryTag, StoryWho } from "./types";
+import type { StoryDelta, StoryKind, StoryTag, StoryWho } from "./types";
 import { bairro } from "./catalog/util";
 
 /**
@@ -52,14 +52,10 @@ export interface StepResult {
   days: DayDigest[];
   /** por que parou antes do fim: decisão pendente, fim da carreira ou limite de tempo de processamento */
   stop: "decisao" | "fim" | "limite" | null;
-  /** acontecimento que fez o relógio parar (novo, ou no último dia do prazo) */
+  /** acontecimento novo que fez o relógio parar */
   stopOn?: string;
 }
 
-/** Oportunidade sem resposta que vence se o dia virar: o relógio para uma vez para lembrar. */
-function lastCall(story: StoryState | null | undefined, date: string): StoryEvent | undefined {
-  return (story?.pending ?? []).find((e) => !e.blocking && e.kind !== "INFO" && e.choices.length > 0 && e.expires != null && e.expires <= date && !e.data.lastCall);
-}
 
 function hash(s: string): number {
   let h = 0;
@@ -126,14 +122,6 @@ export function stepDays(state: WorldState, personId: string, opts: { days: numb
       }
       if (pendingBlocking(st.story)) {
         stop = "decisao";
-        break;
-      }
-      const due = lastCall(st.story, state.world.game_date);
-      if (due) {
-        due.data.lastCall = 1;
-        ctx.save("person_states", st);
-        stop = "decisao";
-        stopOn = due.id;
         break;
       }
       const seenLog = new Set((st.story?.log ?? []).slice(0, 40).map((e) => e.id));

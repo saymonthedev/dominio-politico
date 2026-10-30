@@ -955,6 +955,8 @@ td.num, th.num { text-align: right; }
 .gprofile__who span { font-size: .76rem; color: var(--apagado); }
 .gprofile__place { display: flex; align-items: center; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gprofile__city { overflow-wrap: anywhere; }
+.gprofile__age { white-space: nowrap; }
+.gprofile__age::after { content: " · "; }
 .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
 .gmeters { display: grid; gap: 8px; padding: 0 4px; }
 .gmeters > div { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; font-size: .78rem; }

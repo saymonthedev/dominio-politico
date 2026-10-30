@@ -5,27 +5,7 @@ import type { StoryEvent } from "@dp/engine";
 import { usePopover } from "../a11y";
 import { Icon } from "../Icon";
 import { EventModal } from "./EventModal";
-import { deadline, KIND, STORY_INTRO, TAG } from "./story-ui";
-
-const SEEN_KEY = "dp:eventos-vistos";
-
-function seenSet(): Set<string> {
-  try {
-    return new Set(JSON.parse(sessionStorage.getItem(SEEN_KEY) ?? "[]") as string[]);
-  } catch {
-    return new Set();
-  }
-}
-
-function markSeen(id: string) {
-  try {
-    const s = seenSet();
-    s.add(id);
-    sessionStorage.setItem(SEEN_KEY, JSON.stringify([...s].slice(-60)));
-  } catch {
-    /* sessão sem armazenamento: só não lembra */
-  }
-}
+import { deadline, KIND, markSeen, seenSet, STORY_INTRO, TAG } from "./story-ui";
 
 /** Um pop-up por vez em toda a tela (o relógio também abre os seus). */
 export function storyModalOpen(): boolean {

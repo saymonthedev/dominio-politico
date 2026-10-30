@@ -109,15 +109,13 @@ export function GameSidebar({ year, profile, badges }: { year: number; profile: 
           </span>
           <span className="gprofile__who">
             <b>{profile.name}</b>
-            <span>
-              {profile.stage}
-              {profile.age != null ? ` · ${profile.age} anos` : ""}
-            </span>
+            <span>{profile.stage}</span>
             <span className="gprofile__place">
               {profile.party ? <i className="dot" style={{ background: profile.party.color }} /> : null}
               {profile.party?.acronym ?? "Sem partido"}
             </span>
             <span className="gprofile__city" title={profile.place}>
+              {profile.age != null && <span className="gprofile__age">{profile.age} anos</span>}
               {profile.place}
             </span>
           </span>

@@ -144,38 +144,7 @@ describe("acontecimentos da carreira", () => {
     expect(r2.days[0].line.length).toBeGreaterThan(5);
   });
 
-  it("oportunidade nova para o relógio na hora e lembra no último dia do prazo, uma vez", () => {
-    const { state, p, st } = player("story-oportunidade");
-    const s = storyOf(st);
-    const today = state.world.game_date;
-    s.pending.push({
-      id: "sty_opo",
-      def: "despesa_inesperada",
-      on: today,
-      expires: today,
-      kind: "OPORTUNIDADE",
-      blocking: false,
-      tags: ["COMUNIDADE"],
-      title: "Torneio no bairro",
-      text: "",
-      choices: [
-        { id: "ir", label: "Ir" },
-        { id: "passar", label: "Deixar passar" },
-      ],
-      data: {},
-      fallback: "passar",
-    });
-    const r1 = stepDays(state, p.id, { days: 5 });
-    expect(r1.stop).toBe("decisao");
-    expect(r1.stopOn).toBe("sty_opo");
-    expect(r1.ticks).toBe(0);
-    // deixou para depois: o relógio segue e o prazo vence
-    const r2 = stepDays(state, p.id, { days: 2 });
-    expect(r2.stopOn).not.toBe("sty_opo");
-    expect(s.pending.find((e) => e.id === "sty_opo")).toBeUndefined();
-  });
-
-  it("escolha sem resposta só vence com o jogador presente, depois do aviso, e aplica a escolha padrão", () => {
+  it("escolha sem resposta só vence com o jogador presente e aplica a escolha padrão", () => {
     const { state, p, st } = player("story-prazo");
     const s = storyOf(st);
     s.pending.push({
@@ -199,10 +168,7 @@ describe("acontecimentos da carreira", () => {
     // ausente (relógio automático): o prazo espera
     runTicks(state, { target: state.world.tick + 2, maxTicks: 2 });
     expect(s.pending.find((e) => e.id === "sty_prazo")).toBeDefined();
-    // presente: o relógio para uma vez para lembrar
-    const r1 = stepDays(state, p.id, { days: 3 });
-    expect(r1.stopOn).toBe("sty_prazo");
-    // deixou para depois: vence e vale a escolha padrão
+    // presente, deixando para depois: vence e vale a escolha padrão
     stepDays(state, p.id, { days: 1 });
     expect(s.pending.find((e) => e.id === "sty_prazo")).toBeUndefined();
     const entry = s.log.find((e) => e.id === "sty_prazo")!;
