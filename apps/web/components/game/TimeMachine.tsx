@@ -76,6 +76,8 @@ export interface TimeMachineProps {
   clock?: SharedClock | null;
   /** acontecimentos esperando resposta */
   pending?: StoryEvent[];
+  /** marcos do calendário que caem hoje (já começaram) */
+  today?: string[];
   /** ações que dá para agendar no período (época de eleição: pré-candidatura e campanha) */
   agenda?: ActionView[];
 }
@@ -124,7 +126,7 @@ function mergeChunks(chunks: StepAdvanceResult[]): FastForwardResult | null {
 const isoPlus = (iso: string, n: number) => addDays(iso, n).toISOString().slice(0, 10);
 const daysFrom = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / DAY);
 
-export function TimeMachine({ year, date, energy, next, clock, pending = [], agenda = [] }: TimeMachineProps) {
+export function TimeMachine({ year, date, energy, next, clock, pending = [], agenda = [], today: todayMarks = [] }: TimeMachineProps) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [diary, setDiary] = useState<DayDigest[]>([]);
   const [shown, setShown] = useState(0);
@@ -338,9 +340,14 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
           </p>
         ) : (
           <p>
-            {next && toNext !== null && toNext >= 0 ? (
+            {todayMarks.length > 0 && (
               <>
-                Próximo marco: <b>{next.label}</b>, {toNext === 0 ? "hoje" : toNext === 1 ? "amanhã" : `daqui a ${toNext} dias`}.{" "}
+                Hoje: <b>{todayMarks.join("; ")}</b> (começou).{" "}
+              </>
+            )}
+            {next && toNext !== null && toNext >= 1 ? (
+              <>
+                Próximo marco: <b>{next.label}</b>, {toNext === 1 ? "amanhã" : `daqui a ${toNext} dias`}.{" "}
               </>
             ) : null}
             Os dias passam um a um: dias tranquilos correm sozinhos e as decisões importantes param o relógio. Energia: {Math.round(energy)}/100 (recupera 25 por dia).

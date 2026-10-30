@@ -147,7 +147,12 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
           year={year}
           date={state.world.game_date}
           energy={me.state.energy}
-          next={cal[0] ? { label: cal[0].title, date: cal[0].date } : null}
+          next={(() => {
+            // o que cai hoje já começou: o próximo marco é o seguinte
+            const n = cal.find((x) => x.days >= 1);
+            return n ? { label: n.title, date: n.date } : null;
+          })()}
+          today={cal.filter((x) => x.days === 0).map((x) => x.title)}
           clock={clock}
           pending={storyPending}
           agenda={schedulable}
