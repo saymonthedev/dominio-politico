@@ -111,8 +111,9 @@ export class Effects {
 
   activism(v: number): void {
     const st = this.c.st;
-    st.activism = Math.max(0, st.activism + v);
-    this.add("ativismo", "ativismo", v);
+    const before = st.activism;
+    st.activism = clamp(st.activism + v);
+    this.add("ativismo", "ativismo", st.activism - before);
   }
 
   capital(v: number): void {

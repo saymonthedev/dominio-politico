@@ -77,18 +77,19 @@ const abaixo_assinado = ev({
   expires: 7,
   when: (c) => ({
     hood: c.rng.chance(0.6) ? home(c) : "centro",
-    pedido: c.rng.pick(["uma lombada na frente da escola", "iluminação na praça", "um posto de saúde aberto à noite", "a volta da linha de ônibus noturna", "a reforma da quadra"]),
+    // já com a preposição certa ("por uma", "pela", "pelo")
+    pedido: c.rng.pick(["por uma lombada na frente da escola", "por iluminação na praça", "por um posto de saúde aberto à noite", "pela volta da linha de ônibus noturna", "pela reforma da quadra"]),
     quem: c.rng.pick(NOMES),
   }),
-  title: (_c, b) => `Abaixo-assinado por ${b.pedido}`,
-  text: (_c, b) => `${b.quem} está juntando assinaturas no ${b.hood} por ${b.pedido}. Faltam umas trezentas, e alguém precisa levar o papel até a prefeitura.`,
+  title: (_c, b) => `Abaixo-assinado ${b.pedido}`,
+  text: (_c, b) => `${b.quem} está juntando assinaturas no ${b.hood} ${b.pedido}. Faltam umas trezentas, e alguém precisa levar o papel até a prefeitura.`,
   opts: [
     { id: "liderar", label: "Pegar a prancheta e liderar", hint: "Dois fins de semana batendo de porta em porta", tone: "safe", cost: () => ({ energy: 15 }), run: (c, b, fx) => {
       fx.activism(4);
       fx.reach(0.004);
       if (c.roll(0.5)) {
         fx.reputation(2);
-        return `As assinaturas chegaram à prefeitura com você na frente. Duas semanas depois, começou a obra de ${b.pedido}. O bairro sabe quem foi.`;
+        return "As assinaturas chegaram à prefeitura com você na frente. Duas semanas depois, o pedido foi atendido. O bairro sabe quem foi.";
       }
       fx.reputation(1);
       return "Você protocolou tudo. A prefeitura respondeu com um ofício de três linhas, mas o bairro viu quem foi até lá.";

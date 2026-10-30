@@ -339,7 +339,7 @@ export const ACTIONS: ActionDef[] = [
       const f = dr("evento_local");
       p.reputation = clamp(p.reputation + 2 * f);
       addReach(st, p.uf, 0.01 * f);
-      st.activism += 5 * f;
+      st.activism = clamp(st.activism + 5 * f);
       const locals = [...ctx.t.persons.values()].filter((x) => x.uf === p.uf && x.kind !== "PLAYER" && x.status === "ACTIVE" && x.party_id);
       let met = "";
       if (locals.length && rng.chance(0.6)) {
@@ -366,7 +366,7 @@ export const ACTIONS: ActionDef[] = [
       const axis = params.axis as Axis;
       const side = Number(params.side) >= 0 ? 1 : -1;
       const f = dr(`voluntariado:${axis}`);
-      st.activism += 8 * f;
+      st.activism = clamp(st.activism + 8 * f);
       p.reputation = clamp(p.reputation + 1 * f);
       p.ideology[axis] = clampAxis(p.ideology[axis] + side * 3);
       st.political_capital = clamp(st.political_capital + 2 * f);
@@ -559,7 +559,7 @@ export const ACTIONS: ActionDef[] = [
     run: ({ ctx, p, st, dr }) => {
       const f = dr("militancia");
       st.party_standing = clamp(st.party_standing + 4 * f);
-      st.activism += 3 * f;
+      st.activism = clamp(st.activism + 3 * f);
       addReach(st, p.uf, 0.005 * f);
       if (p.faction_id) {
         const fac = ctx.t.factions.get(p.faction_id);
@@ -719,7 +719,7 @@ export const ACTIONS: ActionDef[] = [
     ({ p, st, dr }, c) => {
       const f = dr("pre_escuta");
       addReach(st, scopeUf(c, p), 0.004 * f);
-      st.activism += 2 * f;
+      st.activism = clamp(st.activism + 2 * f);
       preSeg(c, ["trabalhadores_formais", "informais", "aposentados"], 0.015 * f);
       return "Três noites, três bairros, um caderno cheio. Você sabe agora o que dói em cada canto.";
     },
