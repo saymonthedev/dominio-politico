@@ -52,7 +52,7 @@ function live(state: WorldState, personId: string, total: number, pick?: (ev: St
   let done = 0;
   let stops = 0;
   let guard = 0;
-  while (done < total && guard++ < total * 3) {
+  while (done < total && guard++ < total * 6) {
     const r = stepDays(state, personId, { days: total - done });
     done += r.ticks;
     const st = state.t.person_states.get(personId)!;
@@ -142,6 +142,37 @@ describe("acontecimentos da carreira", () => {
     expect(r2.ticks).toBeGreaterThan(0);
     expect(r2.days[0].weekday).toBeTruthy();
     expect(r2.days[0].line.length).toBeGreaterThan(5);
+  });
+
+  it("oportunidade nova para o relógio na hora e lembra no último dia do prazo, uma vez", () => {
+    const { state, p, st } = player("story-oportunidade");
+    const s = storyOf(st);
+    const today = state.world.game_date;
+    s.pending.push({
+      id: "sty_opo",
+      def: "despesa_inesperada",
+      on: today,
+      expires: today,
+      kind: "OPORTUNIDADE",
+      blocking: false,
+      tags: ["COMUNIDADE"],
+      title: "Torneio no bairro",
+      text: "",
+      choices: [
+        { id: "ir", label: "Ir" },
+        { id: "passar", label: "Deixar passar" },
+      ],
+      data: {},
+      fallback: "passar",
+    });
+    const r1 = stepDays(state, p.id, { days: 5 });
+    expect(r1.stop).toBe("decisao");
+    expect(r1.stopOn).toBe("sty_opo");
+    expect(r1.ticks).toBe(0);
+    // deixou para depois: o relógio segue e o prazo vence
+    const r2 = stepDays(state, p.id, { days: 2 });
+    expect(r2.stopOn).not.toBe("sty_opo");
+    expect(s.pending.find((e) => e.id === "sty_opo")).toBeUndefined();
   });
 
   it("decisão sem resposta vence o prazo e aplica a escolha padrão", () => {

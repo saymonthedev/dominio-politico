@@ -517,6 +517,8 @@ export interface StepAdvanceResult extends FastForwardResult {
   diary?: DayDigest[];
   /** por que parou antes do fim: decisão que segura o tempo, fim da carreira ou limite de processamento */
   stop?: "decisao" | "fim" | "limite" | null;
+  /** acontecimento que fez o relógio parar (aparece na tela na hora) */
+  stopOn?: string;
   /** acontecimentos esperando resposta (os que seguram o tempo primeiro) */
   pending?: StoryEvent[];
   /** dias pedidos e dias que ainda faltam (o relógio retoma daí depois da decisão) */
@@ -596,6 +598,7 @@ export async function advanceStep(worldId: string, days: number, userId: string)
       note: held ? `O relógio parou na véspera do ${plan.stop!.label}: com outros jogadores no mundo, os marcos esperam ${MILESTONE_HOLD_MIN} min antes de serem cruzados.` : undefined,
       diary: step.days,
       stop: step.stop,
+      stopOn: step.stopOn,
       pending: pendingFor(state, me.id),
       requested: days,
       remaining: held ? 0 : Math.max(0, plan.days - manual),

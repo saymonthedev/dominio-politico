@@ -6,7 +6,7 @@ import { advanceDay } from "../tick";
 import { StoryCtx } from "./context";
 import { pendingBlocking } from "./state";
 import { WEEKDAYS } from "./time";
-import type { StoryDelta, StoryKind, StoryTag, StoryWho } from "./types";
+import type { StoryDelta, StoryEvent, StoryKind, StoryState, StoryTag, StoryWho } from "./types";
 import { bairro } from "./catalog/util";
 
 /**
@@ -52,6 +52,13 @@ export interface StepResult {
   days: DayDigest[];
   /** por que parou antes do fim: decisão pendente, fim da carreira ou limite de tempo de processamento */
   stop: "decisao" | "fim" | "limite" | null;
+  /** acontecimento que fez o relógio parar (novo, ou no último dia do prazo) */
+  stopOn?: string;
+}
+
+/** Oportunidade sem resposta que vence se o dia virar: o relógio para uma vez para lembrar. */
+function lastCall(story: StoryState | null | undefined, date: string): StoryEvent | undefined {
+  return (story?.pending ?? []).find((e) => !e.blocking && e.kind !== "INFO" && e.choices.length > 0 && e.expires != null && e.expires <= date && !e.data.lastCall);
 }
 
 function hash(s: string): number {
@@ -105,6 +112,7 @@ export function stepDays(state: WorldState, personId: string, opts: { days: numb
   const start = now();
   const days: DayDigest[] = [];
   let stop: StepResult["stop"] = null;
+  let stopOn: string | undefined;
   const prevFocus = state.focus;
   state.focus = new Set([...(prevFocus ?? []), personId]);
   try {
@@ -118,6 +126,14 @@ export function stepDays(state: WorldState, personId: string, opts: { days: numb
       }
       if (pendingBlocking(st.story)) {
         stop = "decisao";
+        break;
+      }
+      const due = lastCall(st.story, state.world.game_date);
+      if (due) {
+        due.data.lastCall = 1;
+        ctx.save("person_states", st);
+        stop = "decisao";
+        stopOn = due.id;
         break;
       }
       const seenLog = new Set((st.story?.log ?? []).slice(0, 40).map((e) => e.id));
@@ -159,6 +175,13 @@ export function stepDays(state: WorldState, personId: string, opts: { days: numb
         stop = i < opts.days - 1 ? "decisao" : null;
         if (stop) break;
       }
+      // toda escolha nova aparece na hora, mesmo as que podem esperar
+      const fresh = (story?.pending ?? []).find((e) => !seenPending.has(e.id) && e.kind !== "INFO" && e.choices.length > 0);
+      if (fresh) {
+        stopOn = fresh.id;
+        stop = i < opts.days - 1 ? "decisao" : null;
+        if (stop) break;
+      }
       if (opts.budgetMs && now() - start > opts.budgetMs && i < opts.days - 1) {
         stop = "limite";
         break;
@@ -167,5 +190,5 @@ export function stepDays(state: WorldState, personId: string, opts: { days: numb
   } finally {
     state.focus = prevFocus;
   }
-  return { ctx, ticks: days.length, days, stop };
+  return { ctx, ticks: days.length, days, stop, stopOn };
 }

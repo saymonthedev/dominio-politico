@@ -188,7 +188,8 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [] }: T
     const r = last.current;
     if (!r) return finish();
     if (r.stop === "fim") return showEnd();
-    const block = r.pending?.find((e) => e.blocking);
+    // decisões que seguram o tempo e qualquer escolha nova: aparecem na hora
+    const block = r.pending?.find((e) => e.blocking) ?? (r.stopOn ? r.pending?.find((e) => e.id === r.stopOn) : undefined);
     if (block) {
       setDecision(block);
       setPhase("deciding");
