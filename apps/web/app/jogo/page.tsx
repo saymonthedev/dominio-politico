@@ -57,7 +57,7 @@ export default async function Page() {
                     </span>
                   </div>
                   <div className="world-card__who">
-                    <span className="avatar" style={{ background: color }}>{initials(d.person?.name ?? "?")}</span>
+                    <span className="avatar" style={{ background: color, color: inkOn(d.party?.color) }}>{initials(d.person?.name ?? "?")}</span>
                     <div>
                       <b>{d.person?.name}</b>
                       <span>{d.person?.role_label ?? STAGE_LABEL[d.person?.stage ?? ""] ?? d.person?.stage}</span>
@@ -96,4 +96,15 @@ export default async function Page() {
       <Footer />
     </>
   );
+}
+
+/** texto legível sobre a cor do partido: escuro em cores claras (amarelo, laranja…), branco nas escuras */
+function inkOn(hex?: string | null) {
+  const m = hex?.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!m) return "#fff";
+  const [r, g, b] = m.slice(1).map((h) => {
+    const c = parseInt(h, 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? "#0b1f3a" : "#fff";
 }

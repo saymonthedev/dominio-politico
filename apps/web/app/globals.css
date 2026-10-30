@@ -703,13 +703,13 @@ td.num, th.num { text-align: right; }
 .world-card { position: relative; display: grid; gap: 16px; text-decoration: none; color: inherit; background: var(--cartao); border: 1px solid var(--linha); border-radius: 18px; padding: 20px; box-shadow: var(--shadow); overflow: hidden; transition: transform .15s, border-color .15s; }
 .world-card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: var(--accent); }
 .world-card:hover { transform: translateY(-3px); border-color: var(--faixa); }
-.world-card__top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.world-card__year { font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--apagado); }
-.world-card__date { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: .78rem; background: var(--rebaixada); padding: 3px 9px; border-radius: 999px; }
+.world-card__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.world-card__year { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-top: 4px; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--apagado); }
+.world-card__date { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap; font-family: var(--f-mono); font-size: .78rem; background: var(--rebaixada); padding: 3px 9px; border-radius: 999px; }
 .world-card__who { display: flex; gap: 12px; align-items: center; }
 .world-card__who .avatar { width: 48px; height: 48px; border-radius: 14px; font-size: 1.05rem; }
 .world-card__who b { display: block; font-size: 1.1rem; letter-spacing: -0.01em; }
-.world-card__who span { font-size: .84rem; color: var(--apagado); }
+.world-card__who div > span { font-size: .84rem; color: var(--apagado); }
 .world-card__tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .tag { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--linha); }
 .world-card__go { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: .88rem; color: var(--tinta); padding-top: 14px; border-top: 1px solid var(--linha); }
@@ -1761,7 +1761,7 @@ td.num, th.num { text-align: right; }
 .admin-tables { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .admin-tables li { display: grid; grid-template-columns: minmax(120px, 200px) 1fr auto; gap: 12px; align-items: center; font-size: .85rem; }
 .admin-tables .bar { height: 8px; border-radius: 4px; background: var(--faixa); }
-.world-card__mode { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--rebaixada); color: var(--planalto); font-size: .66rem; letter-spacing: .06em; }
+.world-card__mode { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--faixa) 45%, transparent); background: color-mix(in srgb, var(--faixa) 12%, transparent); color: var(--faixa-texto); font-size: .64rem; letter-spacing: .08em; }
 .admin-errors { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .admin-errors li { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--rebaixada); overflow-wrap: anywhere; }
 .admin-errors b { font-size: .86rem; font-weight: 600; }
