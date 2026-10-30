@@ -32,6 +32,8 @@ const STORE = "dp:menu-fechado";
 export interface SideProfile {
   name: string;
   stage: string;
+  /** idade no jogo */
+  age: number | null;
   place: string;
   party: { acronym: string; color: string } | null;
   photo: string | null;
@@ -107,7 +109,10 @@ export function GameSidebar({ year, profile, badges }: { year: number; profile: 
           </span>
           <span className="gprofile__who">
             <b>{profile.name}</b>
-            <span>{profile.stage}</span>
+            <span>
+              {profile.stage}
+              {profile.age != null ? ` · ${profile.age} anos` : ""}
+            </span>
             <span className="gprofile__place">
               {profile.party ? <i className="dot" style={{ background: profile.party.color }} /> : null}
               {profile.party?.acronym ?? "Sem partido"} · {profile.place}

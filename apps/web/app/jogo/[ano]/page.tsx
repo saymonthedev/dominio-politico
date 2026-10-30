@@ -128,7 +128,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
 
   return (
     <>
-      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""}. Veja o que fazer agora, passe o tempo e acompanhe o país.`}>
+      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""}, ${Number(state.world.game_date.slice(0, 4)) - me.person.birth_year} anos. Veja o que fazer agora, passe o tempo e acompanhe o país.`}>
         <a className="ui-btn ui-btn--gold" href={`/jogo/${year}/carreira`}>
           <Icon name="play" size={16} /> <span>Agir na carreira</span>
         </a>

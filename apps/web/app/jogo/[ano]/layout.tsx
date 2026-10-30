@@ -92,6 +92,7 @@ export default async function GameLayout({ children, params }: { children: React
           profile={{
             name: me.person.name,
             stage: STAGE_LABEL[me.person.stage] ?? me.person.stage,
+            age: world?.game_date ? Number(world.game_date.slice(0, 4)) - me.person.birth_year : null,
             place,
             party: me.party ? { acronym: me.party.acronym, color: me.party.color } : null,
             photo: null,
