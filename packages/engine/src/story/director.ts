@@ -189,7 +189,8 @@ function sweepPending(c: StoryCtx): void {
       c.s.pending = c.s.pending.filter((e) => e.id !== ev.id);
       continue;
     }
-    if (ev.expires && ev.expires < c.date) {
+    // com escolha, o prazo só corre com você jogando: o relógio te mostra antes de vencer
+    if (ev.expires && ev.expires < c.date && (ev.kind === "INFO" || !ev.choices.length || isPresent(c.ctx, c.p.id))) {
       const fallback = ev.fallback ?? ev.choices[ev.choices.length - 1]?.id ?? "ok";
       const r = resolveStory(c.ctx, c.p.id, ev.id, fallback, true);
       if (r.ok && ev.kind !== "INFO") {

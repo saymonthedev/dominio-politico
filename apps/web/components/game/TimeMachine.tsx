@@ -477,12 +477,14 @@ function CountryRow({ before, after }: { before: CountrySnapshot; after: Country
         const flat = Math.abs(d) < (ind.key === "approval" ? 0.5 : 0.005);
         const good = ind.upIsGood ? d > 0 : d < 0;
         return (
-          <div key={ind.key} className="pr-ind">
+          <div key={ind.key} className="pr-ind" title={flat ? "estável no período" : undefined}>
             <span>{ind.label}</span>
             <b className="mono">{ind.fmt(b)}</b>
-            <small className={flat ? "" : good ? "up" : "down"}>
-              {flat ? "estável" : `${d > 0 ? "▲" : "▼"} ${ind.key === "approval" ? Math.round(Math.abs(d)) : num(Math.abs(d), 2)}${ind.unit ? ` ${ind.unit}` : ""}`}
-            </small>
+            {!flat && (
+              <small className={good ? "up" : "down"}>
+                {`${d > 0 ? "▲" : "▼"} ${ind.key === "approval" ? Math.round(Math.abs(d)) : num(Math.abs(d), 2)}`}
+              </small>
+            )}
           </div>
         );
       })}
@@ -527,6 +529,49 @@ export function PeriodReport({
   const happened = diary.flatMap((d) => d.events.map((e) => ({ ...e, date: d.date })));
   const quiet = diary.filter((d) => d.quiet).length;
 
+  const story = [
+    ...decided.map((d, i) => (
+      <li key={`d${i}`} className="pr-tl__item is-decided">
+        <b>{d.title}</b>
+        {d.choice && (
+          <span className="pr-story__choice">
+            <Icon name="check" size={12} /> {d.choice}
+          </span>
+        )}
+        {d.outcome && <p>{d.outcome}</p>}
+        {d.deltas && d.deltas.length > 0 && <DeltaChips deltas={d.deltas} />}
+      </li>
+    )),
+    ...happened.map((e) => (
+      <li key={e.id} className="pr-tl__item">
+        <span className="mono pr-date">{shortIso(e.date)}</span>
+        <b>{e.title}</b>
+        {e.auto && e.choiceLabel && <span className="pr-story__choice is-auto">sem resposta: {e.choiceLabel}</span>}
+        {e.outcome && <p>{e.outcome}</p>}
+      </li>
+    )),
+  ];
+  const noteItems = notes.map((n, i) => {
+    const invite = inviteIdOf(n.link);
+    const href = resolveLink(n.link, year);
+    return (
+      <li key={i}>
+        <b>{href && !invite ? <a href={href}>{n.title}</a> : n.title}</b>
+        <p>{n.body}</p>
+        {invite && <InviteActions year={year} invite={invite} className="pr-actions" />}
+      </li>
+    );
+  });
+  const headItems = rest.map((h, i) => (
+    <li key={i}>
+      <span className="mono pr-date">{shortIso(h.date)}</span>
+      <span>
+        {h.headline}
+        {NEWS_CATEGORIES[h.category] && <small> · {NEWS_CATEGORIES[h.category]}</small>}
+      </span>
+    </li>
+  ));
+
   return (
     <div className="ui-overlay pr-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="pr" role="dialog" aria-modal="true" aria-labelledby="pr-title" ref={box}>
@@ -549,122 +594,106 @@ export function PeriodReport({
             </p>
           )}
 
+          {/* 1. você: o que mudou no personagem, sempre no topo */}
+          <section className="pr-sec pr-you" aria-label="Com você">
+            {before && after && (
+              <div className="pr-deltas">
+                <Delta label="Energia" a={before.energy} b={after.energy} />
+                <Delta label="Caixa" a={before.money} b={after.money} money />
+                <Delta label="Reputação" a={before.reputation} b={after.reputation} />
+              </div>
+            )}
+            {changed && (
+              <div className="pr-change">
+                <Icon name="star" size={16} />
+                <span>
+                  {before!.stage !== after!.stage && (
+                    <>
+                      Nova etapa: <b>{STAGE[after!.stage] ?? after!.stage}</b>.{" "}
+                    </>
+                  )}
+                  {before!.party !== after!.party && <>{after!.party ? <>Agora você é do <b>{after!.party}</b>.</> : "Você está sem partido."}</>}
+                </span>
+              </div>
+            )}
+          </section>
+
+          {/* 2. sua história: decisões e acontecimentos, em ordem */}
           {(decided.length > 0 || happened.length > 0) && (
-            <section className="pr-story">
+            <section className="pr-sec">
               <h3>
-                <Icon name="zap" size={15} /> Sua história no período
+                <Icon name="zap" size={15} /> Sua história
+                <span className="pr-count">{decided.length + happened.length}</span>
               </h3>
-              <ul className="pr-story__list">
-                {decided.map((d, i) => (
-                  <li key={`d${i}`} className="pr-story__item is-decided">
-                    <b>{d.title}</b>
-                    {d.choice && (
-                      <span className="pr-story__choice">
-                        <Icon name="check" size={12} /> {d.choice}
-                      </span>
-                    )}
-                    {d.outcome && <p>{d.outcome}</p>}
-                    {d.deltas && d.deltas.length > 0 && <DeltaChips deltas={d.deltas} />}
-                  </li>
-                ))}
-                {happened.slice(0, 10).map((e) => (
-                  <li key={e.id} className="pr-story__item">
-                    <span className="mono pr-date">{shortIso(e.date)}</span> <b>{e.title}</b>
-                    {e.auto && e.choiceLabel && <span className="pr-story__choice is-auto">sem resposta: {e.choiceLabel}</span>}
-                    <p>{e.outcome}</p>
-                  </li>
-                ))}
-              </ul>
-              <p className="muted small" style={{ margin: 0 }}>
-                {quiet > 0 ? `${quiet} dia(s) de rotina, sem nada de especial. ` : ""}
-                {opportunities > 0 ? `${opportunities} oportunidade(s) esperando resposta no ícone de acontecimentos, no topo.` : ""}
-              </p>
+              <ol className="pr-tl">
+                {story.slice(0, 4)}
+              </ol>
+              {story.length > 4 && (
+                <details className="pr-fold">
+                  <summary>Ver mais {story.length - 4}</summary>
+                  <ol className="pr-tl">{story.slice(4)}</ol>
+                </details>
+              )}
+              {(quiet > 0 || opportunities > 0) && (
+                <p className="pr-foot-note">
+                  {quiet > 0 ? `${quiet} dia(s) de rotina. ` : ""}
+                  {opportunities > 0 ? `${opportunities} oportunidade(s) esperando resposta em Acontecimentos, no topo.` : ""}
+                </p>
+              )}
             </section>
           )}
 
-          {result.country && <CountryRow before={result.country.before} after={result.country.after} />}
-
-          <div className="pr__cols">
-            <section className="pr__news">
+          {/* 3. avisos */}
+          {notes.length > 0 && (
+            <section className="pr-sec">
               <h3>
-                <Icon name="newspaper" size={15} /> Manchetes do período
+                <Icon name="bell" size={15} /> Avisos
+                <span className="pr-count">{notes.length}</span>
               </h3>
-              {lead ? (
-                <>
-                  <article className="pr-lead">
-                    <div className="pr-tags">
-                      {NEWS_CATEGORIES[lead.category] && <span className="pill">{NEWS_CATEGORIES[lead.category]}</span>}
-                      <span className={`pill ${lead.factual ? "pill--ok" : "pill--sim"}`}>{lead.factual ? "fato real" : "simulação"}</span>
-                      <span className="mono pr-date">{shortIso(lead.date)}</span>
-                    </div>
-                    <b>{lead.headline}</b>
-                    {lead.lede && <p>{lead.lede}</p>}
-                  </article>
-                  <ul className="pr-list">
-                    {rest.slice(0, 9).map((h, i) => (
-                      <li key={i}>
-                        <span className="mono pr-date">{shortIso(h.date)}</span>
-                        <span>
-                          {h.headline}
-                          {NEWS_CATEGORIES[h.category] && <small> · {NEWS_CATEGORIES[h.category]}</small>}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  {more + Math.max(0, rest.length - 9) > 0 && (
-                    <a className="pr-more" href={`/jogo/${year}/noticias`}>
-                      + {more + Math.max(0, rest.length - 9)} notícias no período <Icon name="arrow" size={13} />
-                    </a>
-                  )}
-                </>
-              ) : (
-                <p className="muted small">Dias tranquilos: nenhuma manchete relevante.</p>
+              <ul className="pr-notes">{noteItems.slice(0, 3)}</ul>
+              {noteItems.length > 3 && (
+                <details className="pr-fold">
+                  <summary>Ver mais {noteItems.length - 3}</summary>
+                  <ul className="pr-notes">{noteItems.slice(3)}</ul>
+                </details>
               )}
             </section>
+          )}
 
-            <section className="pr__you">
-              <h3>
-                <Icon name="user" size={15} /> Com você
-              </h3>
-              {before && after && (
-                <div className="pr-deltas">
-                  <Delta label="Energia" a={before.energy} b={after.energy} />
-                  <Delta label="Caixa" a={before.money} b={after.money} money />
-                  <Delta label="Reputação" a={before.reputation} b={after.reputation} />
-                </div>
-              )}
-              {changed && (
-                <div className="pr-change">
-                  <Icon name="star" size={16} />
-                  <span>
-                    {before!.stage !== after!.stage && (
-                      <>
-                        Nova etapa: <b>{STAGE[after!.stage] ?? after!.stage}</b>.{" "}
-                      </>
-                    )}
-                    {before!.party !== after!.party && <>{after!.party ? <>Agora você é do <b>{after!.party}</b>.</> : "Você está sem partido."}</>}
-                  </span>
-                </div>
-              )}
-              {notes.length ? (
-                <ul className="pr-notes">
-                  {notes.slice(0, 6).map((n, i) => {
-                    const invite = inviteIdOf(n.link);
-                    const href = resolveLink(n.link, year);
-                    return (
-                      <li key={i}>
-                        <b>{href && !invite ? <a href={href}>{n.title}</a> : n.title}</b>
-                        <p>{n.body}</p>
-                        {invite && <InviteActions year={year} invite={invite} className="pr-actions" />}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="muted small">Nenhum aviso novo. Use a energia em ações na sua carreira.</p>
-              )}
-            </section>
-          </div>
+          {/* 4. o país: indicadores numa linha e as manchetes principais */}
+          <section className="pr-sec">
+            <h3>
+              <Icon name="newspaper" size={15} /> No Brasil
+            </h3>
+            {result.country && <CountryRow before={result.country.before} after={result.country.after} />}
+            {lead ? (
+              <>
+                <article className="pr-lead">
+                  <div className="pr-tags">
+                    {NEWS_CATEGORIES[lead.category] && <span className="pill">{NEWS_CATEGORIES[lead.category]}</span>}
+                    <span className={`pill ${lead.factual ? "pill--ok" : "pill--sim"}`}>{lead.factual ? "fato real" : "simulação"}</span>
+                    <span className="mono pr-date">{shortIso(lead.date)}</span>
+                  </div>
+                  <b>{lead.headline}</b>
+                  {lead.lede && <p>{lead.lede}</p>}
+                </article>
+                {rest.length > 0 && <ul className="pr-list">{headItems.slice(0, 3)}</ul>}
+                {rest.length > 3 && (
+                  <details className="pr-fold">
+                    <summary>Ver mais {Math.min(rest.length, 9) - 3} manchetes</summary>
+                    <ul className="pr-list">{headItems.slice(3, 9)}</ul>
+                  </details>
+                )}
+                {more + Math.max(0, rest.length - 9) > 0 && (
+                  <a className="pr-more" href={`/jogo/${year}/noticias`}>
+                    Todas as {result.newsCount ?? heads.length} notícias do período <Icon name="arrow" size={13} />
+                  </a>
+                )}
+              </>
+            ) : (
+              <p className="pr-foot-note">Dias tranquilos: nenhuma manchete relevante.</p>
+            )}
+          </section>
         </div>
 
         <footer className="pr__foot">

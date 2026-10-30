@@ -175,7 +175,7 @@ describe("acontecimentos da carreira", () => {
     expect(s.pending.find((e) => e.id === "sty_opo")).toBeUndefined();
   });
 
-  it("decisão sem resposta vence o prazo e aplica a escolha padrão", () => {
+  it("escolha sem resposta só vence com o jogador presente, depois do aviso, e aplica a escolha padrão", () => {
     const { state, p, st } = player("story-prazo");
     const s = storyOf(st);
     s.pending.push({
@@ -183,8 +183,8 @@ describe("acontecimentos da carreira", () => {
       def: "despesa_inesperada",
       on: state.world.game_date,
       expires: state.world.game_date,
-      kind: "DECISAO",
-      blocking: true,
+      kind: "OPORTUNIDADE",
+      blocking: false,
       tags: ["DINHEIRO"],
       title: "O carro quebrou",
       text: "",
@@ -196,7 +196,14 @@ describe("acontecimentos da carreira", () => {
       fallback: "parcelar",
     });
     const debt = st.debt;
+    // ausente (relógio automático): o prazo espera
     runTicks(state, { target: state.world.tick + 2, maxTicks: 2 });
+    expect(s.pending.find((e) => e.id === "sty_prazo")).toBeDefined();
+    // presente: o relógio para uma vez para lembrar
+    const r1 = stepDays(state, p.id, { days: 3 });
+    expect(r1.stopOn).toBe("sty_prazo");
+    // deixou para depois: vence e vale a escolha padrão
+    stepDays(state, p.id, { days: 1 });
     expect(s.pending.find((e) => e.id === "sty_prazo")).toBeUndefined();
     const entry = s.log.find((e) => e.id === "sty_prazo")!;
     expect(entry.auto).toBe(true);

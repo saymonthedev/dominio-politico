@@ -115,7 +115,10 @@ export function GameSidebar({ year, profile, badges }: { year: number; profile: 
             </span>
             <span className="gprofile__place">
               {profile.party ? <i className="dot" style={{ background: profile.party.color }} /> : null}
-              {profile.party?.acronym ?? "Sem partido"} · {profile.place}
+              {profile.party?.acronym ?? "Sem partido"}
+            </span>
+            <span className="gprofile__city" title={profile.place}>
+              {profile.place}
             </span>
           </span>
         </a>

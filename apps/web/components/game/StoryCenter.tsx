@@ -95,7 +95,7 @@ export function StoryInbox({ year, events, today }: { year: number; events: Stor
   );
 }
 
-/** Botão do topo com os acontecimentos pendentes; abre sozinho as decisões que seguram o tempo. */
+/** Botão do topo com os acontecimentos pendentes; abre sozinho as escolhas que chegaram. */
 export function StoryBell({ year, events, today }: { year: number; events: StoryEvent[]; today: string }) {
   const [list, setList] = useState(events);
   const [menu, setMenu] = useState(false);
@@ -107,9 +107,10 @@ export function StoryBell({ year, events, today }: { year: number; events: Story
 
   useEffect(() => setList(events), [events]);
 
-  // decisão urgente que chegou enquanto você estava fora: aparece uma vez por sessão
+  // escolha que chegou enquanto você estava fora: aparece sozinha, uma vez por sessão
   useEffect(() => {
-    const urgent = events.find((e) => e.blocking && !seenSet().has(e.id));
+    const seen = seenSet();
+    const urgent = events.find((e) => e.blocking && !seen.has(e.id)) ?? events.find((e) => e.kind !== "INFO" && e.choices.length > 0 && !seen.has(e.id));
     if (!urgent || clockBusy()) return;
     const t = setTimeout(() => {
       if (storyModalOpen() || clockBusy()) return;
