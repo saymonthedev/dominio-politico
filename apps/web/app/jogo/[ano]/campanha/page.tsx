@@ -119,7 +119,18 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         </Panel>
       )}
 
-      {war && <ScoreBoard {...war} />}
+      {war && (
+        <ScoreBoard
+          {...war}
+          extra={{
+            poll: latest && myPct !== undefined ? { pct: myPct, rank: latest.results.findIndex((r) => r.id === current?.id) + 1, leaderPct: leader?.pct ?? null, institute: latest.institute, date: latest.game_date } : null,
+            standing: me.state.party_standing,
+            standingNeed: war.majoritarian ? null : 20,
+            conventionEnd: election ? fmtDate(election.calendar.conventionEnd) : null,
+            reach: (me.state.reach?.[war.cand.geo === "BR" ? me.person.uf : war.cand.geo.length === 2 ? war.cand.geo : me.person.uf] ?? 0) * 100,
+          }}
+        />
+      )}
 
       <div className="ggrid ggrid--main">
         <div className="gstack">

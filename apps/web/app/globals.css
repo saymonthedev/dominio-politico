@@ -2292,3 +2292,4 @@ td.num, th.num { text-align: right; }
   .sb__tile { padding: 10px 12px; }
   .sb__tile > b { font-size: 1.15rem; }
 }
+.sb__of { font-size: .8rem; color: var(--apagado); font-weight: 500; }

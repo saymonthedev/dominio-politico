@@ -29,26 +29,58 @@ export interface WarRoomProps {
 }
 
 /** Placar da disputa: pesquisa, chance, adversário (ou corte da chapa) e caixa, lado a lado. */
-export function ScoreBoard({ cand, majoritarian, rival, projection }: WarRoomProps) {
+export interface ScoreExtra {
+  /** pesquisa divulgada mais recente da disputa (só majoritárias têm) */
+  poll?: { pct: number; rank: number; leaderPct: number | null; institute: string; date: string } | null;
+  /** prestígio no partido e o mínimo que a convenção costuma exigir (pré-candidatura) */
+  standing?: number;
+  standingNeed?: number | null;
+  conventionEnd?: string | null;
+  /** parte do eleitorado da disputa que conhece você (0–100) */
+  reach?: number;
+}
+
+export function ScoreBoard({ cand, majoritarian, rival, projection, extra = {} }: WarRoomProps & { extra?: ScoreExtra }) {
   const c = cand.campaign;
-  const poll = c.last_poll;
+  const lp = c.last_poll;
+  const poll = extra.poll ?? (lp ? { pct: lp.pct, rank: lp.rank, leaderPct: lp.leader_pct, institute: "", date: lp.on } : null);
   const left = Math.max(0, c.budget - c.spent);
+  const pre = cand.status === "PRE";
   return (
     <div className="sb">
-      <div className="sb__tile">
-        <span>Última pesquisa</span>
-        {poll ? (
-          <>
-            <b className="mono">{poll.pct.toFixed(1).replace(".", ",")}%</b>
-            <small>{poll.rank}º lugar{poll.rank > 1 ? ` · líder com ${poll.leader_pct.toFixed(1).replace(".", ",")}%` : " · liderando"}</small>
-          </>
-        ) : (
-          <>
-            <b className="sb__none">—</b>
-            <small>sem pesquisa ainda</small>
-          </>
-        )}
-      </div>
+      {poll ? (
+        <div className="sb__tile">
+          <span>Última pesquisa</span>
+          <b className="mono">{poll.pct.toFixed(1).replace(".", ",")}%</b>
+          <small>
+            {poll.rank}º lugar
+            {poll.rank > 1 && poll.leaderPct !== null ? ` · líder com ${poll.leaderPct.toFixed(1).replace(".", ",")}%` : poll.rank === 1 ? " · liderando" : ""}
+            {poll.institute ? ` · ${poll.institute}` : ""}
+          </small>
+        </div>
+      ) : pre && extra.standing !== undefined ? (
+        <div className={`sb__tile${extra.standingNeed && extra.standing < extra.standingNeed ? " is-warn" : ""}`}>
+          <span>Convenção do partido</span>
+          <b className="mono">
+            {Math.round(extra.standing)}
+            {extra.standingNeed ? <small className="sb__of">/{extra.standingNeed}</small> : null}
+          </b>
+          <small>
+            {extra.standingNeed
+              ? extra.standing >= extra.standingNeed
+                ? "prestígio suficiente para entrar na chapa"
+                : `faltam ${Math.ceil(extra.standingNeed - extra.standing)} de prestígio`
+              : "prestígio no partido conta na escolha"}
+            {extra.conventionEnd ? ` · até ${extra.conventionEnd}` : ""}
+          </small>
+        </div>
+      ) : (
+        <div className="sb__tile">
+          <span>Conhecem você</span>
+          <b className="mono">{Math.round(extra.reach ?? 0)}%</b>
+          <small>{majoritarian ? "pesquisas saem depois da convenção" : "do eleitorado da disputa"}</small>
+        </div>
+      )}
       {projection ? (
         <>
           <div className="sb__tile">
