@@ -1163,18 +1163,6 @@ td.num, th.num { text-align: right; }
 
 /* ===================== Jogo: notícias e trilha ===================== */
 .nlist { display: grid; }
-.nitem { padding: 14px 0; border-bottom: 1px solid var(--linha); }
-.nitem:first-child { padding-top: 0; }
-.nitem:last-child { border-bottom: 0; padding-bottom: 0; }
-.nitem__meta { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-size: .72rem; color: var(--apagado); margin-bottom: 6px; }
-.nitem__outlet { font-weight: 700; color: var(--tinta); text-transform: uppercase; letter-spacing: .06em; }
-.nitem h3 { font-size: 1.02rem; line-height: 1.32; margin: 0; font-weight: 600; }
-.nitem p { margin: 6px 0 0; color: var(--apagado); font-size: .9rem; line-height: 1.6; }
-.nitem--lead h3 { font-size: clamp(1.25rem, 2.2vw, 1.6rem); font-weight: 800; letter-spacing: -0.02em; }
-.nitem--lead p { color: var(--tinta); font-size: .96rem; }
-.nitem--hot h3::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--urgente); margin-right: 8px; vertical-align: middle; }
-.nlist--compact .nitem { padding: 10px 0; }
-.nlist--compact .nitem h3 { font-size: .94rem; }
 
 .ctrack { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); position: relative; }
 .ctrack li { display: grid; justify-items: center; gap: 6px; position: relative; text-align: center; }
@@ -2210,3 +2198,36 @@ td.num, th.num { text-align: right; }
 @media (max-width: 560px) {
   .pr-ind { padding: 5px 9px; }
 }
+
+/* notícias: marca do veículo, manchete principal e lista enxuta */
+.olog { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.olog__badge { flex: none; display: inline-grid; place-items: center; border-radius: 7px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+.olog__name { font-size: .86rem; color: var(--tinta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.olog--jornal .olog__name { font-family: Georgia, "Times New Roman", serif; font-weight: 700; letter-spacing: -.01em; font-size: .95rem; }
+.olog--tv .olog__name { font-weight: 800; font-style: italic; text-transform: uppercase; letter-spacing: .02em; font-size: .8rem; }
+.olog--portal .olog__name { font-weight: 800; text-transform: lowercase; letter-spacing: -.02em; }
+.olog--radio .olog__name { font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: .74rem; }
+.olog--agencia .olog__name { font-weight: 600; font-variant: small-caps; letter-spacing: .1em; font-size: .86rem; }
+.ncat { display: inline-flex; align-items: center; gap: 5px; font-size: .74rem; font-weight: 600; color: var(--apagado); }
+.ncat::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--apagado)); }
+.ncat--economia { --c: #3fae74; } .ncat--congresso { --c: #5b8def; } .ncat--politica { --c: #a77df0; } .ncat--eleicoes { --c: var(--faixa); }
+.ncat--pesquisas { --c: #e0a23b; } .ncat--governo { --c: #4fb3c8; } .ncat--partidos { --c: #e46f9a; } .ncat--investigacao { --c: var(--urgente); }
+.ncat--redes { --c: #8b9bb4; } .ncat--carreira { --c: var(--faixa); }
+.nlead { position: relative; padding: 16px 18px; border-radius: 16px; background: color-mix(in srgb, var(--faixa) 5%, var(--rebaixada)); border: 1px solid var(--linha); margin-bottom: 6px; }
+.nlead.is-hot { border-color: color-mix(in srgb, var(--urgente) 45%, var(--linha)); }
+.nlead__top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.nlead__meta { display: inline-flex; gap: 10px; align-items: center; font-size: .74rem; color: var(--apagado); }
+.nlead h3 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.2rem, 2.1vw, 1.5rem); line-height: 1.25; letter-spacing: -.01em; }
+.nlead p { margin: 8px 0 0; color: var(--apagado); font-size: .92rem; line-height: 1.6; }
+.nlead__flags { display: flex; gap: 6px; margin-top: 8px; }
+.nlead__flags:empty { display: none; }
+.nrows { list-style: none; margin: 0; padding: 0; display: grid; }
+.nrow { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 4px; border-bottom: 1px solid var(--linha); }
+.nrow:last-child { border-bottom: 0; }
+.nrow .olog__badge { margin-top: 2px; }
+.nrow h3 { margin: 0; font-size: .95rem; line-height: 1.35; font-weight: 600; }
+.nrow.is-hot h3::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--urgente); margin-right: 7px; vertical-align: middle; }
+.nrow p { margin: 4px 0 0; color: var(--apagado); font-size: .86rem; line-height: 1.55; }
+.nrow__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 5px; font-size: .74rem; color: var(--apagado); }
+.nrow__meta b { color: var(--tinta); font-weight: 600; }
+.nlist__legend { margin: 10px 0 0; font-size: .74rem; color: var(--apagado); }
