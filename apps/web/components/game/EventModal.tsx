@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { StoryEvent } from "@dp/engine";
 import { answerEvent } from "@/app/jogo/actions";
 import type { DecideResult } from "@/lib/sim";
-import { useModal } from "../a11y";
+import { backdropClose, useModal } from "../a11y";
 import { Button } from "../forms";
 import { Icon } from "../Icon";
 import { DeltaChips } from "./ActionFx";
@@ -84,7 +84,7 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
   const choices = event.choices.length ? event.choices : [{ id: "ok", label: "Continuar" }];
 
   return (
-    <div className="ui-overlay ev-overlay" onMouseDown={(e) => e.target === e.currentTarget && !busy && (result ? onResolved(result) : onLater?.())}>
+    <div className="ui-overlay ev-overlay" {...backdropClose(() => !busy && (result ? onResolved(result) : onLater?.()))}>
       <div className={`ev ev--${kind.tone}${result ? " is-done" : ""}`} role="dialog" aria-modal="true" aria-labelledby="ev-title" aria-describedby="ev-text" ref={box}>
         <header className="ev__head">
           <span className="ev__kind">

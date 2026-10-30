@@ -578,7 +578,7 @@ export function PeriodReport({
   ));
 
   return (
-    <div className="ui-overlay pr-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="ui-overlay pr-overlay">
       <div className="pr" role="dialog" aria-modal="true" aria-labelledby="pr-title" ref={box}>
         <header className="pr__head">
           <div>

@@ -110,3 +110,20 @@ export function usePopover(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 }
+
+/**
+ * Fechar clicando no fundo escuro só quando o clique começa e termina nele
+ * (rolar a tela ou arrastar uma seleção até a borda não fecha o pop-up).
+ */
+export function backdropClose(onClose: () => void) {
+  let down = false;
+  return {
+    onPointerDown: (e: { target: EventTarget; currentTarget: EventTarget }) => {
+      down = e.target === e.currentTarget;
+    },
+    onClick: (e: { target: EventTarget; currentTarget: EventTarget }) => {
+      if (down && e.target === e.currentTarget) onClose();
+      down = false;
+    },
+  };
+}
