@@ -2159,3 +2159,9 @@ td.num, th.num { text-align: right; }
   .gtop__date b { font-size: .78rem; }
   .sc__btn { width: 36px; height: 36px; }
 }
+
+/* destino de link interno do Painel (ex.: "Ir para o relógio"): rolagem suave e um brilho de chegada */
+#tempo { scroll-margin-top: 88px; border-radius: 20px; }
+.is-flash > .tm, .is-flash.tm { animation: flash-ring 1.5s ease-out; }
+@keyframes flash-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--faixa) 70%, transparent); } 40% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--faixa) 35%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .is-flash > .tm { animation: none; } }
