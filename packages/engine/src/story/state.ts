@@ -3,8 +3,8 @@ import type { PersonRow, PersonStateRow } from "../types";
 import type { ScheduledStory, StoryEvent, StoryLogEntry, StoryState } from "./types";
 
 export const STORY_VERSION = 1;
-/** histórico guardado por personagem (o resumo final usa os marcos) */
-export const LOG_LIMIT = 240;
+/** histórico guardado por personagem (o resumo final usa os marcos); fica no estado gravado a cada dia, então é enxuto */
+export const LOG_LIMIT = 160;
 export const QUEUE_LIMIT = 40;
 
 /** Saúde inicial: boa na juventude, um pouco menor com a idade. */

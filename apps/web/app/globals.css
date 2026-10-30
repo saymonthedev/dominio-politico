@@ -2154,3 +2154,8 @@ td.num, th.num { text-align: right; }
   .ev, .ev__choice, .ev__result, .sc__btn.is-urgent, .tm__date-tick, .diary__day, .obit { animation: none; }
   .diary { scroll-behavior: auto; }
 }
+@media (max-width: 400px) {
+  .gtop__inner { gap: 6px; }
+  .gtop__date b { font-size: .78rem; }
+  .sc__btn { width: 36px; height: 36px; }
+}
