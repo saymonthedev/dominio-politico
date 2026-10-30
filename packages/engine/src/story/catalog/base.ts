@@ -670,10 +670,11 @@ const pedido_vizinho: EventDef = {
       "recorrer de uma multa que diz ser injusta",
     ]),
     hood: home(c),
+    quem: c.rng.pick(["Dona Cida", "Seu Valdir", "Dona Lourdes", "Seu Jorge", "Dona Neide", "Rosângela", "Seu Antônio", "Dona Fátima"]),
   }),
   render: (c, b) => ({
-    title: "Uma vizinha bate na sua porta",
-    text: `Dona Cida, do ${b.hood}, ouviu dizer que você "conhece gente". Ela precisa ${b.need}. Não é sua obrigação — mas é exatamente esse tipo de coisa que o bairro lembra na hora de votar.`,
+    title: `${b.quem ?? "Dona Cida"} bate na sua porta`,
+    text: `${b.quem ?? "Dona Cida"}, do ${b.hood}, ouviu dizer que você "conhece gente" e veio pedir ajuda para ${b.need}. Não é sua obrigação — mas é exatamente esse tipo de coisa que o bairro lembra na hora de votar.`,
     choices: [
       { id: "ajudar", label: "Arregaçar as mangas e ajudar", hint: "Algumas tardes de telefone e fila", tone: "safe", cost: { energy: 12 } },
       { id: "orientar", label: "Explicar o caminho e deixar com ela", tone: "neutral" },
@@ -686,19 +687,19 @@ const pedido_vizinho: EventDef = {
       if (c.roll(0.55 + c.competence * 0.3)) {
         fx.reputation(1.5);
         fx.reach(0.003);
-        return "Resolvido. Dona Cida contou para a rua inteira — e a rua inteira contou para mais gente.";
+        return "Resolvido. A notícia correu a rua inteira — e a rua inteira contou para mais gente.";
       }
       fx.reputation(0.5);
-      return "Não deu para resolver, mas ela viu você tentar. Agradeceu com um bolo de fubá.";
+      return "Não deu para resolver, mas a família viu você tentar. Ganhou um bolo de fubá de agradecimento.";
     }
-    if (choice === "orientar") return "Você explicou o caminho das pedras. Ela agradeceu, um pouco decepcionada.";
+    if (choice === "orientar") return "Você explicou o caminho das pedras. O agradecimento veio meio decepcionado.";
     if (c.roll(0.35 + c.st.political_capital / 150)) {
       fx.reputation(2);
       fx.capital(-2);
       return "Um telefonema certo resolveu tudo. Você gastou um pouco de prestígio — e ganhou uma cabo eleitoral para a vida.";
     }
     fx.reputation(-2);
-    return "Os contatos não atenderam. Dona Cida agora conta a história ao contrário: você prometeu e sumiu.";
+    return "Os contatos não atenderam. Agora a história corre ao contrário: você prometeu e sumiu.";
   },
   fallback: "orientar",
 };
