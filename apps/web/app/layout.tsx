@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Poppins } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { RECOVER_SCRIPT } from "@/components/recover";
+import { VersionWatch } from "@/components/VersionWatch";
 import { SITE_URL } from "@/lib/env";
 import "./globals.css";
 
@@ -25,8 +27,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${poppins.variable} ${plexMono.variable}`}>
+      <head>
+        {/* recupera sozinho se a aba misturar versões do site depois de uma atualização */}
+        <script dangerouslySetInnerHTML={{ __html: RECOVER_SCRIPT }} />
+      </head>
       <body>
         {children}
+        <VersionWatch />
         <Analytics />
       </body>
     </html>
