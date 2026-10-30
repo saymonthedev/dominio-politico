@@ -2237,7 +2237,9 @@ td.num, th.num { text-align: right; }
 .vwatch button { border: 0; border-radius: 10px; padding: 8px 14px; background: var(--faixa); color: var(--planalto); font-weight: 700; cursor: pointer; }
 
 /* menu lateral: cidade inteira e atributos da carreira */
-.gprofile__town { white-space: nowrap; }
+.gside { grid-template-columns: minmax(0, 1fr); overflow-x: hidden; }
+.gprofile { min-width: 0; }
+.gprofile__town { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 .gattrs { margin: 10px 4px 0; border-top: 1px solid var(--linha); padding-top: 8px; }
 .gattrs > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--apagado); padding: 2px 0 6px; }
 .gattrs > summary::-webkit-details-marker { display: none; }
