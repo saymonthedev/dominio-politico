@@ -2,7 +2,7 @@
  * Acontecimentos da carreira: eventos com contexto, escolhas e consequências,
  * o dia a dia do personagem, a campanha interativa e o fim da jornada.
  */
-export type { CareerEnd, ChoiceTone, ScheduledStory, StoryChoice, StoryDelta, StoryEvent, StoryKind, StoryLogEntry, StoryState, StoryTag, StoryWho } from "./types";
+export type { ApprovalEntry, Car, CarModel, CareerEnd, ChoiceTone, Home, HomeKind, Injury, Loan, Proposal, ProposalKind, ProposalResult, ProposalStage, ScheduledStory, StoryChoice, StoryDelta, StoryEvent, StoryKind, StoryLogEntry, StoryState, StoryTag, StoryWho } from "./types";
 export type { ChoiceDef, EventDef, Rendered } from "./def";
 export { STORY_DEFS, birthdayOf } from "./catalog";
 export { StoryCtx, liveCandidacy, type CampaignPhase } from "./context";

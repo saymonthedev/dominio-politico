@@ -1,4 +1,4 @@
-import { Ctx, monthlyStatement, worldPriceLevel, type FinanceRow, type LedgerItem } from "@dp/engine";
+import { Ctx, loansOf, monthlyStatement, netWorth, worldPriceLevel, type FinanceRow, type LedgerItem } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Empty, GameHeader, Kpi, Panel, Pill } from "@/components/game/Page";
 import { Icon } from "@/components/Icon";
@@ -30,6 +30,11 @@ const KIND_LABEL: Record<string, string> = {
   NAO_DECLARADO: "Por fora",
   RECURSO_PROPRIO: "Recurso próprio",
   MULTA: "Multa",
+  MORADIA: "Moradia",
+  VEICULO: "Carro",
+  BENS: "Bens",
+  LAZER: "Lazer",
+  SAUDE: "Saúde",
 };
 
 function LedgerRows({ items }: { items: LedgerItem[] }) {
@@ -38,9 +43,13 @@ function LedgerRows({ items }: { items: LedgerItem[] }) {
       {items.map((i, n) => (
         <li key={n} className={i.amount >= 0 ? "in" : "out"}>
           <span>{i.label}</span>
-          <b className="mono">
-            {i.amount >= 0 ? "+" : "−"} {fmtMoney(Math.abs(i.amount))}
-          </b>
+          {i.amount === 0 ? (
+            <b className="mono muted">—</b>
+          ) : (
+            <b className="mono">
+              {i.amount >= 0 ? "+" : "−"} {fmtMoney(Math.abs(i.amount))}
+            </b>
+          )}
         </li>
       ))}
     </ul>
@@ -61,7 +70,9 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const txs = (txQ.data ?? []) as FinanceRow[];
   const preview = monthlyStatement(new Ctx(state, "view"), person, st);
   const ledger = st.ledger ?? { month: null, items: [], net: 0 };
-  const worth = st.money + st.assets - st.debt;
+  // patrimônio: dinheiro + bens − dívidas no banco − saldo dos financiamentos (casa e carro)
+  const worth = netWorth(st);
+  const loans = loansOf(st);
   // saldo do mês (entradas − saídas declaradas) para o gráfico
   const byMonth = new Map<string, number>();
   for (const t of txs) byMonth.set(t.game_date.slice(0, 7), (byMonth.get(t.game_date.slice(0, 7)) ?? 0) + t.amount);
@@ -86,7 +97,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
       <div className="kpis mb">
         <Kpi icon="coins" label="Saldo em conta" value={fmtMoney(st.money)} hint={`rende com a Selic (${(state.economy?.selic ?? 0).toFixed(2).replace(".", ",")}%)`} />
-        <Kpi icon="landmark" label="Patrimônio líquido" value={fmtMoney(worth)} hint={`bens declarados: ${fmtMoney(st.assets)}`} tone={worth < 0 ? "down" : undefined} />
+        <Kpi icon="landmark" label="Patrimônio líquido" value={fmtMoney(worth)} hint={`bens: ${fmtMoney(st.assets)}${loans ? ` · financiamentos: ${fmtMoney(loans)}` : ""}`} tone={worth < 0 ? "down" : undefined} />
         <Kpi icon="alert" label="Dívida" value={fmtMoney(st.debt)} hint={st.debt > 0 ? "juros de Selic + 2,5% ao mês" : "nenhuma"} tone={st.debt > 0 ? "warn" : undefined} />
         <Kpi icon="trending" label="Resultado do último mês" value={`${ledger.net >= 0 ? "+" : "−"} ${fmtMoney(Math.abs(ledger.net))}`} hint={ledger.month ? monthLabel(ledger.month) : "ainda sem fechamento"} tone={ledger.net >= 0 ? "up" : "down"} />
       </div>

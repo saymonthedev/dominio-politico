@@ -42,6 +42,8 @@ export interface Contender {
   noise: number;
   /** apoio conquistado (ou perdido) em cada segmento de eleitores, -1..1 */
   seg?: Record<string, number>;
+  /** aprovação popular de quem disputa a reeleição (0–100) */
+  approval?: number | null;
 }
 
 export interface ShareResult {
@@ -68,7 +70,9 @@ export function segmentUtility(seg: VoterSegmentRow, c: Contender, approval: num
     p.scandal * (c.scandal / 100) +
     c.noise +
     p.segment * (c.seg?.[seg.segment] ?? 0) +
-    (c.incumbent ? seg.mood * 0.5 : 0)
+    (c.incumbent ? seg.mood * 0.5 : 0) +
+    // quem tenta a reeleição é julgado pelo mandato: aprovação alta puxa voto, baixa afasta
+    (c.incumbent && c.approval != null ? 1.1 * ((c.approval - 50) / 50) : 0)
   );
 }
 

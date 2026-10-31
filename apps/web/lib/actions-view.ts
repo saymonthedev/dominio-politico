@@ -10,6 +10,7 @@ import {
   indicableMembers,
   indicationElection,
   isReal,
+  lifeParamOptions,
   OFFICES,
   officesForElection,
   partyLedBy,
@@ -163,7 +164,8 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
       case "policy":
         return POLICY_CATALOG.filter((p) => !me.office_code || p.offices.includes(me.office_code)).map((p) => ({ value: p.kind, label: p.title }));
       default:
-        return def;
+        // casa, carro, financiamentos e filiados (comando do partido)
+        return lifeParamOptions(ctx, me, st, type) ?? def;
     }
   };
   const amountOptions = (bases: number[] | undefined): ActionOption[] | undefined =>

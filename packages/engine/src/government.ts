@@ -1,4 +1,5 @@
 import { addDays } from "./calendar";
+import { partyPostOf } from "./partypost";
 import { type Axis } from "./ideology";
 import { OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
@@ -66,6 +67,18 @@ export function monthlyBills(ctx: Ctx): void {
 }
 
 /** Votação: bancadas votam conforme ideologia, orientação do governo e disciplina. */
+/** Orientação de bancada dada pelo jogador que preside o partido nacionalmente (nas flags da história). */
+function partyOrientation(ctx: Ctx, partyId: string, billId: string): string | null {
+  for (const p of ctx.t.persons.values()) {
+    if (p.kind !== "PLAYER" || p.status !== "ACTIVE" || p.party_id !== partyId) continue;
+    const st = ctx.pstate(p.id);
+    if (partyPostOf(ctx.s, p, st)?.level !== "PRES_NACIONAL") continue;
+    const v = st?.story?.flags[`orientacao:${billId}`];
+    if (typeof v === "string" && v !== "LIBERADA") return v;
+  }
+  return null;
+}
+
 export function dailyBillVotes(ctx: Ctx): void {
   for (const bill of ctx.t.bills.values()) {
     if (bill.status !== "TRAMITANDO" || bill.vote_on > ctx.date) continue;
@@ -78,7 +91,11 @@ export function dailyBillVotes(ctx: Ctx): void {
       if (!seats) continue;
       const position = party.ideology[bill.axis as Axis] * bill.direction;
       const govPull = bill.gov_position * party.gov_alignment * 30;
-      const support = 1 / (1 + Math.exp(-(position + govPull) / 25));
+      let support = 1 / (1 + Math.exp(-(position + govPull) / 25));
+      // orientação dada por jogador que preside o partido nacionalmente
+      const orient = partyOrientation(ctx, party.id, bill.id);
+      if (orient === "SIM") support = 0.9;
+      else if (orient === "NAO") support = 0.1;
       const cohesive = party.discipline;
       for (let s = 0; s < seats; s++) {
         const r = rng.float();

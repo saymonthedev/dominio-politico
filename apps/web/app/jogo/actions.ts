@@ -75,6 +75,10 @@ function vitalsOf(state: WorldState, personId: string): Vitals | null {
       escandalo: st.scandal,
       sujo: st.dirty_money,
       divida: st.debt,
+      // mesmos valores de partida do motor (cansaço começa em 25; aprovação só existe no mandato)
+      cansaco: st.story?.fatigue ?? 25,
+      saude: st.story?.health ?? NaN,
+      aprovacao: st.story?.approval ?? NaN,
     },
   };
 }
@@ -90,6 +94,9 @@ const DELTA_META: Array<{ key: string; label: string; money?: boolean; bad?: boo
   { key: "escandalo", label: "risco de escândalo", bad: true, min: 0.1 },
   { key: "sujo", label: "dinheiro não declarado", money: true, bad: true, min: 1 },
   { key: "divida", label: "dívida", money: true, bad: true, min: 1 },
+  { key: "cansaco", label: "cansaço", bad: true, min: 0.5 },
+  { key: "saude", label: "saúde", min: 0.2 },
+  { key: "aprovacao", label: "aprovação popular", min: 0.1 },
 ];
 
 function diffVitals(a: Vitals | null, b: Vitals | null): Pick<ActionState, "deltas" | "stage" | "party"> {
@@ -97,7 +104,7 @@ function diffVitals(a: Vitals | null, b: Vitals | null): Pick<ActionState, "delt
   const deltas: ActionDelta[] = [];
   for (const m of DELTA_META) {
     const d = (b.n[m.key] ?? 0) - (a.n[m.key] ?? 0);
-    if (Math.abs(d) >= m.min) deltas.push({ key: m.key, label: m.label, value: m.money ? Math.round(d) : Math.round(d * 10) / 10, money: m.money, bad: m.bad });
+    if (Number.isFinite(d) && Math.abs(d) >= m.min) deltas.push({ key: m.key, label: m.label, value: m.money ? Math.round(d) : Math.round(d * 10) / 10, money: m.money, bad: m.bad });
   }
   return {
     deltas,

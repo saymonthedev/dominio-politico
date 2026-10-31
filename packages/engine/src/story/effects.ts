@@ -1,4 +1,5 @@
 import { relKey } from "../affiliation";
+import { bumpApproval } from "../approval";
 import { addDays } from "../calendar";
 import { createIllicitAct, type ActOptions } from "../crime";
 import { ufOfGeo } from "../elections";
@@ -150,6 +151,22 @@ export class Effects {
     const before = s.health;
     s.health = clamp(s.health + v);
     this.add("saude", "saúde", s.health - before);
+  }
+
+  /** aprovação popular de quem tem mandato (com o motivo, que aparece na tela) */
+  approval(v: number, cause: string): void {
+    const { p, st, ctx } = this.c;
+    if (!p.office_code || !v) return;
+    const real = bumpApproval(p, st, ctx.date, v, cause);
+    this.add("aprovacao", "aprovação popular", real);
+  }
+
+  /** cansaço (subir é ruim) */
+  fatigue(v: number): void {
+    const s = this.c.s;
+    const before = s.fatigue ?? 25;
+    s.fatigue = round1(clamp(before + v));
+    this.add("cansaco", "cansaço", s.fatigue - before, { bad: true });
   }
 
   dirty(v: number): void {

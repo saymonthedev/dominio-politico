@@ -452,9 +452,12 @@ const chefe_cobra: EventDef = {
   id: "chefe_cobra",
   kind: "DECISAO",
   tags: ["TRABALHO"],
+  family: "patrao",
   cooldown: 180,
+  max: 3,
   expires: 4,
-  when: (c) => (!c.p.office_code && c.jornada === 1 && (c.st.activism >= 15 || c.p.party_id || c.phase) ? { boss: c.rng.pick(["sua chefe", "seu chefe", "o sócio do escritório", "a coordenação"]) } : null),
+  // o primeiro aviso acontece uma vez por emprego; depois disso, quem volta é o ultimato (chefe_ultimato)
+  when: (c) => (!c.p.office_code && c.jornada === 1 && !c.flag("chefe_avisou") && (c.st.activism >= 15 || c.p.party_id || c.phase) ? { boss: c.rng.pick(["sua chefe", "seu chefe", "o sócio do escritório", "a coordenação"]) } : null),
   weightFn: (c) => (c.phase ? 1.6 : 0.8),
   render: (c, b) => ({
     title: "A política começou a pesar no trabalho",
@@ -466,6 +469,7 @@ const chefe_cobra: EventDef = {
     ],
   }),
   resolve: (c, _b, choice, fx) => {
+    fx.flag("chefe_avisou", c.date);
     if (choice === "foco") {
       fx.activism(-4);
       fx.flag("foco_trabalho", c.date);
@@ -495,8 +499,10 @@ const emprego_volta: EventDef = {
   id: "emprego_volta",
   kind: "DECISAO",
   tags: ["TRABALHO", "DINHEIRO"],
+  family: "emprego",
   blocking: false,
-  cooldown: 75,
+  max: 4,
+  cooldown: 120,
   expires: 10,
   when: (c) => (c.jornada < 1 && !c.p.office_code && !c.phase ? { boss: c.rng.pick(["Seu antigo chefe", "Uma antiga colega", "Um ex-cliente"]) } : null),
   weightFn: (c) => (c.st.debt > c.salary * 2 || c.st.money < c.salary ? 3 : 0.8),
@@ -513,9 +519,15 @@ const emprego_volta: EventDef = {
     if (choice === "integral") {
       fx.unflag("jornada");
       fx.unflag("licenca_campanha");
+      // emprego novo, chefe novo: a história com o patrão recomeça do zero
+      fx.unflag("chefe_avisou");
+      fx.unflag("chefe_resolvido");
+      fx.unflag("foco_trabalho");
       return "Crachá novo, rotina antiga. O extrato vai agradecer no próximo mês.";
     }
     if (choice === "meio") {
+      fx.unflag("chefe_avisou");
+      fx.unflag("chefe_resolvido");
       fx.flag("jornada", 0.5);
       return "Meio período: metade do salário, metade do dia para a política.";
     }

@@ -638,7 +638,12 @@ export type FinanceKind =
   | "FUNDACAO_PARTIDO"
   | "COLETA_ASSINATURAS"
   | "LAVAGEM"
-  | "MULTA";
+  | "MULTA"
+  | "MORADIA"
+  | "VEICULO"
+  | "BENS"
+  | "LAZER"
+  | "SAUDE";
 
 export interface FinanceRow {
   id: string;

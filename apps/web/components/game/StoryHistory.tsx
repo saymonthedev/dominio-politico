@@ -13,7 +13,7 @@ const FILTERS: Array<{ id: string; label: string; tags?: StoryTag[]; milestones?
   { id: "campanha", label: "Campanhas", tags: ["CAMPANHA", "DEBATE", "ELEICAO"] },
   { id: "mandato", label: "Mandato", tags: ["MANDATO"] },
   { id: "comunidade", label: "Comunidade e imprensa", tags: ["COMUNIDADE", "IMPRENSA"] },
-  { id: "vida", label: "Vida, trabalho e saúde", tags: ["VIDA", "TRABALHO", "SAUDE", "DINHEIRO"] },
+  { id: "vida", label: "Vida, casa e saúde", tags: ["VIDA", "TRABALHO", "SAUDE", "DINHEIRO", "CASA", "LAZER"] },
   { id: "bastidores", label: "Bastidores", tags: ["BASTIDORES"] },
 ];
 

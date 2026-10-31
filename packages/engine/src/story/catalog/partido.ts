@@ -17,6 +17,7 @@ import type { MembershipRow, PartyRow } from "../../types";
 import type { StoryCtx } from "../context";
 import type { EventDef } from "../def";
 import type { Effects } from "../effects";
+import { partyPostOf, postRank, setPartyPost } from "../../partypost";
 import { partyLeader, partyPeople } from "../world";
 import { actor, bestContact, brl, first, home, partiesNear, partyOf, relWith } from "./util";
 
@@ -535,6 +536,7 @@ const disputa_diretorio: EventDef = {
   expires: 5,
   when: (c) => {
     if (!c.p.party_id || c.st.party_standing < 15 || c.phase) return null;
+    if (postRank(partyPostOf(c.ctx.s, c.p, c.st)?.level) >= 2) return null;
     const people = partyPeople(c.ctx, c.p, c.party!).filter((x) => x.reputation >= 35);
     if (people.length < 2) return null;
     const [a, b2] = c.rng.shuffle([...people.slice(0, 6)]).slice(0, 2);
@@ -589,17 +591,14 @@ const diretorio_resultado: EventDef = {
     if (choice === "eu") {
       const p = 0.15 + (c.st.party_standing - 45) / 100 + c.charisma * 0.2;
       if (c.roll(p)) {
-        const m = membership(c);
-        if (m) {
-          m.role = "DIRIGENTE";
-          c.ctx.save("memberships", m);
-        }
+        // quem vence a eleição do diretório passa a presidi-lo: nomeia, afasta, indica e negocia
+        setPartyPost(c.ctx, c.p, c.st, "PRES_MUNICIPAL");
         fx.standing(15);
         fx.capital(5);
         fx.rel(a.id, -6);
         fx.rel(o.id, -10);
         fx.flag("dirigente", c.date);
-        return `Zebra! Você venceu a eleição do diretório e agora faz parte da direção municipal do ${c.party!.acronym}.`;
+        return `Zebra! Você venceu a eleição e agora preside o diretório municipal do ${c.party!.acronym}. Na Carreira e na página do partido estão os novos poderes: nomear e afastar dirigentes, abrir processo de expulsão, indicar candidatos e negociar alianças.`;
       }
       fx.standing(-8);
       fx.rel(o.id, -6);
@@ -629,7 +628,7 @@ const cargo_partidario_oferta: EventDef = {
   expires: 10,
   when: (c) => {
     const m = membership(c);
-    if (!m || m.role !== "MEMBRO" || c.st.party_standing < 40) return null;
+    if (!m || m.role !== "MEMBRO" || c.st.party_standing < 40 || partyPostOf(c.ctx.s, c.p, c.st)) return null;
     return { area: c.rng.pick(["organização", "comunicação", "formação política", "juventude", "finanças"]), party: c.p.party_id! };
   },
   valid: (c, b) => c.p.party_id === String(b.party),
@@ -644,11 +643,7 @@ const cargo_partidario_oferta: EventDef = {
   }),
   resolve: (c, b, choice, fx) => {
     if (choice === "aceitar") {
-      const m = membership(c);
-      if (m) {
-        m.role = "DIRIGENTE";
-        c.ctx.save("memberships", m);
-      }
+      setPartyPost(c.ctx, c.p, c.st, "SECRETARIO", String(b.area));
       fx.standing(8);
       fx.capital(3);
       fx.energy(-10);

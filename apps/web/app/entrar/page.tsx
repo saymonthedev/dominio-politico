@@ -10,7 +10,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
   const { next, erro } = await searchParams;
   return (
     <>
-      <PublicHeader loggedIn={false} />
+      <PublicHeader loggedIn={false} page="entrar" />
       <AuthShell
         title="Entrar"
         sub="Volte para o seu mundo. Ele não parou enquanto você esteve fora."

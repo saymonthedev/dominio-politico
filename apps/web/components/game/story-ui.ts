@@ -25,6 +25,8 @@ export const TAG: Record<StoryTag, { label: string; icon: string }> = {
   IMPRENSA: { label: "Imprensa", icon: "newspaper" },
   SAUDE: { label: "Saúde", icon: "bolt" },
   DINHEIRO: { label: "Dinheiro", icon: "coins" },
+  CASA: { label: "Casa", icon: "home" },
+  LAZER: { label: "Lazer", icon: "star" },
 };
 
 export const TONE_LABEL: Record<string, string> = {

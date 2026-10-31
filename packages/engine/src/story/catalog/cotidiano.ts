@@ -2,6 +2,7 @@ import type { StoryCtx } from "../context";
 import type { ChoiceDef, EventDef } from "../def";
 import type { Effects } from "../effects";
 import type { Binding, ChoiceTone, StoryKind, StoryTag } from "../types";
+import type { PersonRow } from "../../types";
 import { brl, city, communityLeader, home, localPolitician } from "./util";
 
 /**
@@ -33,7 +34,14 @@ export function ev(spec: {
   cooldown?: number;
   max?: number;
   expires?: number;
-  when: (c: StoryCtx) => Binding | null;
+  family?: string;
+  chained?: boolean;
+  blocking?: boolean;
+  milestone?: boolean;
+  when: (c: StoryCtx, data?: Binding) => Binding | null;
+  weightFn?: (c: StoryCtx, b: Binding) => number;
+  valid?: (c: StoryCtx, b: Binding) => boolean;
+  who?: (c: StoryCtx, b: Binding) => PersonRow | null | undefined;
   title: (c: StoryCtx, b: Binding) => string;
   text: (c: StoryCtx, b: Binding) => string;
   opts: Opt[];
@@ -47,10 +55,17 @@ export function ev(spec: {
     cooldown: spec.cooldown ?? 120,
     max: spec.max,
     expires: spec.expires,
+    family: spec.family,
+    chained: spec.chained,
+    blocking: spec.blocking,
+    milestone: spec.milestone,
     when: spec.when,
+    weightFn: spec.weightFn,
+    valid: spec.valid,
     render: (c, b) => ({
       title: spec.title(c, b),
       text: spec.text(c, b),
+      who: spec.who?.(c, b) ?? null,
       choices: spec.opts.map((o) => ({ id: o.id, label: o.label, hint: o.hint, tone: o.tone, cost: o.cost?.(c, b), requires: o.requires })),
     }),
     resolve: (c, b, choice, fx) => {
@@ -401,7 +416,8 @@ const pesquisadora = ev({
 
 // ================================================================ trabalho e dinheiro
 
-const chefe_reclama = ev({
+/** Substituído pelo ultimato (catalog/vida2.ts): era o mesmo assunto do aviso do chefe. Mantido só para histórico antigo. */
+export const chefe_reclama = ev({
   id: "chefe_reclama",
   kind: "DECISAO",
   tags: ["TRABALHO"],
@@ -438,6 +454,8 @@ const oferta_emprego = ev({
   id: "oferta_emprego",
   kind: "OPORTUNIDADE",
   tags: ["TRABALHO", "DINHEIRO"],
+  family: "emprego",
+  max: 3,
   cooldown: 300,
   expires: 7,
   when: (c) => (semCargo(c) && c.jornada > 0 && c.unemployment < 9 ? { aumento: c.rng.pick([20, 30, 40]) } : null),
@@ -929,7 +947,6 @@ export const DAILY_EVENTS: EventDef[] = [
   post_viral,
   podcast_local,
   pesquisadora,
-  chefe_reclama,
   oferta_emprego,
   amigo_emprestimo,
   amigo_devolve,

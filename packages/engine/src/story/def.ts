@@ -40,6 +40,11 @@ export interface EventDef {
   cooldown?: number;
   /** máximo por carreira (padrão: sem limite) */
   max?: number;
+  /**
+   * família de tema (ex.: "patrao"): acontecimentos da mesma família dividem o intervalo
+   * mínimo entre si, para a mesma situação não voltar com outra roupa
+   */
+  family?: string;
   /** só acontece como continuação de outro acontecimento ou do motor */
   chained?: boolean;
   /** dias para responder (padrão: DECISAO 5, OPORTUNIDADE 14) */

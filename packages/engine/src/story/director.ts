@@ -231,29 +231,40 @@ function contextual(c: StoryCtx): void {
   if (blockingOpen) chance *= 0.35;
   if (!c.rng.chance(chance)) return;
   const recentTags = [...s.pending.flatMap((e) => e.tags), ...s.log.slice(0, 4).flatMap((e) => e.tags)];
-  const candidates: Array<{ def: EventDef; b: Binding; w: number }> = [];
+  // última vez que cada família de tema apareceu (a mesma situação não volta com outra roupa)
+  const familyLast = new Map<string, string>();
+  for (const [id, info] of Object.entries(s.seen)) {
+    const fam = STORY_DEFS[id]?.family;
+    if (fam && (!familyLast.has(fam) || info.last > familyLast.get(fam)!)) familyLast.set(fam, info.last);
+  }
+  const candidates: Array<{ def: EventDef; b: Binding; w: number; fresh: boolean }> = [];
   for (const def of Object.values(STORY_DEFS)) {
     if (def.chained) continue;
     const blocking = def.blocking ?? def.kind === "DECISAO";
     if (blockingOpen && blocking) continue;
-    if (s.pending.some((e) => e.def === def.id)) continue;
+    if (s.pending.some((e) => e.def === def.id || (def.family && STORY_DEFS[e.def]?.family === def.family))) continue;
     const seen = s.seen[def.id];
     if (def.max && (seen?.n ?? 0) >= def.max) continue;
     if (seen && diffDays(c.date, seen.last) < (def.cooldown ?? 60)) continue;
+    const famLast = def.family ? familyLast.get(def.family) : undefined;
+    if (famLast && diffDays(c.date, famLast) < Math.max(45, def.cooldown ?? 60)) continue;
     const b = guard(`when ${def.id}`, () => def.when(c), null);
     if (!b) continue;
     let w = (def.weight ?? 1) * guard(`weight ${def.id}`, () => def.weightFn?.(c, b) ?? 1, 0);
-    // o que já aconteceu muitas vezes (ou há pouco) perde a vez para o inédito
+    // o que já aconteceu (sobretudo há pouco) perde a vez para o inédito
     if (seen) {
-      w /= 1 + 0.18 * seen.n;
-      if (diffDays(c.date, seen.last) < (def.cooldown ?? 60) * 2) w *= 0.5;
+      w /= 1 + 0.55 * seen.n;
+      if (diffDays(c.date, seen.last) < (def.cooldown ?? 60) * 2) w *= 0.4;
     }
     const overlap = def.tags.filter((t) => recentTags.includes(t)).length;
     if (overlap) w *= Math.pow(0.45, Math.min(2, overlap));
-    if (w > 0) candidates.push({ def, b, w });
+    if (w > 0) candidates.push({ def, b, w, fresh: !seen });
   }
   if (!candidates.length) return;
-  const pick = c.rng.weighted(candidates, (x) => x.w);
+  // havendo algo inédito, ele quase sempre vence
+  const fresh = candidates.filter((x) => x.fresh);
+  const pool = fresh.length && c.rng.chance(0.75) ? fresh : candidates;
+  const pick = c.rng.weighted(pool, (x) => x.w);
   fireEvent(c, pick.def, pick.b);
 }
 

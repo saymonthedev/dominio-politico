@@ -5,7 +5,7 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { loadCities, loadSnapshot } from "@dp/data";
+import { loadBairros, loadCities, loadSnapshot } from "@dp/data";
 import {
   addDays,
   careerSummary,
@@ -22,6 +22,8 @@ import {
   SHARED_DAYS_PER_HOUR,
   Ctx,
   DEFAULT_RULESET,
+  housingFromFile,
+  type CityHousing,
   emptyTables,
   FICTIONAL_FLAG,
   fictionalizeCities,
@@ -139,6 +141,13 @@ export async function dropWorld(worldId: string): Promise<void> {
 }
 
 const cityCache = new Map<number, Promise<Map<string, CityBase>>>();
+
+/** Bairros reais (IBGE) de todas as cidades: estáticos, carregados uma vez por instância. */
+let housingCache: Promise<Map<string, CityHousing>> | null = null;
+export function housingData(): Promise<Map<string, CityHousing>> {
+  housingCache ??= loadBairros().then(housingFromFile);
+  return housingCache;
+}
 
 /** Municípios reais do ponto de partida (estáticos; carregados uma vez por instância). */
 export function citiesFor(year: number): Promise<Map<string, CityBase>> {
@@ -266,7 +275,7 @@ export async function loadState(worldId: string): Promise<WorldState> {
     if (!fictionCities.has(worldId)) fictionCities.set(worldId, fictionalizeCities(cities, { world: data.world, t }));
     cities = fictionCities.get(worldId)!;
   }
-  return hydrateState({ world: data.world, economy: data.economy, ruleset: DEFAULT_RULESET, t, cities });
+  return hydrateState({ world: data.world, economy: data.economy, ruleset: DEFAULT_RULESET, t, cities, housing: await housingData() });
 }
 
 /** Municípios já convertidos para os nomes de cada mundo fictício. */

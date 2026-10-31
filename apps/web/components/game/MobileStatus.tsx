@@ -8,7 +8,7 @@ const brl = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
  * No celular o menu lateral some: energia, caixa e reputação ficam numa faixa
  * fina sob o topo, sempre à vista (é o que decide se dá para agir agora).
  */
-export function MobileStatus({ year, energy, money, reputation, stage }: { year: number; energy: number; money: number; reputation: number; stage: string }) {
+export function MobileStatus({ year, energy, money, reputation, stage, approval, fatigue }: { year: number; energy: number; money: number; reputation: number; stage: string; approval?: number | null; fatigue?: number }) {
   return (
     <a className="gstat" href={`/jogo/${year}/carreira`} aria-label={`Energia ${energy} de 100, caixa ${brl(money)}, reputação ${reputation}. Ver a carreira.`}>
       <span className={`gstat__item gstat__energy${energy < 20 ? " is-low" : ""}`} title="Energia (recupera 25 por dia)">
@@ -26,13 +26,26 @@ export function MobileStatus({ year, energy, money, reputation, stage }: { year:
           <LiveNumber value={money} format={brl} />
         </b>
       </span>
-      <span className="gstat__item" title="Reputação">
-        <Icon name="star" size={13} />
-        <b className="mono">
-          <LiveNumber value={reputation} />
-        </b>
-      </span>
-      <span className="gstat__stage">{stage}</span>
+      {approval != null ? (
+        <span className="gstat__item" title="Aprovação popular do mandato">
+          <Icon name="users" size={13} />
+          <b className="mono">
+            <LiveNumber value={approval} />%
+          </b>
+        </span>
+      ) : (
+        <span className="gstat__item" title="Reputação">
+          <Icon name="star" size={13} />
+          <b className="mono">
+            <LiveNumber value={reputation} />
+          </b>
+        </span>
+      )}
+      {fatigue != null && fatigue >= 65 ? (
+        <span className="gstat__stage gstat__tired" title="Cansaço alto: descanse (Carreira → Descansar)">cansado(a) {fatigue}</span>
+      ) : (
+        <span className="gstat__stage">{stage}</span>
+      )}
     </a>
   );
 }

@@ -1,4 +1,5 @@
 import type { CityBase } from "./geo";
+import type { CityHousing } from "./housing";
 import type { ISODate } from "./calendar";
 import { formatDatePt } from "./calendar";
 import { buildNarrativeFacts, evaluatePolicy, isReal, validateRenderedText, type PolicySubject } from "./news/policy";
@@ -50,6 +51,8 @@ export interface WorldState {
   t: Tables;
   /** Dados reais de partida dos municípios (estáticos, não persistidos). Indexados pelo código IBGE. */
   cities?: Map<string, CityBase>;
+  /** Bairros (ou distritos) de cada município, com população e renda (Censo 2022). Estático. */
+  housing?: Map<string, CityHousing>;
   /**
    * Jogadores "vivendo os dias" agora (avançando o tempo por conta própria).
    * Só eles recebem acontecimentos sorteados do contexto; para os demais, o

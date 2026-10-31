@@ -21,6 +21,15 @@ const ACTION_ICON: Record<string, string> = {
   encerrar_esquema: "x", fundar_partido: "flag", coletar_assinaturas: "file", mobilizar_voluntarios: "users", desistir_fundacao: "x",
   filiar_meu_partido: "flag", decidir_filiacao: "check", convidar_filiacao: "mail", pegar_emprestimo: "coins", quitar_divida: "check",
   indicar_candidato: "ballot", retirar_indicacao: "x", repassar_fundo: "coins",
+  // descanso e lazer
+  academia: "zap", jogar_bola: "users", caminhada: "map", pedalar: "map", dia_familia: "home", viagem_fds: "globe", terapia: "user", folga: "clock",
+  hobby: "book", churrasco_vizinhos: "users", checkup: "shield",
+  // bens
+  alugar_imovel: "home", comprar_imovel: "key", vender_imovel: "coins", morar_familia: "home", sair_de_casa: "alert", comprar_carro: "briefcase",
+  vender_carro: "coins", quitar_financiamento: "check",
+  // comando do partido
+  reuniao_executiva: "users", campanha_filiacao: "flag", formacao_militancia: "book", nomear_dirigente: "plus", afastar_dirigente: "x",
+  processo_expulsao: "gavel", orientar_bancada: "ballot", indicar_nome_partido: "star", negociar_alianca: "users",
 };
 
 const CAT: Record<string, { icon: string; label: string; cls: string }> = {
@@ -32,6 +41,9 @@ const CAT: Record<string, { icon: string; label: string; cls: string }> = {
   ESQUEMA: { icon: "key", label: "Esquema", cls: "crime" },
   MEU_PARTIDO: { icon: "flag", label: "Meu partido", cls: "camp" },
   FINANCAS: { icon: "coins", label: "Finanças", cls: "" },
+  VIDA: { icon: "zap", label: "Vida", cls: "" },
+  BENS: { icon: "home", label: "Bens", cls: "" },
+  COMANDO: { icon: "flag", label: "Comando", cls: "camp" },
 };
 const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR")}`;
 /** Ações de saída, sem volta: vão para o fim da lista, com botão discreto. */

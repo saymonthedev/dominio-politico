@@ -1,4 +1,4 @@
-import { OFFICES, geoName, type BillRow, type MandateRow, type PolicyRow } from "@dp/engine";
+import { approvalLabel, OFFICES, geoName, PROPOSAL_RESULT_LABEL, PROPOSAL_STAGE_LABEL, stageProgress, type BillRow, type MandateRow, type PolicyRow, type Proposal } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
@@ -55,6 +55,11 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const presParty = pres?.party_id ? pm[pres.party_id] : undefined;
   const fiscal = gov.fiscal_stance > 0.1 ? "expansionista" : gov.fiscal_stance < -0.1 ? "contracionista" : "neutra";
   const active = mandates.find((m) => m.status === "ATIVO") ?? mandates.find((m) => m.status === "FUTURO");
+  const story = me.state.story;
+  const approval = story?.approval ?? null;
+  const approvalLog = story?.approval_log ?? [];
+  const proposals: Proposal[] = [...(story?.proposals ?? [])].sort((a, b) => Number(a.stage === "FIM") - Number(b.stage === "FIM") || (b.on ?? "").localeCompare(a.on ?? ""));
+  const activeProps = proposals.filter((x) => x.stage !== "FIM");
 
   return (
     <>
@@ -103,6 +108,73 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               <Empty icon="landmark" title="Você ainda não tem mandato">
                 Ações de governo e de plenário liberam depois da posse. Até lá, acompanhe a pauta e a correlação de forças.
               </Empty>
+            </Panel>
+          )}
+
+          {me.person.office_code && approval != null && (
+            <Panel title="Aprovação popular" icon="users" aside={<Pill tone={approval >= 55 ? "ok" : approval < 42 ? "warn" : undefined}>{approvalLabel(approval)}</Pill>}>
+              <div className="apv">
+                <div className="apv__big">
+                  <b className="mono">{Math.round(approval)}%</b>
+                  <span>aprovam o seu mandato</span>
+                  <i aria-hidden="true">
+                    <em style={{ width: `${approval}%` }} />
+                  </i>
+                </div>
+                <div>
+                  <p className="muted small" style={{ marginTop: 0 }}>
+                    Sobe com entregas (leis aprovadas, obras, emendas, indicações atendidas) e cai com escândalo, voto contra o eleitorado e promessa esquecida. Na reeleição, pesa direto no voto.
+                  </p>
+                  {approvalLog.length > 0 && (
+                    <ul className="apv__log">
+                      {approvalLog.slice(0, 8).map((e, i) => (
+                        <li key={i} className={e.delta > 0 ? "up" : e.delta < 0 ? "down" : ""}>
+                          <span className="mono">{e.delta > 0 ? `+${e.delta.toFixed(1)}` : e.delta < 0 ? e.delta.toFixed(1) : "·"}</span>
+                          <span>{e.cause}</span>
+                          <small className="mono">{fmtDate(e.on)}</small>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </Panel>
+          )}
+
+          {me.person.office_code && (
+            <Panel title="Gabinete: propostas" icon="inbox" aside={<span className="muted small">{activeProps.length} em andamento</span>}>
+              {proposals.length ? (
+                <ul className="gab">
+                  {proposals.slice(0, 12).map((x) => (
+                    <li key={x.id} className={`gab__item${x.stage === "FIM" ? " is-done" : ""}${x.result === "LEI" || x.result === "INAUGURADA" || x.result === "ATENDIDA" ? " is-win" : x.result && x.result !== "ARQUIVADA" ? " is-loss" : ""}`}>
+                      <div className="gab__top">
+                        <b>{x.title}</b>
+                        <Pill tone={x.stage === "FIM" ? (x.result === "LEI" || x.result === "INAUGURADA" || x.result === "ATENDIDA" ? "ok" : "warn") : "gold"}>
+                          {x.stage === "FIM" ? PROPOSAL_RESULT_LABEL[x.result!] : PROPOSAL_STAGE_LABEL[x.stage]}
+                        </Pill>
+                      </div>
+                      <small>
+                        {x.kind === "INDICACAO" ? "Indicação" : x.kind === "OBRA" ? "Obra / programa" : "Projeto de lei"} · pedido de {x.from.toLowerCase()}
+                        {x.shared ? " · em coautoria" : ""}
+                        {x.amended ? " · com emendas" : ""}
+                      </small>
+                      {x.stage !== "FIM" && (
+                        <div className="gab__bar" aria-label={`Andamento: ${Math.round(stageProgress(x) * 100)}%`}>
+                          <i>
+                            <em style={{ width: `${Math.round(stageProgress(x) * 100)}%` }} />
+                          </i>
+                          <span className="mono">{x.next ? `próxima etapa em ${fmtDate(x.next)}` : ""} · chance {Math.round(x.support * 100)}%</span>
+                        </div>
+                      )}
+                      {x.log[0] && <span className="gab__last">{x.log[0].text}</span>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Empty icon="inbox" title="Nenhuma proposta ainda">
+                  Passe o tempo no Painel: moradores, entidades e colegas trazem pedidos ao gabinete. Você também pode apresentar um projeto nas ações abaixo.
+                </Empty>
+              )}
             </Panel>
           )}
 

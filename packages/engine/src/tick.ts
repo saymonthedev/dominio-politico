@@ -16,6 +16,8 @@ import {
 } from "./elections";
 import { dailyBillVotes, dailyPolicies, monthlyBills, monthlyFiscalStance } from "./government";
 import { monthlyFinances, monthlyPartyFinances } from "./finance";
+import { monthlyApproval } from "./approval";
+import { energyRecovery } from "./wellbeing";
 import { dailyPartyFormation, playerPartyRecruitment, processPartyInvites } from "./partyfounding";
 import { partySwitchWindow, weeklyAgenda, yearlyRenewal } from "./npclife";
 import { creditPartyFunds, returnUnusedFunds } from "./partycampaign";
@@ -107,7 +109,8 @@ export function advanceDay(ctx: Ctx): void {
     const st = ctx.pstate(p.id);
     if (!st) continue;
     const before = st.energy;
-    st.energy = Math.min(100, st.energy + 25);
+    // muito cansaço, lesão ou falta de casa devolvem menos energia
+    st.energy = Math.min(100, st.energy + energyRecovery(st, d));
     st.offers = st.offers.filter((o) => o.expires_tick > w.tick);
     if (st.jailed_until && st.jailed_until <= d) {
       st.jailed_until = null;
@@ -115,7 +118,10 @@ export function advanceDay(ctx: Ctx): void {
     }
     if (st.energy !== before) ctx.save("person_states", st);
   }
-  if (day(d) === 1) monthlyFinances(ctx);
+  if (day(d) === 1) {
+    monthlyFinances(ctx);
+    monthlyApproval(ctx);
+  }
 
   processMandates(ctx);
   processAffiliationRequests(ctx);

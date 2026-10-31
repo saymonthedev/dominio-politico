@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { canonicalGeo, geoName, type NotificationRow } from "@dp/engine";
 import { GameSidebar } from "@/components/game/GameSidebar";
 import { HashScroll } from "@/components/game/HashScroll";
+import { KeyboardMode } from "@/components/game/KeyboardMode";
 import { MobileStatus } from "@/components/game/MobileStatus";
 import { NotificationBell } from "@/components/game/NotificationBell";
 import { StoryBell } from "@/components/game/StoryCenter";
@@ -85,7 +86,15 @@ export default async function GameLayout({ children, params }: { children: React
           />
           <UserMenu initials={initials(me.person.name)} />
         </div>
-        <MobileStatus year={year} energy={Math.round(me.state.energy)} money={Math.round(me.state.money)} reputation={Math.round(me.person.reputation)} stage={STAGE_LABEL[me.person.stage] ?? me.person.stage} />
+        <MobileStatus
+          year={year}
+          energy={Math.round(me.state.energy)}
+          money={Math.round(me.state.money)}
+          reputation={Math.round(me.person.reputation)}
+          stage={STAGE_LABEL[me.person.stage] ?? me.person.stage}
+          approval={me.person.office_code && me.state.story?.approval != null ? Math.round(me.state.story.approval) : null}
+          fatigue={Math.round(me.state.story?.fatigue ?? 25)}
+        />
       </header>
       <div className="gshell">
         <GameSidebar
@@ -103,6 +112,11 @@ export default async function GameLayout({ children, params }: { children: React
             money: Math.round(me.state.money),
             reputation: Math.round(me.person.reputation),
             attrs: [
+              // quem tem mandato vê primeiro o que o povo acha dele
+              ...(me.person.office_code && me.state.story?.approval != null
+                ? [{ label: "Aprovação popular", value: Math.round(me.state.story.approval), suffix: "%", hint: "O que o povo acha do seu mandato. Sobe com entregas (leis, obras, emendas) e cai com escândalos e votos contra a base. Pesa muito na reeleição." }]
+                : []),
+              { label: "Cansaço", value: Math.round(me.state.story?.fatigue ?? 25), bad: true, hint: "Sobe com trabalho, política e campanha; cai com descanso (academia, futebol, família, folga). Muito cansaço devolve menos energia e desgasta a saúde." },
               { label: "Ativismo", value: Math.min(100, me.state.activism), goal: me.person.stage === "CIDADAO" ? 20 : undefined, hint: "Engajamento em causas e na comunidade. Com 20, você vira ativista." },
               ...(me.party ? [{ label: "Prestígio no partido", value: me.state.party_standing, goal: me.person.stage === "FILIADO" ? 45 : undefined, hint: "Peso dentro do partido: conta na convenção e nas indicações." }] : []),
               { label: "Capital político", value: me.state.political_capital, hint: "Favores, contatos e influência acumulados." },
@@ -115,6 +129,7 @@ export default async function GameLayout({ children, params }: { children: React
         />
         <main className="gmain" id="conteudo" tabIndex={-1}>
           <HashScroll />
+          <KeyboardMode />
           {children}
         </main>
       </div>

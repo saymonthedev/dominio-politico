@@ -16,7 +16,7 @@ export function SignInForm({ next }: { next: string }) {
         <a href="/esqueci-senha">Esqueci minha senha</a>
       </p>
       <Captcha reset={state} />
-      <SubmitButton tone="primary" size="lg" full icon="arrow" pendingLabel="Entrando…">
+      <SubmitButton tone="gold" size="lg" full icon="arrow" pendingLabel="Entrando…">
         Entrar
       </SubmitButton>
       {state.error && <FormMessage tone="err">{state.error}</FormMessage>}
@@ -87,7 +87,7 @@ export function ForgotPasswordForm() {
     <form action={action} noValidate autoComplete="off">
       <TextField label="E-mail da conta" name="acesso" inputMode="email" icon="mail" placeholder="voce@exemplo.com" />
       <Captcha reset={state} />
-      <SubmitButton tone="primary" size="lg" full icon="arrow" pendingLabel="Enviando…">
+      <SubmitButton tone="gold" size="lg" full icon="arrow" pendingLabel="Enviando…">
         Enviar link
       </SubmitButton>
       {state.error && <FormMessage tone="err">{state.error}</FormMessage>}
@@ -118,7 +118,7 @@ export function ResendConfirmationForm() {
     <form action={action} noValidate autoComplete="off">
       <TextField label="E-mail do cadastro" name="acesso" inputMode="email" icon="mail" placeholder="voce@exemplo.com" />
       <Captcha reset={state} />
-      <SubmitButton tone="primary" size="lg" full icon="mail" pendingLabel="Enviando…">
+      <SubmitButton tone="gold" size="lg" full icon="mail" pendingLabel="Enviando…">
         Reenviar link
       </SubmitButton>
       {state.error && <FormMessage tone="err">{state.error}</FormMessage>}

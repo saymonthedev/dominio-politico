@@ -1,6 +1,7 @@
 import { makeIdeology, type Ideology } from "./ideology";
 import { moderateText } from "./news/moderation";
 import { worldPriceLevel } from "./finance";
+import { ensureHousing } from "./housing";
 import { buildPerson } from "./npc";
 import { origin, profession } from "./names";
 import { cityName } from "./cities";
@@ -79,6 +80,8 @@ export function createCharacter(ctx: Ctx, input: CharacterInput): CharacterResul
   });
   state.interests = input.interests.slice(0, 5);
   state.income_last_year = Math.round(prof.income * 12 * worldPriceLevel(ctx.world));
+  // moradia e carro de partida: aos 18, com a família; nos 20, de aluguel; depois, casa própria
+  ensureHousing(ctx.s, person, state, ctx.date);
   ctx.save("persons", person);
   ctx.save("person_states", state);
   ctx.emit("CHARACTER_CREATED", { actors: [person.id], geography: uf.code, payload: { municipality: city } });

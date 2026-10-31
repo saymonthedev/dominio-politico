@@ -1,4 +1,5 @@
 import { canonicalGeo } from "../../geo";
+import { homeCityOf } from "../../housing";
 import { rngFor } from "../../rng";
 import { OFFICES } from "../../ruleset";
 import type { PartyRow, PersonRow } from "../../types";
@@ -18,14 +19,21 @@ export function partyOf(c: StoryCtx, id: string | number | undefined): PartyRow 
   return id ? c.ctx.t.parties.get(String(id)) : undefined;
 }
 
-/** Bairro fictício estável para o personagem e um assunto. */
+/**
+ * Bairro estável para o personagem e um assunto: um bairro real da cidade (IBGE), escolhido
+ * com peso pela população; sem os dados (testes), um nome inventado.
+ */
 export function bairro(c: StoryCtx, key: string): string {
-  return neighborhood(rngFor(c.ctx.world.seed, "bairro", 0, `${c.p.id}:${key}`));
+  const rng = rngFor(c.ctx.world.seed, "bairro", 0, `${c.p.id}:${key}`);
+  const ch = c.ctx.s.housing?.get(homeCityOf(c.p));
+  if (ch?.bairros.length) return rng.weighted(ch.bairros, (b) => Math.sqrt(b.pop) + 1).name;
+  return neighborhood(rng);
 }
 
-/** O bairro onde o personagem mora. */
+/** O bairro onde o personagem mora (o da casa de verdade, quando já existe). */
 export function home(c: StoryCtx): string {
-  return bairro(c, "casa");
+  const h = c.s.home;
+  return h && h.kind !== "RUA" && h.bairro ? h.bairro : bairro(c, "casa");
 }
 
 export function city(c: StoryCtx): string {

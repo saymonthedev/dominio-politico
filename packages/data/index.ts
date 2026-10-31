@@ -3,7 +3,7 @@
  * Gerados por scripts/import-snapshot/*. Importações estáticas para que o
  * bundler inclua os arquivos nas funções serverless.
  */
-import type { CityBase, Snapshot } from "@dp/engine";
+import type { BairrosFile, CityBase, Snapshot } from "@dp/engine";
 
 const loaders: Record<number, () => Promise<{ default: unknown }>> = {
   2002: () => import("../../data/snapshot-2002.json"),
@@ -36,4 +36,9 @@ export async function loadCities(year: number): Promise<CityBase[]> {
   const loader = cityLoaders[year];
   if (!loader) throw new Error(`Não há dados municipais para ${year}`);
   return ((await loader()).default as { municipalities: CityBase[] }).municipalities;
+}
+
+/** Bairros (ou distritos) de cada município com população e renda (IBGE, Censo 2022). Ver scripts/build-bairros.mjs. */
+export async function loadBairros(): Promise<BairrosFile> {
+  return (await import("../../data/bairros.json")).default as unknown as BairrosFile;
 }

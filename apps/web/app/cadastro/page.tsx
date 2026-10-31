@@ -12,7 +12,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
   const sp = START_POINTS.find((s) => String(s.year) === ano);
   return (
     <>
-      <PublicHeader loggedIn={false} />
+      <PublicHeader loggedIn={false} page="cadastro" />
       <AuthShell
         title="Criar conta"
         sub={sp ? <>Você vai começar no Brasil de {sp.year}, logo depois da vitória de {sp.winner}. Primeiro, sua conta.</> : "E-mail e senha. Depois você escolhe o ano em que sua história começa."}

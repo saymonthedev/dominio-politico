@@ -6,6 +6,7 @@ import { isReal } from "./news/policy";
 import { POLL_INSTITUTES } from "./news/outlets";
 import { spawnProceduralCadre } from "./npc";
 import { isPlayerLed } from "./partyfounding";
+import { directoryPick } from "./partypost";
 import { rngFor, Rng } from "./rng";
 import { eraRules, inaugurationDate, OFFICES, officesForElection, senateSeatsForYear, termEnd, type OfficeCode } from "./ruleset";
 import type { Ctx, WorldState } from "./state";
@@ -174,6 +175,7 @@ export function contenderFor(ctx: Ctx, c: CandidacyRow, uf: string): Contender {
     scandal: (st?.scandal ?? 0) + c.campaign.rumor_damage,
     noise: latentNoise(ctx, c.id, uf),
     seg: c.campaign.seg,
+    approval: officeIncumbent && p.kind === "PLAYER" ? st?.story?.approval ?? null : null,
   };
 }
 
@@ -202,6 +204,8 @@ export function playerListStrength(ctx: Ctx, race: RaceRow, c: CandidacyRow, noi
       0.5 * ground -
       (st.scandal / 100) * 1.5 -
       c.campaign.rumor_damage / 60 +
+      // mandato bem avaliado ajuda a se reeleger na lista; mal avaliado atrapalha
+      (p.office_code && st.story?.approval != null ? 0.6 * ((st.story.approval - 50) / 50) : 0) +
       noise,
   );
 }
@@ -349,7 +353,9 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
           (race.geo === "BR" ? p.tier <= 2 : localRace ? canonicalGeo(p.municipality) === race.geo : p.uf === uf) &&
           checkEligibility(ctx, p, race.office_code, race.geo, e).ok,
       );
-      const scored = pool.map((p) => ({ p, s: candidateScore(ctx, p, race.office_code, race.geo, rng) }));
+      // o presidente do diretório (jogador) pode ter indicado um nome: a convenção segue
+      const pick = directoryPick(ctx, party, race.geo);
+      const scored = pool.map((p) => ({ p, s: candidateScore(ctx, p, race.office_code, race.geo, rng) + (pick === p.id ? 300 : 0) }));
       const players = (preByRace.get(race.id) ?? []).filter((c) => c.party_id === party.id);
       for (const pc of players) {
         const p = ctx.person(pc.person_id)!;
@@ -362,7 +368,7 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
           continue;
         }
         // no partido de jogador: a pré-candidatura do presidente vem primeiro, depois outros jogadores, depois as indicações
-        const priority = led ? (p.id === party.president_id ? 1000 : p.kind === "PLAYER" ? 500 : 0) : 0;
+        const priority = led ? (p.id === party.president_id ? 1000 : p.kind === "PLAYER" ? 500 : 0) : pick === p.id ? 300 : 0;
         scored.push({ p, s: priority + candidateScore(ctx, p, race.office_code, race.geo, rng) + (ctx.pstate(p.id)?.party_standing ?? 0) * 0.25 });
       }
       scored.sort((a, b) => b.s - a.s);

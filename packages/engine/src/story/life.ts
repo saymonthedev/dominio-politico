@@ -7,7 +7,11 @@ import { OFFICES, type OfficeCode } from "../ruleset";
 import type { Ctx } from "../state";
 import type { PersonRow } from "../types";
 import type { StoryCtx } from "./context";
-import { initialHealth, pushLog, storyOf } from "./state";
+import { ensureApproval } from "../approval";
+import { archiveProposals } from "../gabinete";
+import { ensureHousing, netWorth } from "../housing";
+import { dailyBody } from "../wellbeing";
+import { initialHealth, pushLog, scheduleStory, storyOf } from "./state";
 import type { CareerEnd, StoryLogEntry } from "./types";
 import { cityLabel } from "./world";
 
@@ -32,6 +36,25 @@ function healthFactor(health: number): number {
 export function dailyLife(c: StoryCtx): void {
   const s = c.s;
   const age = c.age;
+  // casa e carro (personagens antigos recebem os seus a partir dos bens declarados)
+  ensureHousing(c.ctx.s, c.p, c.st, c.date);
+  // o corpo: cansaço do dia, descanso, lesão que sara
+  const campaigningNow = c.phase === "CAMPANHA" || c.phase === "RETA_FINAL" || c.phase === "SEGUNDO_TURNO";
+  dailyBody(c.ctx, c.p, c.st, campaigningNow, c.phase === "PRE" || c.phase === "CONVENCAO");
+  if ((s.fatigue ?? 0) >= 92 && c.since("esgotamento") > 75 && !s.pending.some((e) => e.def === "esgotamento") && !s.queue.some((q) => q.def === "esgotamento")) {
+    scheduleStory(c.st, "esgotamento", c.date, {});
+  }
+  // mandato: aprovação popular enquanto dura; no fim, o gabinete fecha e a vida civil volta
+  if (c.p.office_code) {
+    ensureApproval(c.p, c.st, c.date);
+    if (s.flags.em_mandato !== c.p.office_code) s.flags.em_mandato = c.p.office_code;
+  } else if (s.flags.em_mandato) {
+    const office = String(s.flags.em_mandato);
+    delete s.flags.em_mandato;
+    archiveProposals(c.st, c.date);
+    ensureApproval(c.p, c.st, c.date);
+    scheduleStory(c.st, "volta_vida_civil", c.date, { office });
+  }
   if (day(c.date) === 1) {
     // a saúde volta devagar ao "teto" da idade; política desgasta
     const cap = initialHealth(age);
@@ -224,7 +247,7 @@ export function careerSummary(ctx: Ctx, personId: string): CareerSummary | null 
     achievements,
     points: careerScore(p, st),
     reputation: Math.round(p.reputation),
-    wealth: Math.round(st.money + st.assets - st.debt),
+    wealth: netWorth(st),
     scandals: { acts: acts.length, discovered: acts.filter((a) => a.discovered).length, cases: cases.length, convictions, kinds: [...new Set(acts.filter((a) => a.discovered).map((a) => CRIMES[a.kind]?.label ?? a.kind))] },
     allies,
     enemies: rels.filter((r) => r.score <= -30).length,

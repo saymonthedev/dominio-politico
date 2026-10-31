@@ -1,4 +1,5 @@
 import { worldPriceLevel } from "./finance";
+import { netWorth } from "./housing";
 import { OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
 import type { PersonRow, PersonStateRow } from "./types";
@@ -76,7 +77,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     text: "Chegou a R$ 1 milhão de patrimônio declarado (em valores de 2026).",
     icon: "coins",
     points: 10,
-    check: (ctx, _p, st) => st.money + st.assets - st.debt >= 1_000_000 * worldPriceLevel(ctx.world),
+    check: (ctx, _p, st) => netWorth(st) >= 1_000_000 * worldPriceLevel(ctx.world),
   },
   {
     id: "maos_limpas",

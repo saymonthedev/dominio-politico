@@ -1,6 +1,7 @@
 import { addMonths, monthKey } from "./calendar";
+import { ensureHousing, housingCosts, housingMonthEnd } from "./housing";
 import { profession } from "./names";
-import type { OfficeCode } from "./ruleset";
+import { OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
 import type { FinanceKind, LedgerItem, PartyRow, PersonRow, PersonStateRow, WorldRow } from "./types";
 
@@ -157,11 +158,14 @@ export function professionIncome(p: PersonRow, level: number): number {
   return profession(p.profession.split("|")[0]).income * level;
 }
 
-/** Custo de vida mensal: moradia, família, deslocamentos (mais alto para quem tem mandato). */
+/**
+ * Custo de vida mensal sem a moradia e o carro (que têm linhas próprias): comida, contas,
+ * saúde, deslocamento e família. Quem tem mandato gasta mais (viagens, representação).
+ */
 export function livingCost(ctx: Ctx, p: PersonRow, subsidy: number, date = ctx.date): number {
   const level = priceLevelAt(ctx, date);
-  const base = Math.max(1_800 * level, professionIncome(p, level) * 0.5);
-  return Math.round(base + (p.office_code ? subsidy * 0.25 : 0));
+  const base = Math.max(1_200 * level, professionIncome(p, level) * 0.3);
+  return Math.round(base + (p.office_code ? subsidy * 0.2 : 0));
 }
 
 export interface MonthlyPreview {
@@ -175,12 +179,14 @@ export function monthlyStatement(ctx: Ctx, p: PersonRow, st: PersonStateRow, dat
   const items: LedgerItem[] = [];
   const jailed = !!st.jailed_until && st.jailed_until > date;
   const subsidy = p.office_code && !jailed ? subsidyFor(ctx, p.office_code, p.office_geo, date) : 0;
-  // durante o mandato, a atividade profissional fica em segundo plano
-  // jornada de trabalho combinada nos acontecimentos da carreira (licença, meio período, demissão)
+  // no mandato, a profissão fica em licença: a renda é o subsídio do cargo, não as duas coisas
+  // fora dele, vale a jornada combinada nos acontecimentos da carreira (licença, meio período, demissão)
   const share = typeof st.story?.flags.jornada === "number" ? Math.max(0, Math.min(1, st.story.flags.jornada)) : 1;
-  const work = jailed ? 0 : professionIncome(p, priceLevelAt(ctx, date)) * (p.office_code ? 0.15 : 1) * share;
-  if (work > 0) items.push({ kind: "RENDA", label: p.office_code ? "Rendimentos da atividade privada" : share < 1 ? "Salário (jornada reduzida)" : "Salário e rendimentos da profissão", amount: Math.round(work) });
-  if (subsidy > 0) items.push({ kind: "SUBSIDIO", label: `Subsídio de ${p.office_code === "PRESIDENTE" ? "presidente" : "parlamentar ou chefe do Executivo"}`, amount: Math.round(subsidy) });
+  const profLabel = profession(p.profession.split("|")[0]).label;
+  const work = jailed || p.office_code ? 0 : professionIncome(p, priceLevelAt(ctx, date)) * share;
+  if (work > 0) items.push({ kind: "RENDA", label: share < 1 ? `Salário de ${profLabel} (jornada reduzida)` : `Salário de ${profLabel}`, amount: Math.round(work) });
+  if (p.office_code && !jailed) items.push({ kind: "RENDA", label: `Salário de ${profLabel}: em licença durante o mandato`, amount: 0 });
+  if (subsidy > 0) items.push({ kind: "SUBSIDIO", label: `Subsídio de ${OFFICES[p.office_code!].name.toLowerCase()}`, amount: Math.round(subsidy) });
   const tax = incomeTax(work + subsidy, date);
   if (tax > 0) items.push({ kind: "IMPOSTO", label: "Imposto de Renda retido (estimativa)", amount: -Math.round(tax) });
   const selic = ctx.s.economy?.selic ?? 10;
@@ -188,7 +194,8 @@ export function monthlyStatement(ctx: Ctx, p: PersonRow, st: PersonStateRow, dat
     const gross = st.money * (selic * 0.95 / 100 / 12);
     items.push({ kind: "RENDIMENTO", label: `Rendimento da reserva (${selic.toFixed(2).replace(".", ",")}% de Selic, já com IR)`, amount: Math.round(gross * 0.85) });
   }
-  items.push({ kind: "CUSTO_VIDA", label: "Custo de vida", amount: -livingCost(ctx, p, subsidy, date) });
+  items.push({ kind: "CUSTO_VIDA", label: "Custo de vida (comida, contas, saúde, deslocamento)", amount: -livingCost(ctx, p, subsidy, date) });
+  if (p.kind === "PLAYER") items.push(...housingCosts(ctx, p, st, work + subsidy));
   const party = p.party_id ? ctx.t.parties.get(p.party_id) : undefined;
   if (party && subsidy > 0) {
     const rate = partyContributionRate(party);
@@ -206,8 +213,10 @@ export function monthlyFinances(ctx: Ctx): void {
     if (p.kind !== "PLAYER" || p.status !== "ACTIVE") continue;
     const st = ctx.pstate(p.id);
     if (!st) continue;
+    ensureHousing(ctx.s, p, st, ctx.date);
     const { items, net, interest } = monthlyStatement(ctx, p, st);
     st.money += net;
+    housingMonthEnd(ctx, p, st);
     if (interest > 0) {
       st.debt += interest;
       items.push({ kind: "JUROS", label: "Juros da dívida (somados ao saldo devedor)", amount: -interest });

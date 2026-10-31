@@ -1,4 +1,4 @@
-import { ACHIEVEMENTS, AXES, AXIS_INFO, careerScore, ENTRY_CULTURE_LABEL, geoName, canonicalGeo, OFFICES, profession, type AffiliationRequestRow, type WorldEventRow } from "@dp/engine";
+import { ACHIEVEMENTS, activeInjury, approvalLabel, AXES, AXIS_INFO, careerScore, daysLeft, ENTRY_CULTURE_LABEL, fatigueLabel, geoName, canonicalGeo, OFFICES, partyPostOf, profession, type AffiliationRequestRow, type WorldEventRow } from "@dp/engine";
 import { PartyMark } from "@/components/PartyMark";
 import { ActionPanel } from "@/components/ActionPanel";
 import { CareerTabs } from "@/components/game/CareerTabs";
@@ -53,6 +53,12 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   ]);
   const pm = partyMap(parties);
   const actions = actionsFor(state, me.person.id, ["BASE", "PARTIDO"]);
+  const lifeActions = actionsFor(state, me.person.id, ["VIDA"]);
+  const commandActions = actionsFor(state, me.person.id, ["COMANDO"]);
+  const post = partyPostOf(state, state.t.persons.get(me.person.id) ?? me.person, me.state);
+  const fatigue = Math.round(me.state.story?.fatigue ?? 25);
+  const injury = activeInjury(me.state.story, state.world.game_date);
+  const approval = me.person.office_code ? me.state.story?.approval ?? null : null;
   const requests = (reqQ.data ?? []) as AffiliationRequestRow[];
   const events = (evQ.data ?? []) as WorldEventRow[];
   const st = me.state;
@@ -90,6 +96,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             <div className="profile__tags">
               <Pill tone="gold">{STAGE_LABEL[me.person.stage]}</Pill>
               {me.party ? <PartyChip party={me.party} href={`/jogo/${year}/partidos/${me.party.id}`} /> : <Pill>Sem partido</Pill>}
+              {post && <Pill tone="sim">{post.label}</Pill>}
             </div>
           </div>
           <div className="kpis profile__kpis">
@@ -132,6 +139,32 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
           <Panel className="cg-agir" title="O que você pode fazer" icon="play">
             <ActionPanel year={year} actions={actions} />
+          </Panel>
+
+          {post && (
+            <Panel className="cg-agir" title="Comando do partido" icon="flag" tone="gold" aside={<Pill tone="gold">{post.label}</Pill>}>
+              <p className="muted small" style={{ marginTop: 0 }}>
+                {post.level === "SECRETARIO"
+                  ? "Como secretário(a), você ajuda a tocar a máquina. Vencer a eleição do diretório dá o comando: nomear, afastar, abrir processo, indicar candidatos e negociar alianças."
+                  : "Quem preside manda: nomeie e afaste dirigentes, leve filiados ao conselho de ética, indique o nome do partido na eleição e negocie alianças."}
+              </p>
+              <ActionPanel year={year} actions={commandActions} empty="Nada para comandar agora." />
+            </Panel>
+          )}
+
+          <Panel className="cg-agir" title="Descansar e cuidar do corpo" icon="zap" aside={<Pill tone={fatigue >= 65 ? "warn" : fatigue <= 30 ? "ok" : undefined}>cansaço {fatigue} · {fatigueLabel(fatigue)}</Pill>}>
+            {injury && (
+              <div className="hint-band hint-band--danger" style={{ marginTop: 0 }}>
+                <Icon name="alert" size={18} />
+                <span>
+                  Você está com <b>{injury.label}</b>: faltam {daysLeft(injury, state.world.game_date)} dias. Até lá, a energia volta mais devagar e esportes ficam travados.
+                </span>
+              </div>
+            )}
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Trabalho, política e campanha cansam; muito cansaço devolve menos energia por dia e desgasta a saúde. Descansar não rende voto — mas segura você de pé. Esporte tem risco de lesão.
+            </p>
+            <ActionPanel year={year} actions={lifeActions} />
           </Panel>
 
           <Panel className="cg-hist" title="Mandatos e eleições" icon="ballot">
@@ -193,6 +226,8 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             </ul>
           </Panel>
           <Panel className="cg-perfil" title="Indicadores" icon="chart">
+            {approval != null && <MeterRow label="Aprovação popular" value={approval} tone={approval < 42 ? "bad" : "ok"} hint={approvalLabel(approval)} />}
+            <MeterRow label="Cansaço" value={fatigue} tone="bad" hint={fatigueLabel(fatigue)} />
             {st.story && <MeterRow label="Saúde" value={st.story.health} tone={st.story.health < 45 ? "bad" : "ok"} hint={st.story.health < 45 ? "o desgaste aumenta o risco de adoecer" : "cai com estresse, campanha e idade"} />}
             <MeterRow label="Reputação" value={me.person.reputation} tone="sim" />
             <MeterRow label="Visibilidade" value={me.person.visibility} />

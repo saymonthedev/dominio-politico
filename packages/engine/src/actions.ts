@@ -1,4 +1,10 @@
 import { checkAchievements } from "./achievements";
+import { LIFE_ACTIONS } from "./actions-life";
+import { bumpApproval } from "./approval";
+import { addOtherAssets } from "./housing";
+import { newProposal } from "./gabinete";
+import { scheduleStory } from "./story/state";
+import { addFatigue, injuryBlocks } from "./wellbeing";
 import { affiliationCooldown, infidelityRisk, joinParty, leaveParty, loseMandateForInfidelity, relKey, requestAffiliation } from "./affiliation";
 import { addDays, formatDatePt } from "./calendar";
 import {
@@ -51,7 +57,7 @@ import { eraRules, OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
 import type { CandidacyRow, EntryCulture, ElectionRow, PersonRow, PersonStateRow, RaceRow } from "./types";
 
-export type ActionCategory = "BASE" | "PARTIDO" | "MEU_PARTIDO" | "CAMPANHA" | "MANDATO" | "INVESTIGACAO" | "ESQUEMA" | "FINANCAS";
+export type ActionCategory = "BASE" | "PARTIDO" | "MEU_PARTIDO" | "CAMPANHA" | "MANDATO" | "INVESTIGACAO" | "ESQUEMA" | "FINANCAS" | "VIDA" | "BENS" | "COMANDO";
 
 export interface ActionParam {
   name: string;
@@ -79,7 +85,17 @@ export interface ActionParam {
     | "member"
     | "indication"
     | "party_candidacy"
-    | "fund_share";
+    | "fund_share"
+    | "bairro"
+    | "home_tier"
+    | "car_model"
+    | "pay"
+    | "after_sale"
+    | "loan"
+    | "party_member"
+    | "party_member_or_me"
+    | "party_plain"
+    | "party_officer";
   options?: Array<{ value: string; label: string }>;
   /** valores de referência (R$ de 2026) para type "amount"; a tela corrige pela época */
   amounts?: number[];
@@ -319,7 +335,7 @@ export const ACTIONS: ActionDef[] = [
     description: "Plantões, consultorias e serviços avulsos além do salário que já cai todo mês. Rende menos se repetir muito.",
     category: "BASE",
     energy: 25,
-    available: () => null,
+    available: (_c, p) => (p.office_code ? "No mandato, a profissão fica em licença: sua renda é o subsídio do cargo." : null),
     run: ({ ctx, p, st, dr }) => {
       const income = Math.round(profession(professionIdOf(p)).income * worldPriceLevel(ctx.world) * 0.2 * (0.5 + 0.5 * dr("trabalhar")));
       st.money += income;
@@ -958,11 +974,18 @@ export const ACTIONS: ActionDef[] = [
       { name: "vote", label: "Voto", type: "choice", options: [{ value: "SIM", label: "Sim" }, { value: "NAO", label: "Não" }, { value: "ABSTENCAO", label: "Abstenção" }] },
     ],
     available: (_c, p) => (p.office_code === "DEP_FEDERAL" ? null : "Disponível para deputados federais."),
-    run: ({ ctx, p, params }) => {
+    run: ({ ctx, p, st, params }) => {
       const bill = ctx.t.bills.get(params.bill);
       if (!bill || bill.status !== "TRAMITANDO") return { ok: false, message: "Projeto fora de pauta." };
       bill.player_votes[p.id] = params.vote as "SIM" | "NAO" | "ABSTENCAO";
       ctx.save("bills", bill);
+      // o eleitorado do seu estado acompanha: voto alinhado à maioria rende, voto contra custa
+      const segs = [...ctx.t.voter_segments.values()].filter((sg) => sg.uf === p.uf);
+      const lean = segs.reduce((acc, sg) => acc + (sg.ideology[bill.axis as Axis] ?? 0) * sg.weight, 0) * bill.direction;
+      if (params.vote !== "ABSTENCAO" && Math.abs(lean) > 3) {
+        const withVoters = (params.vote === "SIM") === lean > 0;
+        bumpApproval(p, st, ctx.date, withVoters ? 0.8 : -1, `${withVoters ? "Voto alinhado ao eleitorado" : "Voto contra o que o eleitorado pensa"}: ${bill.title}`);
+      }
       return { ok: true, message: `Voto registrado: ${params.vote}. A votação ocorre em ${formatDatePt(bill.vote_on)}.` };
     },
   },
@@ -1005,7 +1028,12 @@ export const ACTIONS: ActionDef[] = [
           fiscal_effect: 0,
         });
       }
-      return { ok: true, message: aligned ? "Projeto bem recebido na sua base." : "Projeto apresentado; sua base ficou dividida." };
+      // o projeto entra no gabinete e anda por comissão, plenário e sanção (cada etapa vira acontecimento)
+      const title = `${side > 0 ? AXIS_INFO[axis].pos : AXIS_INFO[axis].neg} (${AXIS_INFO[axis].label.toLowerCase()})`.replace(/^./, (x) => x.toUpperCase());
+      const prop = newProposal(ctx, p, st, { tpl: `proprio_${axis}_${side}`, title: `Projeto de lei: ${title}`, kind: "PROJETO", from: "Seu gabinete", segment: "classe_media", impact: aligned ? 3 : 1.5, difficulty: aligned ? 0.45 : 0.6 }, "PROTOCOLADA", 20);
+      scheduleStory(st, "gab_comissao", prop.next!, { pid: prop.id });
+      bumpApproval(p, st, ctx.date, aligned ? 0.6 : -0.3, `Apresentou projeto: ${title.toLowerCase()}`);
+      return { ok: true, message: aligned ? "Projeto bem recebido na sua base. Agora ele vai para a comissão." : "Projeto apresentado; sua base ficou dividida. Ele segue para a comissão." };
     },
   },
   {
@@ -1015,11 +1043,12 @@ export const ACTIONS: ActionDef[] = [
     category: "MANDATO",
     energy: 10,
     available: (_c, p, st) => (!p.office_code || !["DEP_FEDERAL", "DEP_ESTADUAL", "SENADOR", "VEREADOR"].includes(p.office_code) ? "Disponível para parlamentares." : st.political_capital < 5 ? "Capital político insuficiente." : null),
-    run: ({ p, st, dr }) => {
+    run: ({ ctx, p, st, dr }) => {
       const f = dr("emenda");
       st.political_capital = clamp(st.political_capital - 5);
       addReach(st, p.uf, 0.02 * f);
       p.reputation = clamp(p.reputation + 1.5 * f);
+      bumpApproval(p, st, ctx.date, 1.5 * f, "Emenda destinada para obras na base");
       return { ok: true, message: "Emenda destinada. Prefeitos aliados agradecem." };
     },
   },
@@ -1036,6 +1065,7 @@ export const ACTIONS: ActionDef[] = [
       p.visibility = clamp(p.visibility + 3 * f);
       if (party && party.gov_alignment < 0) p.reputation = clamp(p.reputation + 1 * f);
       st.political_capital = clamp(st.political_capital + 2 * f);
+      bumpApproval(p, st, ctx.date, 0.6 * f, "Fiscalizou o governo");
       return { ok: true, message: "Sua atuação fiscalizadora repercutiu." };
     },
   },
@@ -1052,6 +1082,7 @@ export const ACTIONS: ActionDef[] = [
       if (!def || !def.offices.includes(p.office_code!)) return { ok: false, message: "Política indisponível para seu cargo." };
       if ([...ctx.t.policies.values()].some((x) => x.owner_person_id === p.id && x.kind === def.kind && x.status !== "CONCLUIDA" && x.status !== "CANCELADA")) return { ok: false, message: "Essa política já está em andamento." };
       const pol = startPolicy(ctx, p, def.kind);
+      bumpApproval(p, ctx.pstate(p.id)!, ctx.date, 1.5, `Lançou: ${def.title}`);
       return { ok: true, message: `${def.title} lançado. Previsão de conclusão: ${formatDatePt(pol.completes_on)}.` };
     },
   },
@@ -1070,6 +1101,7 @@ export const ACTIONS: ActionDef[] = [
       p.visibility = clamp(p.visibility + 6);
       const proof = provenActs(st, target.id);
       openInvestigation(ctx, target, { authority: "CPI", openedBy: p.id, initialEvidence: (st.dossiers[target.id] ?? 0) * 0.8 + 0.05, actIds: proof, reason: `CPI proposta por ${p.name}`, channel: "CPI" });
+      bumpApproval(p, st, ctx.date, proof.length ? 1 : -1.5, proof.length ? `CPI com provas contra ${target.name}` : `CPI sem provas contra ${target.name}`);
       return { ok: true, message: `CPI instalada para apurar a conduta de ${target.name}.${proof.length ? "" : " Sem provas no seu dossiê, a comissão tende a terminar sem nada."}` };
     },
   },
@@ -1461,7 +1493,7 @@ export const ACTIONS: ActionDef[] = [
       const net = Math.round(amount * 0.7);
       st.dirty_money -= amount;
       st.money += net;
-      st.assets += Math.round(amount * 0.1);
+      addOtherAssets(st, Math.round(amount * 0.1));
       const r = commitCrime(ctx, p, "LAVAGEM", { amount });
       ctx.insert("finance_transactions", { id: ctx.id("fin", p.id, "lavagem"), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "LAVAGEM", amount: net, declared: true, game_date: ctx.date, description: `"Lucros" de empresa de fachada (dinheiro lavado via ${r.partner?.role_label ?? "intermediário"})` });
       return { ok: true, message: `${fmtMoney(amount)} lavados: ${fmtMoney(net)} entraram na sua conta como se fossem lucros de empresa.` };
@@ -1747,6 +1779,7 @@ export const ACTIONS: ActionDef[] = [
       return { ok: true, message: `Você pagou ${fmtMoney(pay)}. Dívida restante: ${fmtMoney(st.debt)}.` };
     },
   },
+  ...LIFE_ACTIONS,
 ];
 
 /** Ações de esquema padrão: oportunidade pelo catálogo, ganho em dinheiro não declarado. */
@@ -1820,7 +1853,7 @@ export function availableActions(ctx: Ctx, personId: string): Array<{ def: Actio
   const st = ctx.pstate(personId);
   if (!p || !st) return [];
   return ACTIONS.map((def) => {
-    let reason = jailReason(ctx, st, def.id) ?? def.available(ctx, p, st);
+    let reason = jailReason(ctx, st, def.id) ?? injuryBlocks(st, ctx.date, def.id) ?? def.available(ctx, p, st);
     if (!reason && st.energy < def.energy) reason = `Energia insuficiente (${def.energy}).`;
     return { def, reason };
   });
@@ -1833,7 +1866,7 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
   if (!p || !st || p.kind !== "PLAYER") return { ok: false, message: "Personagem não encontrado." };
   if (p.status !== "ACTIVE") return { ok: false, message: "Seu personagem está fora da vida pública." };
   if (!def) return { ok: false, message: "Ação desconhecida." };
-  const reason = jailReason(ctx, st, def.id) ?? def.available(ctx, p, st);
+  const reason = jailReason(ctx, st, def.id) ?? injuryBlocks(st, ctx.date, def.id) ?? def.available(ctx, p, st);
   if (reason) return { ok: false, message: reason };
   if (st.energy < def.energy) return { ok: false, message: `Energia insuficiente: esta ação exige ${def.energy}.` };
   for (const param of def.params ?? []) {
@@ -1870,6 +1903,8 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
     }
   }
   st.energy = Math.max(0, st.energy - def.energy);
+  // cada ação que gasta energia cansa um pouco (descanso e lazer não contam)
+  if (def.category !== "VIDA" && def.energy > 0) addFatigue(st, def.energy * 0.12);
   st.action_seq += 1;
   st.last_action_tick = ctx.tick;
   for (const k of usedKeys.length ? usedKeys : [actionId]) recordUse(st, k, ctx.tick);

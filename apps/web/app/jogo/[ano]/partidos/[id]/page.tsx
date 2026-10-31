@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { PartyMark } from "@/components/PartyMark";
-import { AXES, AXIS_INFO, ENTRY_CULTURE_LABEL, OFFICES, spectrumLabel, UFS, type FactionRow, type PersonRow } from "@dp/engine";
+import { AXES, AXIS_INFO, ENTRY_CULTURE_LABEL, OFFICES, partyPostOf, spectrumLabel, UFS, type FactionRow, type PersonRow } from "@dp/engine";
+import { ActionPanel } from "@/components/ActionPanel";
+import { actionsFor } from "@/lib/actions-view";
 import { Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
 import { PersonAvatar } from "@/components/PersonAvatar";
@@ -23,16 +25,21 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
   const party = (await getParties(me.worldId)).find((p) => p.id === id);
   if (!party) notFound();
   const { sb } = await getSession();
-  const [facQ, peopleQ, state] = await Promise.all([
+  const [facQ, peopleQ, playersQ, state] = await Promise.all([
     sb.from("factions").select("*").eq("world_id", me.worldId).eq("party_id", id),
     sb.from("persons").select("*").eq("world_id", me.worldId).eq("party_id", id).eq("status", "ACTIVE").order("tier").order("reputation", { ascending: false }).limit(48),
+    // jogadores filiados (você primeiro): personagens fictícios também fazem parte do partido
+    sb.from("persons").select("*").eq("world_id", me.worldId).eq("party_id", id).eq("status", "ACTIVE").eq("kind", "PLAYER").limit(24),
     playerState(year),
   ]);
   const factions = (facQ.data ?? []) as FactionRow[];
-  const people = (peopleQ.data ?? []) as PersonRow[];
+  const players = ((playersQ.data ?? []) as PersonRow[]).sort((a, b) => Number(b.id === me.person.id) - Number(a.id === me.person.id) || b.reputation - a.reputation);
+  const people = [...players, ...((peopleQ.data ?? []) as PersonRow[]).filter((p) => p.kind !== "PLAYER")];
   const topUfs = [...UFS].sort((a, b) => (party.territory[b.code] ?? 0) - (party.territory[a.code] ?? 0)).slice(0, 8);
   const fit = partyFits(state, state.t.persons.get(me.person.id) ?? me.person).find((f) => f.party.id === id);
   const mine = me.person.party_id === id;
+  const post = mine ? partyPostOf(state, state.t.persons.get(me.person.id) ?? me.person, me.state) : null;
+  const command = post ? actionsFor(state, me.person.id, ["COMANDO"]) : [];
 
   return (
     <>
@@ -72,7 +79,13 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
 
       <div className="ggrid ggrid--main">
         <div className="gstack">
-          <Panel title="Quadros conhecidos" icon="users" aside={<span className="muted small">{people.length} mais influentes</span>}>
+          {post && (
+            <Panel title="Comando do partido" icon="flag" tone="gold" aside={<Pill tone="gold">{post.label}</Pill>}>
+              <ActionPanel year={year} actions={command} empty="Nada para comandar agora." />
+            </Panel>
+          )}
+
+          <Panel title="Quadros conhecidos" icon="users" aside={<span className="muted small">{players.length ? `${players.length} jogador(es) e ` : ""}{people.length - players.length} mais influentes</span>}>
             <div className="people">
               {people.map((p) => (
                 <a key={p.id} className="person" href={`/jogo/${year}/pessoa/${p.id}`}>
@@ -82,7 +95,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
                     <span>
                       {p.office_code ? OFFICES[p.office_code].name : p.role_label ?? "filiado(a)"} · {p.uf}
                     </span>
-                    <Pill tone={KIND[p.kind]?.tone}>{KIND[p.kind]?.label ?? p.kind}</Pill>
+                    <Pill tone={p.id === me.person.id ? "gold" : KIND[p.kind]?.tone}>{p.id === me.person.id ? (post ? `você · ${post.label}` : "você") : KIND[p.kind]?.label ?? p.kind}</Pill>
                   </div>
                 </a>
               ))}

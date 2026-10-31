@@ -8,7 +8,8 @@ const LINKS: Array<[string, string]> = [
   ["/fontes", "Fontes"],
 ];
 
-export function PublicHeader({ loggedIn }: { loggedIn: boolean }) {
+/** Cabeçalho público; na tela de cadastro, o botão do topo leva para "Entrar" (e vice-versa). */
+export function PublicHeader({ loggedIn, page }: { loggedIn: boolean; page?: "entrar" | "cadastro" }) {
   return (
     <header className="masthead">
       <div className="container inner">
@@ -22,10 +23,14 @@ export function PublicHeader({ loggedIn }: { loggedIn: boolean }) {
         {loggedIn ? (
           <a className="btn gold small" href="/jogo">Jogar</a>
         ) : (
-          <>
-            <a className="link hide-sm" href="/entrar">Entrar</a>
-            <a className="btn gold small" href="/cadastro">Criar conta</a>
-          </>
+          page === "cadastro" ? (
+            <a className="btn gold small" href="/entrar">Entrar</a>
+          ) : (
+            <>
+              {page !== "entrar" && <a className="link hide-sm" href="/entrar">Entrar</a>}
+              <a className="btn gold small" href="/cadastro">Criar conta</a>
+            </>
+          )
         )}
         <details className="mobile-menu">
           <summary aria-label="Abrir menu"><Icon name="menu" size={22} /></summary>
