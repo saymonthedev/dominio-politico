@@ -732,7 +732,7 @@ td.num, th.num { text-align: right; }
 .cf-axes { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; }
 .cf-submit { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; background: var(--planalto); color: #fff; border-radius: 18px; padding: 18px 22px; position: sticky; bottom: 12px; z-index: 5; box-shadow: 0 14px 40px rgba(11,31,58,.3); }
 .cf-submit b { display: block; font-size: 1.05rem; }
-.cf-submit span { font-size: .82rem; color: #b8c4d8; }
+.cf-submit > div > span { font-size: .82rem; color: #b8c4d8; }
 .cf-aside { position: sticky; top: 92px; }
 .cf-world { background: var(--cartao); border: 1px solid var(--linha); border-radius: 18px; padding: 20px; box-shadow: var(--shadow); display: grid; gap: 12px; }
 .cf-world__year { font-size: 2.6rem; font-weight: 800; letter-spacing: -0.05em; line-height: 1; }
@@ -1271,7 +1271,7 @@ td.num, th.num { text-align: right; }
 .pcard__mark { min-width: 50px; height: 50px; padding: 0 8px; border-radius: 14px; display: grid; place-items: center; background: var(--c); color: #fff; font-weight: 800; font-size: .8rem; text-align: center; line-height: 1.1; }
 .pcard__name { display: block; font-weight: 700; color: var(--tinta); text-decoration: none; line-height: 1.3; }
 .pcard__name:hover { text-decoration: underline; text-decoration-color: var(--faixa); }
-.pcard__head span { font-size: .76rem; color: var(--apagado); }
+.pcard__head > div > span { font-size: .76rem; color: var(--apagado); }
 .pcard__tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .pcard__nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .pcard__nums div { background: var(--rebaixada); border-radius: 12px; padding: 8px 10px; }
@@ -1728,13 +1728,14 @@ td.num, th.num { text-align: right; }
 
 /* painel de saúde (/admin) */
 .admin { display: grid; gap: 18px; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
-.kpi { background: var(--cartao); border: 1px solid var(--linha); border-radius: 14px; padding: 14px 16px; display: grid; gap: 2px; }
-.kpi span { font-size: .78rem; color: var(--apagado); }
-.kpi b { font-size: 1.35rem; }
-.kpi small { font-size: .74rem; color: var(--apagado); }
-.kpi--warn { border-color: color-mix(in srgb, var(--urgente) 45%, var(--linha)); }
-.kpi--warn b { color: var(--urgente); }
+/* só no /admin: no jogo, .kpis/.kpi seguem as regras do jogo (2 por linha no celular) */
+.admin .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.admin .kpi { background: var(--cartao); border: 1px solid var(--linha); border-radius: 14px; padding: 14px 16px; display: grid; gap: 2px; }
+.admin .kpi span { font-size: .78rem; color: var(--apagado); }
+.admin .kpi b { font-size: 1.35rem; }
+.admin .kpi small { font-size: .74rem; color: var(--apagado); }
+.admin .kpi--warn { border-color: color-mix(in srgb, var(--urgente) 45%, var(--linha)); }
+.admin .kpi--warn b { color: var(--urgente); }
 .admin-world { background: var(--cartao); border: 1px solid var(--linha); border-radius: 18px; padding: 18px 20px; display: grid; gap: 14px; box-shadow: var(--shadow); }
 .admin-world > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .admin-world h2 { margin: 0; font-size: 1.1rem; }
@@ -2417,3 +2418,164 @@ td.num, th.num { text-align: right; }
 .areplay__txt small { font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faixa); }
 .areplay__txt b { font-size: 1rem; line-height: 1.35; color: #fff; }
 @media (max-width: 560px) { .areplay { grid-template-columns: auto minmax(0, 1fr); } .areplay > .ui-btn { grid-column: 1 / -1; justify-content: center; } }
+
+/* ===================== Celular: revisão de UX ===================== */
+/* faixa de status (energia, caixa, reputação): só no celular, o menu lateral some */
+.gstat { display: none; }
+@media (max-width: 1000px) {
+  .gstat { display: flex; align-items: center; gap: 14px; padding: 6px 14px 7px; color: #fff; text-decoration: none; background: rgba(255,255,255,.04); border-top: 1px solid rgba(255,255,255,.08); font-size: .8rem; overflow: hidden; }
+  .gstat__item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .gstat__item svg { color: var(--faixa); flex: none; }
+  .gstat__item b { font-size: .82rem; font-weight: 600; }
+  .gstat__energy i { width: 34px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.14); overflow: hidden; }
+  .gstat__energy em { display: block; height: 100%; background: var(--faixa); border-radius: inherit; }
+  .gstat__energy.is-low svg, .gstat__energy.is-low b { color: #ffb4ab; }
+  .gstat__energy.is-low em { background: #ff7b6e; }
+  .gstat__stage { margin-left: auto; font-size: .7rem; color: #9fb0c9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+  /* navegação embaixo, ao alcance do polegar (padrão de app); o topo fica livre */
+  .gtabs { position: fixed; top: auto !important; bottom: 0; left: 0; right: 0; z-index: 45; border-bottom: 0; border-top: 1px solid var(--linha); padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 30px rgba(6,14,28,.22); }
+  .gtabs__item { padding: 8px 4px 7px; min-height: 48px; }
+  .gmore { top: auto; bottom: calc(100% + 8px); max-height: min(70vh, 560px); }
+  .gmain { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+  .toasts { left: 12px; right: 12px; width: auto; bottom: calc(86px + env(safe-area-inset-bottom)); }
+  .vwatch { bottom: calc(86px + env(safe-area-inset-bottom)); }
+
+  /* "Seus mundos": a linha do tempo dos anos é de tela larga; no celular, só os cartões */
+  .track::before, .track .dot { display: none; }
+  .track a.taken .card { border-color: var(--faixa); box-shadow: inset 0 0 0 1px var(--faixa); }
+}
+
+@media (max-width: 720px) {
+  /* pop-ups do raio e do sino: largura da tela, sem sair pela esquerda */
+  .sc__pop, .bellpop { position: fixed; left: 8px; right: 8px; top: 92px; width: auto; max-height: calc(100vh - 200px); overflow-y: auto; }
+  .umenu__pop { position: fixed; right: 8px; top: 92px; }
+
+  /* textos de abertura das telas: no máximo 3 linhas */
+  .ghead { margin-bottom: 16px; }
+  .ghead p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: .92rem; }
+
+  /* painéis vazios não ocupam tela no celular */
+  .gpanel.is-empty-m { display: none; }
+  /* manchetes do Painel: a principal e mais quatro; o resto fica em Notícias */
+  .pn-news .nrow:nth-child(n+5) { display: none; }
+
+  /* primeiros passos: só o passo atual aberto; os outros viram uma lista curta */
+  .onb { padding: 14px 16px; gap: 10px; }
+  .onb__steps { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .onb__steps li { padding: 8px 10px; }
+  .onb__steps li:not(.is-next) p, .onb__steps li:not(.is-next) .ui-btn { display: none; }
+  .onb__steps li.is-next { padding: 12px; }
+
+  /* relógio: o botão do próximo marco ocupa a linha inteira, em formato de faixa */
+  .tm__opt { padding: 12px 12px 10px; }
+  .tm__opt--marco { grid-column: 1 / -1; grid-template-columns: auto 1fr; column-gap: 10px; align-items: baseline; }
+  .tm__opt--marco small { grid-column: 1 / -1; }
+
+  /* valores dos quadros quebram linha em vez de sumir em "…" */
+  .kpi__value { white-space: normal; overflow-wrap: anywhere; font-size: 1.1rem; }
+
+  /* ações: cartão enxuto — título ao lado do ícone, descrição curta e, no rodapé,
+     o custo junto do botão (preço e "fazer" lado a lado, como numa loja de jogo) */
+  .agrid { gap: 10px; }
+  .acard { grid-template-columns: 34px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 0; padding: 12px 14px; align-items: center; }
+  .acard__top, .acard__title { display: contents; }
+  .acard__icon { grid-column: 1; grid-row: 1; width: 34px; height: 34px; border-radius: 10px; }
+  .acard__title b { grid-column: 2 / -1; grid-row: 1; font-size: .93rem; }
+  .acard__desc, .acard__status, .acard__result, .acard__law { grid-column: 1 / -1; margin-top: 8px; }
+  .acard__desc { font-size: .83rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .acard__chips { grid-column: 1 / 3; grid-row: 9; margin-top: 10px; }
+  .cost-chip__unit { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .acard > .ui-btn { grid-column: 3; grid-row: 9; margin-top: 10px; justify-self: end; min-height: 40px; padding: 8px 14px; }
+  .acard__lock, .acard__form { grid-column: 1 / -1; grid-row: 10; margin-top: 10px; }
+
+  /* perfil: energia, caixa e reputação numa linha só */
+  .profile { gap: 12px; }
+  .profile > .pavatar { width: 56px !important; height: 56px !important; font-size: 1.25rem !important; }
+  .profile__who { min-width: 0; flex: 1 1 200px; }
+  .profile__who h2 { font-size: 1.25rem; }
+  .profile__kpis { flex: 1 1 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .profile__kpis .kpi { padding: 8px 10px; }
+  .profile__kpis .kpi__value { font-size: .98rem; }
+  .profile__kpis .kpi__hint { font-size: .66rem; line-height: 1.3; }
+
+  /* partidos: cartão enxuto (logo menor, números numa linha, ações lado a lado) */
+  .pgrid { gap: 12px; }
+  .pcard { padding: 14px; gap: 9px; }
+  .pcard__head { gap: 10px; }
+  .pcard__head .pmark { width: 44px !important; height: 44px !important; padding: 5px; border-radius: 12px; }
+  .pcard__name { font-size: .95rem; }
+  .pcard__nums { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .pcard__nums div { background: none; padding: 0; display: inline-flex; align-items: baseline; gap: 4px; }
+  .pcard__nums b { font-size: .95rem; }
+  .pcard__fit i { margin-bottom: 2px; }
+  .pcard__culture { font-size: .74rem; }
+  .pcard__actions > * { flex: 1 1 auto; justify-content: center; }
+
+  /* calendário da eleição: vertical, sem cortar à direita */
+  .ecal { grid-auto-flow: row; grid-auto-columns: auto; overflow: visible; gap: 0; }
+  .ecal li { padding: 0 0 14px 24px; }
+  .ecal li::before { top: 4px; bottom: 0; left: 5px; right: auto; width: 2px; height: auto; }
+  .ecal li:last-child::before { display: none; }
+  .ecal li i { top: 2px; }
+
+  /* botões pequenos ainda com área de toque confortável */
+  .ui-btn--sm { min-height: 40px; }
+  /* links curtos (cabeçalho dos painéis, bancadas, partidos): área de toque maior sem mudar o desenho */
+  .gpanel__link { padding: 10px 0 10px 8px; margin: -10px 0 -10px -8px; }
+  .bench { padding: 8px 6px; }
+  .pcard__name { padding: 4px 0; margin: -4px 0; }
+
+  /* formulário do personagem: barra de envio compacta e abaixo das listas abertas */
+  .cf-submit { padding: 8px; border-radius: 16px; bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .cf-submit > div { display: none; }
+  .cf-submit .ui-btn { width: 100%; }
+  .ui-select.is-open { z-index: 30; }
+}
+
+/* escolhas (tipo de mundo, profissão, origem): uma por linha, texto inteiro e sem a marca por cima */
+@media (max-width: 640px) {
+  .ui-choices__grid { grid-template-columns: minmax(0, 1fr) !important; gap: 6px; }
+  .ui-choice { align-items: center; padding: 10px 40px 10px 12px; }
+  .ui-choice__text { padding-right: 0; }
+  .ui-choice__mark { top: 50%; right: 12px; transform: translateY(-50%); }
+}
+
+/* apresentação dos acontecimentos: recolhida, uma linha */
+.ev__intro { display: block; padding: 0; }
+.ev__intro > summary { display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer; list-style: none; font-size: .84rem; font-weight: 600; color: var(--faixa-texto); }
+.ev__intro > summary::-webkit-details-marker { display: none; }
+.ev__intro > summary::after { content: "+"; margin-left: auto; font-size: 1rem; }
+.ev__intro[open] > summary::after { content: "−"; }
+.ev__intro > div { padding: 0 14px 12px; }
+.ev__intro[open] { animation: none; }
+
+/* ação sem volta (sair do partido, encerrar a carreira): botão de contorno, não um alarme */
+.acard > .ui-btn--danger { background: transparent; color: var(--urgente); border: 1.5px solid color-mix(in srgb, var(--urgente) 55%, transparent); }
+.acard > .ui-btn--danger:hover:not(:disabled) { filter: none; background: color-mix(in srgb, var(--urgente) 10%, transparent); }
+
+/* Carreira no celular: três abas (agir, histórico, perfil) em vez de uma coluna sem fim */
+.ctabs__seg { display: none; }
+@media (max-width: 1000px) {
+  .ctabs__seg { display: flex; width: 100%; box-sizing: border-box; margin-bottom: 16px; }
+  .ctabs__seg button { flex: 1; text-align: center; padding: 10px 8px; min-height: 24px; font-size: .86rem; }
+  .ctabs[data-tab="agir"] :is(.cg-hist, .cg-perfil),
+  .ctabs[data-tab="hist"] :is(.cg-agir, .cg-perfil),
+  .ctabs[data-tab="perfil"] :is(.cg-agir, .cg-hist) { display: none; }
+  .ctabs #historia { order: -1; } /* a história, que muda todo dia, vem antes dos mandatos */
+}
+
+/* listas longas no celular: os 12 primeiros e "ver todos" */
+.morelist__btn { display: none; }
+@media (max-width: 720px) {
+  .morelist:not(.is-all) .pgrid > :nth-child(n+13) { display: none; }
+  .morelist__btn { display: flex; width: 100%; margin-top: 14px; }
+}
+
+/* celulares estreitos (360 px): os três números do perfil cabem sem cortar o rótulo */
+@media (max-width: 400px) {
+  .profile__kpis .kpi { padding: 8px; }
+  .profile__kpis .kpi__label { font-size: .66rem; gap: 4px; }
+  .profile__kpis .kpi__label svg { width: 12px; height: 12px; flex: none; }
+  .profile__kpis .kpi__value { font-size: .9rem; }
+}

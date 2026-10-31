@@ -113,10 +113,12 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
 
         <div className="ev__body">
           {intro && !result && (
-            <div className="ev__intro" role="note">
-              <Icon name="zap" size={16} />
+            // recolhida: a situação e as opções vêm primeiro; quem quiser entende como funciona
+            <details className="ev__intro">
+              <summary>
+                <Icon name="zap" size={15} /> Primeiro acontecimento? Veja como funciona
+              </summary>
               <div>
-                <b>Seu primeiro acontecimento</b>
                 <p>{STORY_INTRO} Leia a situação, escolha uma opção e veja o que muda. Não existe resposta sempre certa.</p>
                 <ul>
                   <li><b>Decisão:</b> o tempo para até você escolher.</li>
@@ -124,12 +126,13 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
                   <li>Sem resposta no prazo, vale a opção mais passiva.</li>
                 </ul>
                 <button type="button" className="ev__introok" onClick={closeIntro}>
-                  Entendi
+                  Entendi, não mostrar mais
                 </button>
               </div>
-            </div>
+            </details>
           )}
-          {!result && <p className="ev__means">{kind.label}: {kind.means}.</p>}
+          {/* nas decisões o topo já avisa que o tempo espera; nas outras, explica o prazo */}
+          {!result && !event.blocking && <p className="ev__means">{kind.label}: {kind.means}.</p>}
           <div className="ev__tags">
             {event.tags.map((t) => (
               <span key={t} className="ev__tag">

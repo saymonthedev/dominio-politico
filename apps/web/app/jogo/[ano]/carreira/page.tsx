@@ -1,6 +1,7 @@
 import { ACHIEVEMENTS, AXES, AXIS_INFO, careerScore, ENTRY_CULTURE_LABEL, geoName, canonicalGeo, OFFICES, profession, type AffiliationRequestRow, type WorldEventRow } from "@dp/engine";
 import { PartyMark } from "@/components/PartyMark";
 import { ActionPanel } from "@/components/ActionPanel";
+import { CareerTabs } from "@/components/game/CareerTabs";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
@@ -47,7 +48,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
     playerState(year),
     getParties(me.worldId),
     sb.from("affiliation_requests").select("*").eq("world_id", me.worldId).eq("person_id", me.person.id).order("created_on", { ascending: false }).limit(10),
-    sb.from("world_events").select("*").eq("world_id", me.worldId).contains("actors", [me.person.id]).order("tick", { ascending: false }).limit(30),
+    sb.from("world_events").select("*").eq("world_id", me.worldId).contains("actors", [me.person.id]).order("tick", { ascending: false }).limit(15),
     citiesFor(year),
   ]);
   const pm = partyMap(parties);
@@ -102,10 +103,11 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         </div>
       </Panel>
 
+      <CareerTabs>
       <div className="ggrid ggrid--main">
         <div className="gstack">
           {steps.length > 0 && (
-            <Panel title="Próximo degrau" icon="trending" tone="gold">
+            <Panel className="cg-agir" title="Próximo degrau" icon="trending" tone="gold">
               <div className="steps3">
                 {steps.map((s, i) => (
                   <div key={i} className="step3">
@@ -128,11 +130,11 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             </Panel>
           )}
 
-          <Panel title="O que você pode fazer" icon="play">
+          <Panel className="cg-agir" title="O que você pode fazer" icon="play">
             <ActionPanel year={year} actions={actions} />
           </Panel>
 
-          <Panel title="Mandatos e eleições" icon="ballot">
+          <Panel className="cg-hist" title="Mandatos e eleições" icon="ballot">
             {record.length ? (
               <ul className="record">
                 {record.map((r, i) => (
@@ -149,13 +151,13 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             )}
           </Panel>
 
-          <div id="historia">
+          <div id="historia" className="cg-hist">
             <Panel title="Sua história" icon="zap">
               <StoryHistory log={st.story?.log ?? []} />
             </Panel>
           </div>
 
-          <Panel title="Sua trajetória" icon="clock">
+          <Panel className="cg-hist" title="Sua trajetória" icon="clock">
             {events.length ? (
               <ol className="tline">
                 {events.map((ev) => (
@@ -172,7 +174,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         </div>
 
         <div className="gstack">
-          <Panel title="Conquistas" icon="star" href={`/jogo/${year}/ranking`} hrefLabel={`${score} pontos · ranking`}>
+          <Panel className="cg-perfil" title="Conquistas" icon="star" href={`/jogo/${year}/ranking`} hrefLabel={`${score} pontos · ranking`}>
             <ul className="achs">
               {ACHIEVEMENTS.map((a) => {
                 const on = st.achievements?.[a.id];
@@ -190,7 +192,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               })}
             </ul>
           </Panel>
-          <Panel title="Indicadores" icon="chart">
+          <Panel className="cg-perfil" title="Indicadores" icon="chart">
             {st.story && <MeterRow label="Saúde" value={st.story.health} tone={st.story.health < 45 ? "bad" : "ok"} hint={st.story.health < 45 ? "o desgaste aumenta o risco de adoecer" : "cai com estresse, campanha e idade"} />}
             <MeterRow label="Reputação" value={me.person.reputation} tone="sim" />
             <MeterRow label="Visibilidade" value={me.person.visibility} />
@@ -202,7 +204,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             <MeterRow label="Escândalos" value={st.scandal} tone="bad" hint={st.scandal > 0 ? "quanto maior, mais difícil vencer eleições" : undefined} />
           </Panel>
 
-          <Panel title="Pedidos e convites" icon="flag" href={`/jogo/${year}/partidos`} hrefLabel="Partidos">
+          <Panel className="cg-agir" title="Pedidos e convites" icon="flag" href={`/jogo/${year}/partidos`} hrefLabel="Partidos">
             {requests.length ? (
               <div className="reqs">
                 {requests.map((r) => (
@@ -230,7 +232,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           </Panel>
 
           {me.party && (
-            <Panel title="Seu partido" icon="flag" href={`/jogo/${year}/partidos/${me.party.id}`} hrefLabel="Abrir">
+            <Panel className="cg-perfil" title="Seu partido" icon="flag" href={`/jogo/${year}/partidos/${me.party.id}`} hrefLabel="Abrir">
               <div className="myparty" style={{ ["--c" as string]: me.party.color }}>
                 <PartyMark party={me.party} year={year} size={52} />
                 <div>
@@ -242,7 +244,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             </Panel>
           )}
 
-          <Panel title="Suas posições" icon="sliders">
+          <Panel className="cg-perfil" title="Suas posições" icon="sliders">
             {AXES.map((ax) => (
               <div key={ax} className="axis">
                 <div className="axis__top">
@@ -262,6 +264,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           </Panel>
         </div>
       </div>
+      </CareerTabs>
     </>
   );
 }

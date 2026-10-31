@@ -34,6 +34,8 @@ const CAT: Record<string, { icon: string; label: string; cls: string }> = {
   FINANCAS: { icon: "coins", label: "Finanças", cls: "" },
 };
 const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR")}`;
+/** Ações de saída, sem volta: vão para o fim da lista, com botão discreto. */
+const EXIT = new Set(["aposentar", "desfiliar", "desistir_fundacao"]);
 
 function ConfirmDialog({ title, text, onCancel, onConfirm, pending }: { title: string; text: string; onCancel: () => void; onConfirm: () => void; pending: boolean }) {
   const box = useRef<HTMLDivElement>(null);
@@ -91,8 +93,9 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
           <b>{a.label}</b>
           <div className="acard__chips">
             {a.energy > 0 && (
-              <span className="cost-chip">
-                <Icon name="zap" size={12} /> {a.energy} de energia
+              <span className="cost-chip" title={`${a.energy} de energia`}>
+                <Icon name="zap" size={12} /> {a.energy}
+                <span className="cost-chip__unit"> de energia</span>
               </span>
             )}
             {!!a.cost && <span className="cost-chip">{brl(a.cost)}</span>}
@@ -171,7 +174,8 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
 export function ActionPanel({ year, actions, empty }: { year: number; actions: ActionView[]; empty?: string }) {
   const [showLocked, setShowLocked] = useState(false);
   if (!actions.length) return <div className="gempty"><span className="gempty__text">{empty ?? "Nenhuma ação nesta categoria."}</span></div>;
-  const ready = actions.filter((a) => !a.reason);
+  // sair do partido, desistir da fundação ou encerrar a carreira ficam no fim da lista
+  const ready = actions.filter((a) => !a.reason).sort((a, b) => Number(EXIT.has(a.id)) - Number(EXIT.has(b.id)));
   const locked = actions.filter((a) => a.reason);
   return (
     <div className="actions2">

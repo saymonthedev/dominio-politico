@@ -22,7 +22,8 @@ const monthLabel = (iso: string) => `${MONTHS[Number(iso.slice(5, 7)) - 1]} de $
 /** Histórico organizado da carreira: o que aconteceu, o que você escolheu e o que mudou. */
 export function StoryHistory({ log }: { log: StoryLogEntry[] }) {
   const [filter, setFilter] = useState("todos");
-  const [limit, setLimit] = useState(40);
+  // abre só os mais recentes: no celular, 40 histórias davam milhares de pixels de rolagem
+  const [limit, setLimit] = useState(12);
   const f = FILTERS.find((x) => x.id === filter)!;
   const items = useMemo(() => log.filter((e) => (f.milestones ? e.milestone : f.tags ? e.tags.some((t) => f.tags!.includes(t)) : true)), [log, f]);
   const groups = useMemo(() => {
@@ -80,7 +81,7 @@ export function StoryHistory({ log }: { log: StoryLogEntry[] }) {
         <p className="muted small">Nada neste filtro ainda.</p>
       )}
       {items.length > limit && (
-        <button type="button" className="ui-btn ui-btn--ghost ui-btn--sm" onClick={() => setLimit((n) => n + 60)}>
+        <button type="button" className="ui-btn ui-btn--ghost ui-btn--sm" onClick={() => setLimit((n) => n + 30)}>
           <span>Mostrar mais ({items.length - limit})</span>
         </button>
       )}

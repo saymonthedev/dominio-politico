@@ -183,17 +183,17 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
             </div>
           </Panel>
 
-          <Panel title="Manchetes" icon="newspaper" href={`/jogo/${year}/noticias`} hrefLabel="Todas as notícias">
+          <Panel className="pn-news" title="Manchetes" icon="newspaper" href={`/jogo/${year}/noticias`} hrefLabel="Todas as notícias">
             {news.length ? <NewsList news={news.slice(0, 8)} compact lead /> : <Empty icon="newspaper" title="O noticiário ainda está sendo impresso" />}
           </Panel>
         </div>
 
         <div className="gstack">
-          <Panel title={<Term k="Acontecimento">Acontecimentos</Term>} icon="zap" tone={storyPending.some((e) => e.blocking) ? "gold" : undefined} aside={storyPending.length ? <Pill tone="gold">{storyPending.length}</Pill> : undefined} href={`/jogo/${year}/carreira#historia`} hrefLabel="Histórico">
+          <Panel className={storyPending.length ? undefined : "is-empty-m"} title={<Term k="Acontecimento">Acontecimentos</Term>} icon="zap" tone={storyPending.some((e) => e.blocking) ? "gold" : undefined} aside={storyPending.length ? <Pill tone="gold">{storyPending.length}</Pill> : undefined} href={`/jogo/${year}/carreira#historia`} hrefLabel="Histórico">
             <StoryInbox year={year} events={storyPending} today={state.world.game_date} />
           </Panel>
 
-          <Panel title="Pendências" icon="inbox" tone={pendCount ? "gold" : undefined} aside={pendCount ? <Pill tone="gold">{pendCount}</Pill> : undefined}>
+          <Panel className={pendCount ? undefined : "is-empty-m"} title="Pendências" icon="inbox" tone={pendCount ? "gold" : undefined} aside={pendCount ? <Pill tone="gold">{pendCount}</Pill> : undefined}>
             {todo.invites.map((inv) => (
               <div key={inv.id} className="pend">
                 <div className="pend__text">

@@ -5,6 +5,8 @@ import { useEffect } from "react";
 export function scrollToHash(hash: string): boolean {
   const el = document.getElementById(hash);
   if (!el) return false;
+  // partes guardadas em abas (ex.: a Carreira no celular) se abrem antes da rolagem
+  window.dispatchEvent(new CustomEvent("dp:reveal", { detail: el }));
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
   history.replaceState(null, "", `#${hash}`);

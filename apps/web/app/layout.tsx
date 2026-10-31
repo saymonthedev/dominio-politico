@@ -22,6 +22,8 @@ export const viewport: Viewport = {
   themeColor: "#0b1f3a",
   width: "device-width",
   initialScale: 1,
+  // ocupa a tela toda no celular (barra de navegação de baixo respeita a área do gesto)
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,6 +1,7 @@
 import { ENTRY_CULTURE_LABEL, spectrumLabel } from "@dp/engine";
 import { PartyMark } from "@/components/PartyMark";
 import { GameHeader, Pill } from "@/components/game/Page";
+import { MoreList } from "@/components/game/MoreList";
 import { QuickAction } from "@/components/game/QuickAction";
 import { Icon } from "@/components/Icon";
 import { actionsFor } from "@/lib/actions-view";
@@ -61,6 +62,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         </div>
       )}
 
+      <MoreList count={fits.length} label="partidos">
       <div className="pgrid">
         {fits.map(({ party: p, affinity, chance }) => {
           const mine = me.person.party_id === p.id;
@@ -130,6 +132,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           );
         })}
       </div>
+      </MoreList>
       {!me.person.party_id && askReason && <p className="muted small mt">Pedir filiação: {askReason}</p>}
     </>
   );

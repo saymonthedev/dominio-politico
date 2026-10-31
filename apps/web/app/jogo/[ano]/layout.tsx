@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { canonicalGeo, geoName, type NotificationRow } from "@dp/engine";
 import { GameSidebar } from "@/components/game/GameSidebar";
 import { HashScroll } from "@/components/game/HashScroll";
+import { MobileStatus } from "@/components/game/MobileStatus";
 import { NotificationBell } from "@/components/game/NotificationBell";
 import { StoryBell } from "@/components/game/StoryCenter";
 import { Toaster } from "@/components/game/Toaster";
@@ -84,6 +85,7 @@ export default async function GameLayout({ children, params }: { children: React
           />
           <UserMenu initials={initials(me.person.name)} />
         </div>
+        <MobileStatus year={year} energy={Math.round(me.state.energy)} money={Math.round(me.state.money)} reputation={Math.round(me.person.reputation)} stage={STAGE_LABEL[me.person.stage] ?? me.person.stage} />
       </header>
       <div className="gshell">
         <GameSidebar
