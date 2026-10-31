@@ -469,6 +469,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
 
       {decision && phase === "deciding" && (
         <EventModal
+          key={decision.id}
           year={year}
           event={decision}
           today={current}
@@ -483,6 +484,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
       )}
       {openWaiting && (
         <EventModal
+          key={openWaiting.id}
           year={year}
           event={openWaiting}
           today={date}

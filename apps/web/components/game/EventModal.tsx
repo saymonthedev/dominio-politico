@@ -41,6 +41,14 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DecideResult | null>(null);
+  // outro acontecimento na mesma janela: nada do anterior (resultado, erro) pode ficar
+  const [shownId, setShownId] = useState(event.id);
+  if (shownId !== event.id) {
+    setShownId(event.id);
+    setResult(null);
+    setBusy(null);
+    setError(null);
+  }
   const kind = KIND[event.kind];
   const info = event.kind === "INFO";
   // primeira vez: uma apresentação curta do que é isto

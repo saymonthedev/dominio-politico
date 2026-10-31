@@ -61,6 +61,7 @@ export function StoryInbox({ year, events, today }: { year: number; events: Stor
       </ul>
       {open && (
         <EventModal
+          key={open.id}
           year={year}
           event={open}
           today={today}
@@ -145,6 +146,7 @@ export function StoryBell({ year, events, today }: { year: number; events: Story
       )}
       {open && (
         <EventModal
+          key={open.id}
           year={year}
           event={open}
           today={today}
