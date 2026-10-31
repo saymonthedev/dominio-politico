@@ -2,6 +2,7 @@ export * from "./account";
 export * from "./achievements";
 export * from "./actions";
 export * from "./affiliation";
+export * from "./apuracao";
 export * from "./bootstrap";
 export * from "./calendar";
 export * from "./character";

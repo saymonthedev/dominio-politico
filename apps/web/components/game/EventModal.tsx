@@ -70,7 +70,7 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
     const t0 = Date.now();
     const r = await answerEvent(year, event.id, choiceId);
     // um instante de suspense: a decisão "acontece"
-    const wait = 650 - (Date.now() - t0);
+    const wait = 260 - (Date.now() - t0);
     if (wait > 0) await new Promise((ok) => setTimeout(ok, wait));
     setBusy(null);
     if (!r.ok) {

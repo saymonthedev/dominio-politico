@@ -19,7 +19,7 @@ const PHRASES: Record<string, string[]> = {
 const GENERIC = ["Agindo…", "Processando o dia…", "Registrando…"];
 
 /** Tempo mínimo de "ação acontecendo": rápido demais não parece que algo aconteceu. */
-const MIN_MS = 750;
+const MIN_MS = 320;
 
 const fmtDelta = (d: ActionDelta) => {
   const sign = d.value > 0 ? "+" : "−";

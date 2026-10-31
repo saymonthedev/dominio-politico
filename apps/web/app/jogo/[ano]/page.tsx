@@ -1,11 +1,12 @@
 import { cookies } from "next/headers";
-import { planAdvance, SHARED_DAYS_PER_HOUR, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
+import { addDays, electionNight, planAdvance, SHARED_DAYS_PER_HOUR, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
 import { Onboarding, type OnboardingStep } from "@/components/game/Onboarding";
 import { actionsFor } from "@/lib/actions-view";
+import { ApuracaoReplay } from "@/components/game/ApuracaoReplay";
 import { TimeMachine, type SharedClock } from "@/components/game/TimeMachine";
 import { StoryInbox } from "@/components/game/StoryCenter";
 import { Icon } from "@/components/Icon";
@@ -25,6 +26,8 @@ function delta(now: number, prev: number | undefined, digits = 2, invert = false
   const good = invert ? d < 0 : d > 0;
   return { hint: `${d > 0 ? "▲" : "▼"} ${fmtDec(Math.abs(d), digits)} p.p.`, tone: good ? ("up" as const) : ("down" as const) };
 }
+
+const daysSince = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86_400_000);
 
 export default async function Painel({ params }: { params: Promise<{ ano: string }> }) {
   const year = Number((await params).ano);
@@ -127,6 +130,14 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
     },
   ];
 
+  // votação nas últimas semanas: o resultado fica no Painel, com a apuração para ver (ou rever)
+  const today = state.world.game_date;
+  const lastVote = [...state.t.elections.values()]
+    .flatMap((e) => [{ e, d: e.first_round }, { e, d: e.runoff }])
+    .filter(({ d }) => d <= today && daysSince(d, today) <= 45)
+    .sort((a, b) => b.d.localeCompare(a.d))[0];
+  const replay = lastVote ? electionNight(state, me.person.id, addDays(lastVote.d, -1), lastVote.d) : [];
+
   // época de eleição: ações que dá para agendar nos dias que vão passar
   const schedulable = actionsFor(state, me.person.id, ["PARTIDO", "CAMPANHA"]).filter(
     (a) => !a.reason && (a.id === "pre_candidatura" || a.category === "CAMPANHA") && a.params.every((p) => p.optional || (p.options?.length ?? 0) > 0),
@@ -141,6 +152,8 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
       </GameHeader>
 
       {!tutorialOff && <Onboarding year={year} steps={onboarding} />}
+
+      {replay.length > 0 && lastVote && <ApuracaoReplay list={replay} year={lastVote.e.year} />}
 
       <div id="tempo" className="mb">
         <TimeMachine

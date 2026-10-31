@@ -8,10 +8,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadCities, loadSnapshot } from "@dp/data";
 import {
   addDays,
-  canonicalGeo,
   careerSummary,
-  geoName,
-  OFFICES,
+  electionNight,
   Changes,
   clearPlayerData,
   createInitialWorld,
@@ -34,6 +32,7 @@ import {
   STATEFUL_TABLES,
   START_YEARS,
   targetTick,
+  type Apuracao,
   type CityBase,
   type CareerSummary,
   type ClockAdvance,
@@ -134,7 +133,8 @@ export async function countPrivateWorlds(): Promise<number> {
 export async function dropWorld(worldId: string): Promise<void> {
   if (modeOfWorld(worldId) === "SHARED") return;
   await rpc("sim_drop_world", { p_world: worldId });
-  cache.delete(worldId);
+  // a revisão salta: um mundo recriado com o mesmo id nunca reaproveita uma memória antiga
+  await bumpWorldRev(worldId, 1_000_000).catch(() => undefined);
   fictionCities.delete(worldId);
 }
 
@@ -272,9 +272,43 @@ export async function loadState(worldId: string): Promise<WorldState> {
 /** Municípios já convertidos para os nomes de cada mundo fictício. */
 const fictionCities = new Map<string, Map<string, CityBase>>();
 
-const cache = new Map<string, { state: WorldState; at: number }>();
-const loading = new Map<string, Promise<WorldState>>();
+/** Mundo em memória: o estado e a revisão do banco em que ele foi lido (ou gravado). */
+interface Cached {
+  state: WorldState;
+  at: number;
+  rev: number | null;
+}
+const cache = new Map<string, Cached>();
+const loading = new Map<string, Promise<Cached>>();
+/** sem revisão conhecida, a memória vale por pouco tempo */
 const CACHE_MS = 8_000;
+/** com revisão, vale enquanto ninguém gravar (e some depois de um tempo parado) */
+const CACHE_MAX_MS = 20 * 60_000;
+/** poucos mundos por instância: o menos usado sai primeiro */
+const CACHE_WORLDS = 4;
+
+function remember(worldId: string, state: WorldState, rev: number | null): void {
+  cache.delete(worldId);
+  cache.set(worldId, { state, at: Date.now(), rev });
+  while (cache.size > CACHE_WORLDS) cache.delete(cache.keys().next().value as string);
+}
+
+const asRev = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+
+/** Revisão do mundo no banco: sobe a cada gravação (null se não deu para ler). */
+async function worldRev(worldId: string): Promise<number | null> {
+  try {
+    return asRev(await rpc<number | null>("world_rev", { p_world: worldId }));
+  } catch {
+    return null;
+  }
+}
+
+/** Quem mexe no mundo por fora do motor (exclusão de conta, remoção) avisa: a memória deixa de valer. */
+export async function bumpWorldRev(worldId: string, by = 1): Promise<void> {
+  cache.delete(worldId);
+  await rpc("sim_bump_rev", { p_world: worldId, p_by: by });
+}
 
 /** O que a tela leu agora do banco, para conferir se o estado em cache ainda vale. */
 export interface Freshness {
@@ -291,38 +325,72 @@ function matches(state: WorldState, f?: Freshness): boolean {
   return true;
 }
 
-function load(worldId: string): Promise<WorldState> {
+function load(worldId: string): Promise<Cached> {
   let p = loading.get(worldId);
   if (!p) {
-    p = loadState(worldId)
-      .then((state) => {
-        cache.set(worldId, { state, at: Date.now() });
-        return state;
-      })
-      .finally(() => loading.delete(worldId));
+    p = (async () => {
+      // a revisão é lida antes: se alguém gravar no meio da leitura, a próxima conferência recarrega
+      const rev = await worldRev(worldId);
+      const state = await loadState(worldId);
+      remember(worldId, state, rev);
+      return { state, at: Date.now(), rev };
+    })().finally(() => loading.delete(worldId));
     loading.set(worldId, p);
   }
   return p;
 }
 
 /**
- * Estado recente para as telas: vale por até 8 s, mas é recarregado na hora
- * se o relógio andou ou se o jogador agiu desde a última leitura.
+ * Estado para as telas. A memória vale enquanto a revisão do mundo no banco não
+ * mudar (ninguém gravou) e bate com o que a tela acabou de ler (dia de jogo e
+ * número de ações do jogador); senão, recarrega.
  */
 export async function cachedState(worldId: string, fresh?: Freshness): Promise<WorldState> {
   const hit = cache.get(worldId);
-  if (hit && Date.now() - hit.at < CACHE_MS && matches(hit.state, fresh)) return hit.state;
-  const state = await load(worldId);
+  if (hit && matches(hit.state, fresh)) {
+    const age = Date.now() - hit.at;
+    if (hit.rev !== null && age < CACHE_MAX_MS && (await worldRev(worldId)) === hit.rev) return hit.state;
+    if (hit.rev === null && age < CACHE_MS) return hit.state;
+  }
+  const got = await load(worldId);
   // uma carga que já estava em andamento pode ter começado antes da última ação
-  return matches(state, fresh) ? state : load(worldId);
+  return matches(got.state, fresh) ? got.state : (await load(worldId)).state;
 }
 
-async function acquire(worldId: string, holder: string): Promise<boolean> {
+/** Mundo trancado para gravar: o estado (o da memória, se a revisão bate) e quem segura o lease. */
+interface Opened {
+  holder: string;
+  state: WorldState;
+}
+
+/** Tranca o mundo e devolve o estado; null se outro processo está com ele há mais de ~4 s. */
+async function openWorld(worldId: string): Promise<Opened | null> {
+  const holder = crypto.randomUUID();
+  let rev: number | null = null;
   for (let i = 0; i < 6; i++) {
-    if (await rpc<boolean>("sim_lease", { p_world: worldId, p_holder: holder, p_seconds: 90 })) return true;
+    rev = asRev(await rpc<number | null>("sim_lease_rev", { p_world: worldId, p_holder: holder, p_seconds: 90 }));
+    if (rev !== null) break;
     await new Promise((r) => setTimeout(r, 700));
   }
-  return false;
+  if (rev === null) return null;
+  try {
+    const hit = cache.get(worldId);
+    const reuse = !!hit && hit.rev === rev && Date.now() - hit.at < CACHE_MAX_MS;
+    const state = reuse ? hit!.state : await loadState(worldId);
+    // enquanto o mundo muda, as telas não leem da memória um estado pela metade
+    cache.delete(worldId);
+    return { holder, state };
+  } catch (e) {
+    await rpc("sim_release_rev", { p_world: worldId, p_holder: holder, p_dirty: false }).catch(() => undefined);
+    throw e;
+  }
+}
+
+/** Libera o mundo. Deu certo: a memória fica com o estado novo e a revisão nova; deu errado: esquece. */
+async function closeWorld(worldId: string, w: Opened, dirty: boolean, ok: boolean): Promise<void> {
+  const rev = asRev(await rpc<number | null>("sim_release_rev", { p_world: worldId, p_holder: w.holder, p_dirty: dirty }).catch(() => null));
+  if (ok && rev !== null) remember(worldId, w.state, rev);
+  else cache.delete(worldId);
 }
 
 /**
@@ -334,10 +402,12 @@ export async function withWorld<T>(
   fn?: (state: WorldState, actionCtx: (personId: string) => Ctx) => T,
   opts: { maxTicks?: number } = {},
 ): Promise<{ result?: T; ticks: number; state: WorldState }> {
-  const holder = crypto.randomUUID();
-  if (!(await acquire(worldId, holder))) throw new Error("O mundo está ocupado processando o dia. Tente de novo em instantes.");
+  const w = await openWorld(worldId);
+  if (!w) throw new Error("O mundo está ocupado processando o dia. Tente de novo em instantes.");
+  let dirty = false;
+  let ok = false;
   try {
-    const state = await loadState(worldId);
+    const state = w.state;
     const expected = state.world.tick;
     const target = targetTick(state, new Date().toISOString());
     const { ctx, ticks } = runTicks(state, { target, maxTicks: opts.maxTicks ?? MAX_CATCHUP, budgetMs: 15_000, now: () => Date.now() });
@@ -354,11 +424,14 @@ export async function withWorld<T>(
     const changes = new Changes();
     changes.merge(ctx.changes);
     for (const c of actionChanges) changes.merge(c);
-    if (changes.count() > 0 || ticks > 0) await persist(worldId, changes, expected);
-    cache.set(worldId, { state, at: Date.now() });
+    if (changes.count() > 0 || ticks > 0) {
+      dirty = true;
+      await persist(worldId, changes, expected);
+    }
+    ok = true;
     return { result, ticks, state };
   } finally {
-    await rpc("sim_release", { p_world: worldId, p_holder: holder }).catch(() => undefined);
+    await closeWorld(worldId, w, dirty, ok);
   }
 }
 
@@ -434,6 +507,8 @@ function snapshotOf(state: WorldState, userId: string): PersonSnapshot | null {
 
 /** Quem está jogando neste mundo e quanto o tempo foi avançado na última hora. Sem a função no banco, vale o modo solo. */
 export async function clockStatus(worldId: string, personId: string | null): Promise<ClockStatus> {
+  // mundo só seu: ninguém mais joga nele, não há o que consultar
+  if (modeOfWorld(worldId) !== "SHARED") return { others: [], shared: false, remaining: null, freesAt: null, recent: [], now: new Date().toISOString() };
   type Raw = { active: string[]; advances: ClockAdvance[]; hour: { days: number; oldest: string | null }; now: string };
   const { data } = await db(playerToken.getStore()).rpc("clock_activity", { p_world: worldId });
   const raw = (data ?? null) as Raw | null;
@@ -459,10 +534,12 @@ export async function clockStatus(worldId: string, personId: string | null): Pro
  */
 export async function fastForward(worldId: string, days: number, userId: string): Promise<FastForwardResult> {
   if (!ALLOWED_DAYS.has(days)) return { ok: false, message: "Escolha 1, 7, 15 ou 30 dias.", days };
-  const holder = crypto.randomUUID();
-  if (!(await acquire(worldId, holder))) return { ok: false, message: "O mundo está processando outro avanço. Tente em instantes.", days };
+  const w = await openWorld(worldId);
+  if (!w) return { ok: false, message: "O mundo está processando outro avanço. Tente em instantes.", days };
+  let dirty = false;
+  let ok = false;
   try {
-    const state = await loadState(worldId);
+    const state = w.state;
     const me = [...state.t.persons.values()].find((x) => x.user_id === userId && x.status === "ACTIVE") ?? null;
     const clock = await clockStatus(worldId, me?.id ?? null);
     const before = snapshotOf(state, userId);
@@ -473,7 +550,7 @@ export async function fastForward(worldId: string, days: number, userId: string)
     const caughtUp = Math.max(targetTick(state, now), state.world.tick);
     const manualFrom = addDays(state.world.game_date, caughtUp - state.world.tick);
     const plan = planAdvance(state, clock, manualFrom, days);
-    if (!plan.ok) return { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
+    if (!plan.ok) return (ok = true), { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
     const from = state.world.game_date;
     const { ctx, ticks } = runTicks(state, { target: caughtUp + plan.days, maxTicks: MAX_CATCHUP + plan.days, budgetMs: 40_000, now: () => Date.now() });
     const manual = Math.max(0, state.world.tick - caughtUp);
@@ -487,8 +564,9 @@ export async function fastForward(worldId: string, days: number, userId: string)
         ctx.notify(id, "Outro jogador passou o tempo", `${me.name} avançou o relógio do mundo em ${manual === 1 ? "1 dia" : `${manual} dias`}: agora é ${formatDatePt(state.world.game_date)}. Veja no Painel o que mudou.`, "/jogo/");
       }
     }
+    dirty = true;
     await persist(worldId, ctx.changes, expected);
-    cache.set(worldId, { state, at: Date.now() });
+    ok = true;
     const news = ctx.changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
     const headlines = news
       .sort((a, b) => b.importance - a.importance || b.tick - a.tick)
@@ -514,7 +592,7 @@ export async function fastForward(worldId: string, days: number, userId: string)
       note,
     };
   } finally {
-    await rpc("sim_release", { p_world: worldId, p_holder: holder }).catch(() => undefined);
+    await closeWorld(worldId, w, dirty, ok);
   }
 }
 
@@ -527,8 +605,8 @@ export interface StepAdvanceResult extends FastForwardResult {
   stop?: "decisao" | "fim" | "limite" | null;
   /** acontecimento que fez o relógio parar (aparece na tela na hora) */
   stopOn?: string;
-  /** dia de votação no período: a apuração da disputa que importa ao jogador */
-  apuracao?: Apuracao;
+  /** dia de votação no período: a apuração da disputa do jogador e das principais do dia */
+  apuracoes?: Apuracao[];
   /** acontecimentos esperando resposta (os que seguram o tempo primeiro) */
   pending?: StoryEvent[];
   /** dias pedidos e dias que ainda faltam (o relógio retoma daí depois da decisão) */
@@ -540,87 +618,6 @@ function activePlayer(state: WorldState, userId: string) {
   return [...state.t.persons.values()].find((x) => x.user_id === userId && x.status === "ACTIVE" && x.kind === "PLAYER") ?? null;
 }
 
-/** Um candidato na apuração. */
-export interface CountRow {
-  id: string;
-  name: string;
-  party: string;
-  color: string;
-  votes: number;
-  share: number;
-  me: boolean;
-  /** resultado final: eleito, vai ao 2º turno ou não */
-  outcome: "ELEITO" | "SEGUNDO_TURNO" | "NAO";
-}
-
-/** Apuração de uma disputa no dia da votação, para a tela acompanhar a contagem. */
-export interface Apuracao {
-  date: string;
-  title: string;
-  round: 1 | 2;
-  majoritarian: boolean;
-  valid: number;
-  seats: number;
-  rows: CountRow[];
-  /** a disputa é a do jogador */
-  mine: boolean;
-}
-
-/**
- * Disputa a mostrar na apuração de um dia de votação que caiu no período:
- * a do jogador; se ele não concorre, a mais importante para ele (Presidência
- * nas gerais, prefeitura da cidade nas municipais).
- */
-function apuracaoOf(state: WorldState, personId: string, from: string, to: string): Apuracao | undefined {
-  const me = state.t.persons.get(personId);
-  if (!me) return undefined;
-  for (const e of state.t.elections.values()) {
-    const round: 1 | 2 | null = e.first_round > from && e.first_round <= to ? 1 : e.runoff > from && e.runoff <= to ? 2 : null;
-    if (!round) continue;
-    const races = [...state.t.races.values()].filter((r) => r.election_id === e.id);
-    const myCand = [...state.t.candidacies.values()].find((c) => c.election_id === e.id && c.person_id === personId && c.status !== "PRE" && c.status !== "DESISTENTE" && c.status !== "INDEFERIDA");
-    const city = canonicalGeo(me.municipality);
-    const race =
-      (myCand && races.find((r) => r.id === myCand.race_id)) ??
-      (e.kind === "GERAL" ? races.find((r) => r.office_code === "PRESIDENTE") : races.find((r) => r.office_code === "PREFEITO" && r.geo === city) ?? races.find((r) => r.office_code === "PREFEITO" && r.geo.startsWith(me.uf)));
-    const res = round === 2 ? race?.results.runoff : race?.results.first;
-    if (!race || !res?.candidates.length) continue;
-    const majoritarian = OFFICES[race.office_code].system === "MAJORITARIO";
-    const elected = new Set(race.results.elected ?? []);
-    const sorted = [...res.candidates].sort((a, b) => b.votes - a.votes);
-    const top = sorted.slice(0, majoritarian ? 6 : 10);
-    const mine = sorted.find((c) => c.person_id === personId);
-    if (mine && !top.includes(mine)) top.push(mine);
-    const goesRunoff = majoritarian && round === 1;
-    const rows: CountRow[] = top.map((c) => {
-      const party = state.t.parties.get(c.party_id);
-      const cand = state.t.candidacies.get(c.candidacy_id);
-      return {
-        id: c.candidacy_id,
-        name: c.name,
-        party: party?.acronym ?? "",
-        color: party?.color ?? "#64748b",
-        votes: Math.round(c.votes),
-        share: c.share,
-        me: c.person_id === personId,
-        outcome: elected.has(c.candidacy_id) || elected.has(c.person_id) || cand?.status === "ELEITO" ? "ELEITO" : goesRunoff && cand?.status === "SEGUNDO_TURNO" ? "SEGUNDO_TURNO" : "NAO",
-      };
-    });
-    const place = geoName(race.geo, new Ctx(state, "read").s);
-    return {
-      date: round === 2 ? e.runoff : e.first_round,
-      title: `${OFFICES[race.office_code].name} · ${place}`,
-      round,
-      majoritarian,
-      valid: Math.round(res.valid),
-      seats: race.seats,
-      rows,
-      mine: !!myCand,
-    };
-  }
-  return undefined;
-}
-
 /**
  * Passar o tempo vivendo cada dia: o relógio automático alcança o presente
  * (sem acontecimentos sorteados) e então os dias pedidos passam um a um para o
@@ -629,12 +626,15 @@ function apuracaoOf(state: WorldState, personId: string, from: string, to: strin
  */
 export async function advanceStep(worldId: string, days: number, userId: string): Promise<StepAdvanceResult> {
   if (!Number.isInteger(days) || days < 1 || days > 31) return { ok: false, message: "Escolha entre 1 e 31 dias.", days: 0 };
-  const holder = crypto.randomUUID();
-  if (!(await acquire(worldId, holder))) return { ok: false, message: "O mundo está processando outro avanço. Tente em instantes.", days: 0 };
+  const w = await openWorld(worldId);
+  if (!w) return { ok: false, message: "O mundo está processando outro avanço. Tente em instantes.", days: 0 };
+  let dirty = false;
+  let ok = false;
   try {
-    const state = await loadState(worldId);
+    const state = w.state;
     const me = activePlayer(state, userId);
-    if (!me) return { ok: false, message: "Você não tem personagem ativo neste mundo.", days: 0, stop: "fim" };
+    // saídas antes de mexer no mundo: o estado lido continua valendo na memória
+    if (!me) return (ok = true), { ok: false, message: "Você não tem personagem ativo neste mundo.", days: 0, stop: "fim" };
     const clock = await clockStatus(worldId, me.id);
     const before = snapshotOf(state, userId);
     const countryBefore = countryOf(state);
@@ -643,7 +643,7 @@ export async function advanceStep(worldId: string, days: number, userId: string)
     const caughtUp = Math.max(targetTick(state, now), state.world.tick);
     const manualFrom = addDays(state.world.game_date, caughtUp - state.world.tick);
     const plan = planAdvance(state, clock, manualFrom, days);
-    if (!plan.ok) return { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
+    if (!plan.ok) return (ok = true), { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
     const from = state.world.game_date;
     // 1) o relógio automático alcança o presente
     const auto = runTicks(state, { target: caughtUp, maxTicks: MAX_CATCHUP, budgetMs: 12_000, now: () => Date.now() });
@@ -662,8 +662,9 @@ export async function advanceStep(worldId: string, days: number, userId: string)
     const changes = new Changes();
     changes.merge(auto.ctx.changes);
     changes.merge(step.ctx.changes);
+    dirty = true;
     await persist(worldId, changes, expected);
-    cache.set(worldId, { state, at: Date.now() });
+    ok = true;
     const news = changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
     const headlines = news
       .sort((a, b) => b.importance - a.importance || b.tick - a.tick)
@@ -690,13 +691,13 @@ export async function advanceStep(worldId: string, days: number, userId: string)
       diary: step.days,
       stop: step.stop,
       stopOn: step.stopOn,
-      apuracao: manual > 0 ? apuracaoOf(state, me.id, manualFrom, state.world.game_date) : undefined,
+      apuracoes: manual > 0 ? electionNight(state, me.id, manualFrom, state.world.game_date) : undefined,
       pending: pendingFor(state, me.id),
       requested: days,
       remaining: held ? 0 : Math.max(0, plan.days - manual),
     };
   } finally {
-    await rpc("sim_release", { p_world: worldId, p_holder: holder }).catch(() => undefined);
+    await closeWorld(worldId, w, dirty, ok);
   }
 }
 

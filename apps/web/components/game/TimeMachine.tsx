@@ -2,11 +2,11 @@
 import { InviteActions } from "./InviteActions";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DayDigest, StoryDelta, StoryEvent } from "@dp/engine";
+import type { Apuracao as ApuracaoData, DayDigest, StoryDelta, StoryEvent } from "@dp/engine";
 import { advanceDays, careerEndSummary, quickAction } from "@/app/jogo/actions";
 import type { ActionView } from "@/lib/actions-view";
 import { inviteIdOf, resolveLink } from "@/lib/links";
-import type { Apuracao as ApuracaoData, CareerEndView, CountrySnapshot, DecideResult, FastForwardResult, StepAdvanceResult } from "@/lib/sim";
+import type { CareerEndView, CountrySnapshot, DecideResult, FastForwardResult, StepAdvanceResult } from "@/lib/sim";
 import { useModal } from "../a11y";
 import { Button } from "../forms";
 import { Term } from "../Term";
@@ -145,7 +145,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
   const askedRef = useRef(0);
   const [planning, setPlanning] = useState<number | null>(null);
   // apuração do dia de votação: abre quando o diário chega nesse dia
-  const [apu, setApu] = useState<ApuracaoData | null>(null);
+  const [apu, setApu] = useState<ApuracaoData[] | null>(null);
   const apuSeen = useRef(new Set<string>());
   const pause = (v: boolean) => {
     paused.current = v;
@@ -270,15 +270,16 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
     if (phase !== "playing") return;
     if (shown < diary.length) {
       const d = diary[shown];
-      const ap = chunks.map((c) => c.apuracao).find((a) => a && a.date <= d.date && !apuSeen.current.has(a.date));
-      if (ap) {
-        apuSeen.current.add(ap.date);
-        setApu(ap);
+      // dia de votação: todas as apurações daquele dia, em sequência
+      const due = chunks.flatMap((c) => c.apuracoes ?? []).filter((a) => a.date <= d.date && !apuSeen.current.has(a.key));
+      if (due.length) {
+        for (const a of due) apuSeen.current.add(a.key);
+        setApu(due);
         setPhase("counting");
         return;
       }
       const busy = d.events.length + d.pending.length;
-      const delay = fast ? 70 : busy ? 950 : d.headline ? 420 : 260;
+      const delay = fast ? 30 : busy ? 620 : d.headline ? 170 : 90;
       const t = setTimeout(() => setShown((n) => n + 1), delay);
       return () => clearTimeout(t);
     }
@@ -494,7 +495,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
       )}
       {apu && phase === "counting" && (
         <Apuracao
-          data={apu}
+          list={apu}
           onClose={() => {
             setApu(null);
             setPhase("playing");

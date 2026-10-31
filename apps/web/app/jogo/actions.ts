@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createCharacter, performAction, type ActionResult, type WorldState } from "@dp/engine";
 import { activePersonId, getSession, myActiveCharacters, myCharacters, myWorldId } from "@/lib/game";
-import {
+import { bumpWorldRev,
   advanceStep,
   asPlayer,
   careerEnd,
@@ -198,9 +198,12 @@ export async function quickAction(year: number, actionId: string, params: Record
 
 export async function deleteMyData(): Promise<void> {
   const { sb, user } = await getSession();
+  const chars = user ? await myCharacters() : [];
   // o motor limpa dossiês, achados, dinheiro não declarado, fundação e presidência de partido; o banco anonimiza o resto
-  if (user) await clearPlayerWorlds(await myCharacters()).catch(() => undefined);
+  if (user) await clearPlayerWorlds(chars).catch(() => undefined);
   await sb.rpc("delete_my_data");
+  // o banco mexeu nesses mundos por fora do motor: nenhuma memória do servidor deles vale mais
+  await Promise.all([...new Set(chars.map((c) => c.world_id))].map((w) => bumpWorldRev(w).catch(() => undefined)));
   await sb.auth.signOut();
   redirect("/?conta=excluida");
 }
@@ -241,9 +244,8 @@ export async function advanceDays(year: number, days: number): Promise<StepAdvan
   if (!isStartYear(year)) return { ok: false, message: "Mundo inválido.", days: 0 };
   try {
     const worldId = await myWorldId(year);
-    const res = await asPlayer(await tokenOf(sb), () => advanceStep(worldId, Math.round(days), user.id));
-    if (res.ok) revalidatePath(`/jogo/${year}`, "layout");
-    return res;
+    // sem redesenhar a página a cada pedaço: o relógio anima o diário e atualiza a tela no fim
+    return await asPlayer(await tokenOf(sb), () => advanceStep(worldId, Math.round(days), user.id));
   } catch (e) {
     await logError("action", `viver ${days} dias ${year}`, e);
     return { ok: false, message: e instanceof Error ? e.message : "Erro ao passar o tempo.", days: 0 };
@@ -257,9 +259,8 @@ export async function answerEvent(year: number, eventId: string, choiceId: strin
   if (!isStartYear(year) || !eventId || !choiceId) return { ok: false, message: "Pedido inválido." };
   try {
     const worldId = await myWorldId(year);
-    const res = await asPlayer(await tokenOf(sb), () => decideStory(worldId, user.id, eventId, choiceId));
-    if (res.ok) revalidatePath(`/jogo/${year}`, "layout");
-    return res;
+    // quem mostra a decisão atualiza a tela ao continuar (no relógio, só no fim do período)
+    return await asPlayer(await tokenOf(sb), () => decideStory(worldId, user.id, eventId, choiceId));
   } catch (e) {
     await logError("action", `responder ${eventId} ${year}`, e);
     return { ok: false, message: e instanceof Error ? e.message : "Erro ao registrar a decisão." };

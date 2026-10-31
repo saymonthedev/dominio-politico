@@ -955,6 +955,8 @@ export function runProportional(ctx: Ctx, e: ElectionRow, race: RaceRow): void {
 
   // Ranking interno de cada partido: incumbentes reais/procedurais, jogadores e vagas abstratas
   const electedIds: string[] = [];
+  // votos individuais de quem se elegeu e do jogador (para a apuração e a tela de eleições)
+  const individuals: CandidateResult[] = [];
   for (const party of parties) {
     const won = partySeats.get(party.id) ?? 0;
     const named: Array<{ id: string; strength: number; isPlayer: boolean; candidacy?: CandidacyRow }> = [];
@@ -993,6 +995,7 @@ export function runProportional(ctx: Ctx, e: ElectionRow, race: RaceRow): void {
         ctx.save("candidacies", c);
         const p = ctx.person(c.person_id)!;
         if (winsSeat) createMandate(ctx, p, race.office_code, race.geo, e);
+        individuals.push({ candidacy_id: c.id, person_id: p.id, name: p.name, party_id: party.id, votes: c.votes, share: c.vote_share });
         afterElection(ctx, p, winsSeat, race);
         ctx.notify(p.id, winsSeat ? "VOCÊ FOI ELEITO(A)!" : "Suplência", `${OFFICES[race.office_code].name} em ${geoName(race.geo, ctx.s)}: ${Math.round(entry.votes).toLocaleString("pt-BR")} votos. O ${party.acronym} fez ${won} cadeira(s).`, "/jogo/carreira");
         if (winsSeat) electedIds.push(p.id);
@@ -1003,10 +1006,12 @@ export function runProportional(ctx: Ctx, e: ElectionRow, race: RaceRow): void {
           st.reach[uf] = 0.15 + Math.min(0.4, entry.strength / 10);
           ctx.save("person_states", st);
           createMandate(ctx, np, race.office_code, race.geo, e);
+          individuals.push({ candidacy_id: `${race.id}:${np.id}`, person_id: np.id, name: np.name, party_id: party.id, votes: Math.round(entry.votes), share: Math.round((entry.votes / valid) * 10000) / 100 });
           electedIds.push(np.id);
         } else {
           const p = ctx.person(entry.id)!;
           createMandate(ctx, p, race.office_code, race.geo, e);
+          individuals.push({ candidacy_id: `${race.id}:${p.id}`, person_id: p.id, name: p.name, party_id: party.id, votes: Math.round(entry.votes), share: Math.round((entry.votes / valid) * 10000) / 100 });
           electedIds.push(p.id);
         }
       }
@@ -1016,7 +1021,10 @@ export function runProportional(ctx: Ctx, e: ElectionRow, race: RaceRow): void {
     .map((p) => ({ party_id: p.id, votes: Math.round(partyVotes.get(p.id) ?? 0), share: Math.round(((partyVotes.get(p.id) ?? 0) / valid) * 10000) / 100, seats: partySeats.get(p.id) ?? 0 }))
     .filter((r) => r.votes > 0)
     .sort((a, b) => b.seats - a.seats || b.votes - a.votes);
-  race.results.first = { candidates: [], parties: partyResults, turnout: Math.round(t), invalid: Math.round(t - valid), valid: Math.round(valid) };
+  // os mais votados (e sempre o jogador), para não pesar a disputa com centenas de nomes
+  const ranked = individuals.sort((a, b) => b.votes - a.votes);
+  const shown = [...ranked.slice(0, 30), ...ranked.slice(30).filter((r) => playerCands.some((c) => c.id === r.candidacy_id))];
+  race.results.first = { candidates: shown, parties: partyResults, turnout: Math.round(t), invalid: Math.round(t - valid), valid: Math.round(valid) };
   race.results.elected = electedIds;
   race.status = "ENCERRADA";
   ctx.save("races", race);

@@ -2358,7 +2358,20 @@ td.num, th.num { text-align: right; }
 .apu__progress { height: 8px; border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; }
 .apu__progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--faixa), #f4d58d); border-radius: inherit; }
 .apu__head small { color: #c3cde0; font-size: .76rem; }
-.apu__list { position: relative; list-style: none; margin: 0; padding: 0; overflow: hidden; margin: 14px 22px; }
+.apu__body { overflow-y: auto; padding: 14px 22px; display: grid; gap: 12px; align-content: start; }
+.apu__list { position: relative; list-style: none; margin: 0; padding: 0; overflow: hidden; }
+.apu__step { margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.1); color: #fff; letter-spacing: .04em; }
+.apu__mine { margin-left: 10px; font-style: normal; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--faixa); color: var(--planalto); vertical-align: middle; }
+.apu__note { margin: 0; font-size: .78rem; color: #9fb0cc; }
+.apu__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.apu__you { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px; background: rgba(255,255,255,.05); border: 1px solid color-mix(in srgb, var(--faixa) 55%, transparent); }
+.apu__you span { display: grid; gap: 2px; }
+.apu__you small { font-size: .72rem; color: #9fb0cc; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.apu__you b { font-size: 1.5rem; color: #fff; }
+.apu__youout { font-weight: 800; font-size: .95rem; color: #c3cde0; }
+.apu__you.is-good { border-color: #3fae74; background: rgba(63,174,116,.14); }
+.apu__you.is-good .apu__youout { color: #6fdc9f; }
+.apu__you.is-bad .apu__youout { color: #ffb4ab; }
 .apu__row { position: absolute; left: 0; right: 0; top: 0; height: 52px; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 0 12px; border-radius: 12px; background: rgba(255,255,255,.04); border-left: 4px solid var(--c); transition: transform .6s cubic-bezier(.2,.8,.2,1), background .4s, opacity .4s; }
 .apu__row.is-me { background: color-mix(in srgb, var(--faixa) 14%, rgba(255,255,255,.04)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--faixa) 55%, transparent); }
 .apu__pos { font-size: .9rem; color: #9fb0cc; }
@@ -2387,7 +2400,7 @@ td.num, th.num { text-align: right; }
 @media (max-width: 560px) {
   .apu-overlay { padding: 0; place-items: end stretch; }
   .apu { border-radius: 22px 22px 0 0; max-height: 94vh; }
-  .apu__list { margin: 12px 12px; }
+  .apu__body { padding: 12px; }
   .apu__row { grid-template-columns: 26px minmax(0, 1fr) auto; gap: 8px; padding: 0 10px; }
   .apu__who { grid-template-columns: minmax(0, 1fr); }
   .apu__who small { line-height: 1.1; font-size: .66rem; }
@@ -2395,3 +2408,12 @@ td.num, th.num { text-align: right; }
   /* no fim, o selo do resultado ocupa o lugar do "você" (a linha já está destacada) */
   .apu__row.is-me.is-won .apu__who b em, .apu__row.is-me.is-runoff .apu__who b em { display: none; }
 }
+
+/* resultado da última votação no Painel */
+.areplay { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; margin-bottom: 20px; padding: 16px 18px; border-radius: 18px; background: linear-gradient(135deg, #0b1f3a, #163059); color: #fff; border: 1px solid color-mix(in srgb, var(--faixa) 45%, transparent); }
+.areplay.is-good { border-color: #3fae74; box-shadow: 0 0 0 3px rgba(63,174,116,.18); }
+.areplay__icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: rgba(255,255,255,.1); color: var(--faixa); }
+.areplay__txt { display: grid; gap: 2px; min-width: 0; }
+.areplay__txt small { font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faixa); }
+.areplay__txt b { font-size: 1rem; line-height: 1.35; color: #fff; }
+@media (max-width: 560px) { .areplay { grid-template-columns: auto minmax(0, 1fr); } .areplay > .ui-btn { grid-column: 1 / -1; justify-content: center; } }
