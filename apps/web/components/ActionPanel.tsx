@@ -156,15 +156,16 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
           onSubmit={(e) => {
             e.preventDefault();
             const params: Record<string, string> = {};
-            for (const [k, v] of new FormData(e.currentTarget).entries()) if (typeof v === "string" && v !== "") params[k] = v;
+            // os campos vão com prefixo (o navegador não reconhece e não oferece preenchimento)
+            for (const [k, v] of new FormData(e.currentTarget).entries()) if (typeof v === "string" && v !== "") params[k.replace(/^f_/, "")] = v;
             attempt(params);
           }}
         >
           {a.params.map((p) =>
             p.options ? (
-              <Select key={p.name} name={p.name} label={p.label} options={p.options} optional={p.optional} />
+              <Select key={p.name} name={`f_${p.name}`} label={p.label} options={p.options} optional={p.optional} />
             ) : (
-              <TextField key={p.name} name={p.name} label={p.label} optional={p.optional} inputMode={p.type === "number" ? "numeric" : undefined} maxLength={90} />
+              <TextField key={p.name} name={`f_${p.name}`} label={p.label} optional={p.optional} inputMode={p.type === "number" ? "numeric" : undefined} maxLength={90} />
             ),
           )}
           <div className="acard__formactions">

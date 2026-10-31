@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { NO_FILL } from "../forms";
 import { Icon } from "../Icon";
 import { QuickAction } from "./QuickAction";
 
@@ -55,10 +56,15 @@ export function HomeMarket({
 
   return (
     <div className="hm">
-      <label className="hm__search">
+      <div className="hm__search">
         <Icon name="search" size={16} />
-        <input type="search" placeholder={`Buscar entre ${bairros.length} ${kindLabel}`} value={q} onChange={(e) => setQ(e.target.value)} aria-label={`Buscar ${kindLabel}`} />
-      </label>
+        <input {...NO_FILL} type="text" inputMode="search" enterKeyHint="search" placeholder={`Buscar entre ${bairros.length} ${kindLabel}`} value={q} onChange={(e) => setQ(e.target.value)} aria-label={`Buscar ${kindLabel}`} />
+        {q && (
+          <button type="button" className="hm__clear" onClick={() => setQ("")} aria-label="Limpar a busca">
+            <Icon name="x" size={14} />
+          </button>
+        )}
+      </div>
       {ownsHome && <p className="muted small hm__note">Você mora em casa própria: para alugar ou comprar outra, venda a atual antes (em "Ações").</p>}
       <ul className="hm__list">
         {shown.map((b) => {

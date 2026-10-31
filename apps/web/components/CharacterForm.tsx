@@ -74,7 +74,7 @@ export function CharacterForm({
       </Block>
       <Block n={2} title="Identidade" text="Um nome fictício. Nomes de políticos reais são recusados.">
         <div className="cf-row">
-          <TextField label="Nome do personagem" name="name" icon="user" minLength={3} maxLength={40} placeholder="Ex.: Joana Ribeiro" value={name} onChange={(e) => setName(e.target.value)} />
+          <TextField label="Nome do personagem" name="persona" icon="user" minLength={3} maxLength={40} placeholder="Ex.: Joana Ribeiro" value={name} onChange={(e) => setName(e.target.value)} />
           <Stepper label="Idade" name="age" min={18} max={80} defaultValue={30} suffix="anos" />
         </div>
       </Block>

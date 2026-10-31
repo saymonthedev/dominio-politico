@@ -138,7 +138,7 @@ export async function createCharacterAction(_: ActionState, form: FormData): Pro
       withWorld(worldId, (state, mk) =>
         createCharacter(mk(`novo-${user.id}`), {
           userId: user.id,
-          name: String(form.get("name") ?? ""),
+          name: String(form.get("persona") ?? form.get("name") ?? ""),
           uf: String(form.get("uf") ?? ""),
           city: String(form.get("city") ?? "") || undefined,
           age: Number(form.get("age") ?? 0),

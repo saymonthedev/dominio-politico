@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Poppins } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { RECOVER_SCRIPT } from "@/components/recover";
+import { TipLayer } from "@/components/TipLayer";
 import { VersionWatch } from "@/components/VersionWatch";
 import { SITE_URL } from "@/lib/env";
 import "./globals.css";
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         {children}
+        <TipLayer />
         <VersionWatch />
         <Analytics />
       </body>
