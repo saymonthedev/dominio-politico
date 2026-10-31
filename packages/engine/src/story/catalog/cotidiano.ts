@@ -11,8 +11,8 @@ import { brl, city, communityLeader, home, localPolitician } from "./util";
  */
 
 /** Nomes de gente comum (personagens de passagem, sempre fictícios). */
-const NOMES = ["Dona Cida", "Seu Valdir", "Dona Lourdes", "Seu Jorge", "Rosângela", "Marcos", "Tânia", "Edson", "Dona Neide", "Seu Antônio", "Kátia", "Robson", "Dona Fátima", "Seu Zé Carlos", "Simone", "Wellington"];
-const AMIGOS = ["Rafa", "Júlia", "Diego", "Camila", "Thiago", "Bruna", "Léo", "Paula", "Gustavo", "Nanda"];
+export const NOMES = ["Dona Cida", "Seu Valdir", "Dona Lourdes", "Seu Jorge", "Rosângela", "Marcos", "Tânia", "Edson", "Dona Neide", "Seu Antônio", "Kátia", "Robson", "Dona Fátima", "Seu Zé Carlos", "Simone", "Wellington"];
+export const AMIGOS = ["Rafa", "Júlia", "Diego", "Camila", "Thiago", "Bruna", "Léo", "Paula", "Gustavo", "Nanda"];
 
 interface Opt {
   id: string;
@@ -25,7 +25,7 @@ interface Opt {
 }
 
 /** Monta um acontecimento a partir de título, texto e opções com o próprio desfecho. */
-function ev(spec: {
+export function ev(spec: {
   id: string;
   kind: StoryKind;
   tags: StoryTag[];

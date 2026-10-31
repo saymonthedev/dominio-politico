@@ -21,17 +21,18 @@ import type { Binding, StoryDelta, StoryEvent, StoryLogEntry } from "./types";
 
 /** Chance base de um acontecimento num dia, por momento da carreira. */
 function baseChance(c: StoryCtx): number {
+  // bem mais escolhas: quase todo dia de campanha tem algo; fora dela, algo a cada poucos dias
   switch (c.phase) {
     case "RETA_FINAL":
-      return 0.42;
+      return 0.6;
     case "CAMPANHA":
     case "SEGUNDO_TURNO":
-      return 0.32;
+      return 0.48;
     case "PRE":
     case "CONVENCAO":
-      return 0.2;
+      return 0.32;
     default:
-      return c.p.office_code ? 0.18 : c.p.party_id ? 0.16 : 0.14;
+      return c.p.office_code ? 0.3 : c.p.party_id ? 0.27 : 0.24;
   }
 }
 
@@ -220,13 +221,13 @@ function runQueue(c: StoryCtx): void {
 /** Acontecimento do contexto, com ritmo e variedade. */
 function contextual(c: StoryCtx): void {
   const s = c.s;
-  if (s.pending.length >= 4) return;
+  if (s.pending.length >= 5) return;
   const blockingOpen = s.pending.some((e) => e.blocking);
   const quiet = s.lastEvent ? diffDays(c.date, s.lastEvent) : 30;
   let chance = baseChance(c);
   // depois de um acontecimento, uns dias de calma; depois de muita calma, algo acontece
-  if (quiet <= 1) chance *= 0.3;
-  else chance += Math.min(0.2, (quiet - 2) * 0.02);
+  if (quiet <= 1) chance *= 0.5;
+  else chance += Math.min(0.25, (quiet - 2) * 0.03);
   if (blockingOpen) chance *= 0.35;
   if (!c.rng.chance(chance)) return;
   const recentTags = [...s.pending.flatMap((e) => e.tags), ...s.log.slice(0, 4).flatMap((e) => e.tags)];
