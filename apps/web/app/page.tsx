@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { profileFor, UFS } from "@dp/engine";
+import { SITE_URL } from "@/lib/env";
 import { ElectionMap, type MapYear } from "@/components/ElectionMap";
 import { Icon } from "@/components/Icon";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
@@ -36,6 +38,36 @@ const FEATURES = [
   { icon: "shield", title: "Fato e ficção separados", text: "Toda notícia diz se é fato real (com fonte) ou simulação. Pessoas reais nunca recebem crimes ou falas inventadas." },
 ];
 
+export const metadata: Metadata = { alternates: { canonical: "/" } };
+
+/** Dados estruturados: dizem ao Google que o site é um jogo (nome, gênero, grátis, em português). */
+const JSON_LD = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Domínio Político",
+    alternateName: ["Dominio Politico", "dominio-politico", "Domínio Político jogo"],
+    url: `${SITE_URL}/`,
+    inLanguage: "pt-BR",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    name: "Domínio Político",
+    url: `${SITE_URL}/`,
+    description:
+      "Jogo de política brasileira no navegador: comece como cidadão num Brasil real (2002 a 2026) e construa uma carreira até a Presidência, com partidos, eleições, economia, imprensa e investigações.",
+    genre: ["Simulação", "Estratégia", "Política"],
+    gamePlatform: "Navegador web",
+    applicationCategory: "Game",
+    operatingSystem: "Web",
+    inLanguage: "pt-BR",
+    isAccessibleForFree: true,
+    offers: { "@type": "Offer", price: "0", priceCurrency: "BRL" },
+    image: `${SITE_URL}/opengraph-image`,
+  },
+];
+
 export default async function Home() {
   const { user } = await currentUser();
   const latest = START_POINTS[START_POINTS.length - 1];
@@ -56,6 +88,7 @@ export default async function Home() {
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <PublicHeader loggedIn={!!user} />
       <section className="home-hero">
         <div className="container inner">

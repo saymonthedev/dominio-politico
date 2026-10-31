@@ -2,7 +2,7 @@ import { Callout, ContentPage } from "@/components/ContentPage";
 import { DoDont, Steps, SummaryTiles, UpdatedAt } from "@/components/Legal";
 import { DISCLAIMER } from "@/components/SiteChrome";
 
-export const metadata = { title: "Termos de Uso" };
+export const metadata = { title: "Termos de Uso", alternates: { canonical: "/termos" } };
 
 export default function Page() {
   return (

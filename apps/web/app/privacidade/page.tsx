@@ -1,7 +1,7 @@
 import { Callout, ContentPage } from "@/components/ContentPage";
 import { DataInventory, NeverList, ProviderList, RightsGrid, Steps, SummaryTiles, UpdatedAt } from "@/components/Legal";
 
-export const metadata = { title: "Privacidade" };
+export const metadata = { title: "Privacidade", alternates: { canonical: "/privacidade" } };
 
 export default function Page() {
   return (

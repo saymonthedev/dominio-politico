@@ -12,9 +12,9 @@ const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: "Domínio Político — simulador de carreira política brasileira", template: "%s · Domínio Político" },
+  title: { default: "Domínio Político — jogo de política brasileira, do bairro ao Planalto", template: "%s · Domínio Político" },
   description:
-    "Comece como cidadão em um Brasil real — a partir de 2002, 2006, 2010, 2014, 2018, 2022 ou 2026 — e construa uma carreira até a Presidência. Partidos, eleições, economia, imprensa, investigações e escândalos.",
+    "Jogo de política brasileira, online e grátis: comece como cidadão em um Brasil real — a partir de 2002, 2006, 2010, 2014, 2018, 2022 ou 2026 — e construa uma carreira até a Presidência. Partidos, eleições, economia, imprensa, investigações e escândalos.",
   applicationName: "Domínio Político",
   openGraph: { type: "website", locale: "pt_BR", siteName: "Domínio Político" },
 };

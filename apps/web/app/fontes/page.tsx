@@ -1,7 +1,7 @@
 import { Callout, ContentPage } from "@/components/ContentPage";
 import { LOGO_CREDITS } from "@/lib/logos";
 
-export const metadata = { title: "Fontes" };
+export const metadata = { title: "Fontes", alternates: { canonical: "/fontes" } };
 
 export default function Page() {
   return (

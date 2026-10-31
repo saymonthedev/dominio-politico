@@ -1,6 +1,6 @@
 import { Callout, ContentPage } from "@/components/ContentPage";
 
-export const metadata = { title: "Manual" };
+export const metadata = { title: "Manual", alternates: { canonical: "/manual" } };
 
 export default function Page() {
   return (

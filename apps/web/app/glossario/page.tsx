@@ -1,7 +1,7 @@
 import { ContentPage } from "@/components/ContentPage";
 import { GLOSSARY } from "@/lib/glossary";
 
-export const metadata = { title: "Glossário" };
+export const metadata = { title: "Glossário", alternates: { canonical: "/glossario" } };
 
 export default function Page() {
   return (
