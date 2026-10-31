@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { usePopover } from "../a11y";
 import { Icon } from "../Icon";
 import { LiveNumber } from "./ActionFx";
+import { useLiveVitals } from "./live-vitals";
 
 type Item = [suffix: string, label: string, icon: string];
 
@@ -55,7 +56,10 @@ function readClosed(): string[] {
   }
 }
 
-export function GameSidebar({ year, profile, badges }: { year: number; profile: SideProfile; badges: Record<string, number> }) {
+export function GameSidebar({ year, profile: initial, badges }: { year: number; profile: SideProfile; badges: Record<string, number> }) {
+  // no meio do "passar o tempo", cada decisão já atualiza os números (sem esperar o período acabar)
+  const live = useLiveVitals(initial);
+  const profile: SideProfile = live ? { ...initial, stage: live.stage, energy: live.energy, money: live.money, reputation: live.reputation, attrs: live.attrs } : initial;
   const path = usePathname();
   const base = `/jogo/${year}`;
   const active = (suffix: string) => (suffix === "" ? path === base : path.startsWith(base + suffix));

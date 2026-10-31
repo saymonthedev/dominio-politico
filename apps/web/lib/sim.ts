@@ -6,6 +6,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadBairros, loadCities, loadSnapshot } from "@dp/data";
+import { liveVitals, type LiveVitals } from "./vitals";
 import {
   addDays,
   careerSummary,
@@ -621,6 +622,8 @@ export interface StepAdvanceResult extends FastForwardResult {
   /** dias pedidos e dias que ainda faltam (o relógio retoma daí depois da decisão) */
   requested?: number;
   remaining?: number;
+  /** números da barra lateral no fim deste trecho (a tela atualiza sem esperar o período acabar) */
+  vitals?: LiveVitals;
 }
 
 function activePlayer(state: WorldState, userId: string) {
@@ -704,6 +707,7 @@ export async function advanceStep(worldId: string, days: number, userId: string)
       pending: pendingFor(state, me.id),
       requested: days,
       remaining: held ? 0 : Math.max(0, plan.days - manual),
+      vitals: liveVitals(state, me.id),
     };
   } finally {
     await closeWorld(worldId, w, dirty, ok);
@@ -722,6 +726,8 @@ export interface DecideResult {
   ended?: boolean;
   /** a escolha fez a carreira subir de etapa */
   stage?: { from: string; to: string };
+  /** números da barra lateral depois da escolha (mudam na hora, no meio do período) */
+  vitals?: LiveVitals;
 }
 
 /** Resposta a um acontecimento (sem avançar o relógio). */
@@ -743,7 +749,7 @@ export async function decideStory(worldId: string, userId: string, eventId: stri
   const st = personId ? state.t.person_states.get(personId) : undefined;
   const stageAfter = personId ? state.t.persons.get(personId)?.stage : undefined;
   const stage = r.ok && stageBefore && stageAfter && stageAfter !== stageBefore ? { from: stageBefore, to: stageAfter } : undefined;
-  return { ...r, pending: personId ? pendingFor(state, personId) : [], ended: !!st?.story?.ended, stage };
+  return { ...r, pending: personId ? pendingFor(state, personId) : [], ended: !!st?.story?.ended, stage, vitals: liveVitals(state, personId) };
 }
 
 export type CareerEndView = CareerSummary & { personId: string };

@@ -1,6 +1,7 @@
 "use client";
 import { Icon } from "../Icon";
 import { LiveNumber } from "./ActionFx";
+import { useLiveVitals } from "./live-vitals";
 
 const brl = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
 
@@ -8,7 +9,16 @@ const brl = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
  * No celular o menu lateral some: energia, caixa e reputação ficam numa faixa
  * fina sob o topo, sempre à vista (é o que decide se dá para agir agora).
  */
-export function MobileStatus({ year, energy, money, reputation, stage, approval, fatigue }: { year: number; energy: number; money: number; reputation: number; stage: string; approval?: number | null; fatigue?: number }) {
+export function MobileStatus(props: { year: number; energy: number; money: number; reputation: number; stage: string; approval?: number | null; fatigue?: number }) {
+  // os números mudam na hora em que você decide algo no meio do período
+  const live = useLiveVitals(props);
+  const { year } = props;
+  const energy = live?.energy ?? props.energy;
+  const money = live?.money ?? props.money;
+  const reputation = live?.reputation ?? props.reputation;
+  const stage = live?.stage ?? props.stage;
+  const approval = live ? live.approval : props.approval;
+  const fatigue = live?.fatigue ?? props.fatigue;
   return (
     <a className="gstat" href={`/jogo/${year}/carreira`} aria-label={`Energia ${energy} de 100, caixa ${brl(money)}, reputação ${reputation}. Ver a carreira.`}>
       <span className={`gstat__item gstat__energy${energy < 20 ? " is-low" : ""}`} title="Energia (recupera 25 por dia)">

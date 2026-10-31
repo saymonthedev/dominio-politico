@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { sideVitals } from "@/lib/vitals";
 import { canonicalGeo, geoName, type NotificationRow } from "@dp/engine";
 import { GameSidebar } from "@/components/game/GameSidebar";
 import { HashScroll } from "@/components/game/HashScroll";
@@ -48,6 +49,9 @@ export default async function GameLayout({ children, params }: { children: React
   const city = canonicalGeo(me.person.municipality);
   const place = /^\d{7}$/.test(city) ? geoName(city, { cities }) : me.person.uf;
 
+  // os mesmos números que o relógio e as decisões devolvem (a barra muda na hora da escolha)
+  const vitals = sideVitals(me.person, me.state, !!me.party);
+
   return (
     <Toaster>
       <a className="skip" href="#conteudo">
@@ -86,15 +90,7 @@ export default async function GameLayout({ children, params }: { children: React
           />
           <UserMenu initials={initials(me.person.name)} />
         </div>
-        <MobileStatus
-          year={year}
-          energy={Math.round(me.state.energy)}
-          money={Math.round(me.state.money)}
-          reputation={Math.round(me.person.reputation)}
-          stage={STAGE_LABEL[me.person.stage] ?? me.person.stage}
-          approval={me.person.office_code && me.state.story?.approval != null ? Math.round(me.state.story.approval) : null}
-          fatigue={Math.round(me.state.story?.fatigue ?? 25)}
-        />
+        <MobileStatus year={year} energy={vitals.energy} money={vitals.money} reputation={vitals.reputation} stage={vitals.stage} approval={vitals.approval} fatigue={vitals.fatigue} />
       </header>
       <div className="gshell">
         <GameSidebar
@@ -108,23 +104,10 @@ export default async function GameLayout({ children, params }: { children: React
             party: me.party ? { acronym: me.party.acronym, color: me.party.color } : null,
             photo: null,
             initials: initials(me.person.name),
-            energy: Math.round(me.state.energy),
-            money: Math.round(me.state.money),
-            reputation: Math.round(me.person.reputation),
-            attrs: [
-              // quem tem mandato vê primeiro o que o povo acha dele
-              ...(me.person.office_code && me.state.story?.approval != null
-                ? [{ label: "Aprovação popular", value: Math.round(me.state.story.approval), suffix: "%", hint: "O que o povo acha do seu mandato. Sobe com entregas (leis, obras, emendas) e cai com escândalos e votos contra a base. Pesa muito na reeleição." }]
-                : []),
-              { label: "Cansaço", value: Math.round(me.state.story?.fatigue ?? 25), bad: true, hint: "Sobe com trabalho, política e campanha; cai com descanso (academia, futebol, família, folga). Muito cansaço devolve menos energia e desgasta a saúde." },
-              { label: "Ativismo", value: Math.min(100, me.state.activism), goal: me.person.stage === "CIDADAO" ? 20 : undefined, hint: "Engajamento em causas e na comunidade. Com 20, você vira ativista." },
-              ...(me.party ? [{ label: "Prestígio no partido", value: me.state.party_standing, goal: me.person.stage === "FILIADO" ? 45 : undefined, hint: "Peso dentro do partido: conta na convenção e nas indicações." }] : []),
-              { label: "Capital político", value: me.state.political_capital, hint: "Favores, contatos e influência acumulados." },
-              { label: "Preparo para debates", value: me.state.debate_prep, hint: "Treino de oratória e debate." },
-              { label: "Alcance no estado", value: Math.round((me.state.reach?.[me.person.uf] ?? 0) * 100), suffix: "%", hint: "Quanto do eleitorado do seu estado conhece seu nome." },
-              ...(me.state.story?.health != null ? [{ label: "Saúde", value: me.state.story.health, hint: "Pesa na energia e na longevidade." }] : []),
-              ...(me.state.scandal > 0 ? [{ label: "Escândalo", value: me.state.scandal, bad: true, hint: "Desgaste por denúncias e polêmicas." }] : []),
-            ],
+            energy: vitals.energy,
+            money: vitals.money,
+            reputation: vitals.reputation,
+            attrs: vitals.attrs,
           }}
         />
         <main className="gmain" id="conteudo" tabIndex={-1}>

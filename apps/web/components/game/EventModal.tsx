@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { StoryEvent } from "@dp/engine";
 import { answerEvent } from "@/app/jogo/actions";
+import { publishVitals } from "./live-vitals";
 import type { DecideResult } from "@/lib/sim";
 import { backdropClose, useModal } from "../a11y";
 import { Button } from "../forms";
@@ -86,6 +87,8 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
       return;
     }
     setResult(r);
+    // a barra lateral já mostra o efeito da escolha (sem esperar o fim do período)
+    publishVitals(r.vitals);
   };
 
   const due = deadline(today, event.expires);

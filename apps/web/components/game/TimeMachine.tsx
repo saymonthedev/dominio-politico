@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Apuracao as ApuracaoData, DayDigest, StoryDelta, StoryEvent } from "@dp/engine";
 import { advanceDays, careerEndSummary, quickAction } from "@/app/jogo/actions";
+import { publishVitals } from "./live-vitals";
 import type { ActionView } from "@/lib/actions-view";
 import { inviteIdOf, resolveLink } from "@/lib/links";
 import type { CareerEndView, CountrySnapshot, DecideResult, FastForwardResult, StepAdvanceResult } from "@/lib/sim";
@@ -254,6 +255,8 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
   const afterChunk = () => {
     const r = last.current;
     if (!r) return finish();
+    // o trecho terminou de passar na tela: a barra lateral acompanha o dia em que o relógio está
+    publishVitals(r.vitals);
     if (r.stop === "fim") return showEnd();
     // decisões que seguram o tempo e qualquer escolha nova: aparecem na hora
     const block = r.pending?.find((e) => e.blocking) ?? (r.stopOn ? r.pending?.find((e) => e.id === r.stopOn) : undefined);
