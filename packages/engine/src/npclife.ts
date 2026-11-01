@@ -79,6 +79,19 @@ export function retire(ctx: Ctx, p: PersonRow): void {
       ctx.save("mandates", m);
     }
   }
+  // quem sai da vida pública não segue candidato nem filiado (como no fim da carreira do jogador)
+  for (const c of ctx.t.candidacies.values()) {
+    if (c.person_id !== p.id || !(c.status === "PRE" || c.status === "HOMOLOGADA" || c.status === "SEGUNDO_TURNO")) continue;
+    c.status = "DESISTENTE";
+    c.note = "Candidatura retirada: aposentadoria da vida pública.";
+    ctx.save("candidacies", c);
+  }
+  for (const m of ctx.t.memberships.values()) {
+    if (m.person_id !== p.id || m.status !== "ATIVA") continue;
+    m.status = "ENCERRADA";
+    m.left_on = ctx.date;
+    ctx.save("memberships", m);
+  }
   const party = p.party_id ? ctx.t.parties.get(p.party_id) : undefined;
   if (isReal(p.kind)) {
     if (p.tier <= 2) ctx.publish("REAL_RETIREMENT", { facts: { name: p.name }, personIds: [p.id], geography: p.uf });

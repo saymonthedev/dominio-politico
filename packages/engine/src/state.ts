@@ -113,10 +113,23 @@ export interface NewsOptions {
   factual?: boolean;
 }
 
+/** Etapa do dia que quebrou e foi pulada (só no modo tolerante, em produção). */
+export interface DayFault {
+  step: string;
+  date: string;
+  error: Error;
+}
+
 export class Ctx {
   private seq = 0;
   readonly changes: Changes;
   readonly policyLog: Array<{ kind: string; reasons: string[] }> = [];
+  /**
+   * Modo tolerante (produção): uma etapa do dia que quebra é pulada naquele dia e anotada em
+   * `faults`, em vez de travar o mundo inteiro. Nos testes fica desligado (o erro aparece).
+   */
+  tolerant = false;
+  readonly faults: DayFault[] = [];
 
   constructor(
     readonly s: WorldState,

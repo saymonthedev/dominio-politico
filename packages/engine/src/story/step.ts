@@ -102,8 +102,9 @@ export function routineLine(c: StoryCtx): string {
 }
 
 /** Avança até `days` dias vivendo cada um; para em decisões que seguram o tempo. */
-export function stepDays(state: WorldState, personId: string, opts: { days: number; budgetMs?: number; now?: () => number }): StepResult {
+export function stepDays(state: WorldState, personId: string, opts: { days: number; budgetMs?: number; now?: () => number; tolerant?: boolean }): StepResult {
   const ctx = new Ctx(state, "tick");
+  ctx.tolerant = !!opts.tolerant;
   const now = opts.now ?? (() => 0);
   const start = now();
   const days: DayDigest[] = [];

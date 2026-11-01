@@ -897,7 +897,8 @@ function applyConviction(ctx: Ctx, target: PersonRow, inv: InvestigationRow): Se
     }
   }
   for (const c of ctx.t.candidacies.values()) {
-    if (c.person_id === target.id && (c.status === "PRE" || c.status === "HOMOLOGADA" || c.status === "SEGUNDO_TURNO") && (sentence.ineligible_until || cassation)) {
+    // personagem fictício condenado sai da vida pública (abaixo): a candidatura cai em qualquer caso
+    if (c.person_id === target.id && (c.status === "PRE" || c.status === "HOMOLOGADA" || c.status === "SEGUNDO_TURNO") && (sentence.ineligible_until || cassation || target.kind === "FICTIONAL_GENERATED")) {
       c.status = "INDEFERIDA";
       c.note = era.fichaLimpa ? "Indeferida: condenação por órgão colegiado (Ficha Limpa)" : "Indeferida por condenação";
       ctx.save("candidacies", c);

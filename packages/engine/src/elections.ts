@@ -349,6 +349,7 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
           !led &&
           p.party_id === party.id &&
           p.kind !== "PLAYER" &&
+          p.status === "ACTIVE" &&
           !taken.has(p.id) &&
           (race.geo === "BR" ? p.tier <= 2 : localRace ? canonicalGeo(p.municipality) === race.geo : p.uf === uf) &&
           checkEligibility(ctx, p, race.office_code, race.geo, e).ok,

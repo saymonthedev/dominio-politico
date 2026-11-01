@@ -43,12 +43,14 @@ import {
   type DayDigest,
   type EconomyRow,
   type StoryDelta,
+  type DayFault,
   type StatefulTable,
   type StoryEvent,
   type WorldRow,
   type WorldState,
 } from "@dp/engine";
 import { simSecret, SUPABASE_KEY, SUPABASE_URL } from "./env";
+import { reportError } from "./report-error";
 
 export const WORLD_VERSION = "v1";
 /** Compartilhado (todos jogam juntos), só do jogador com dados reais, ou só do jogador e fictício. */
@@ -624,7 +626,7 @@ export async function withWorld<T>(
     const state = w.state;
     const expected = state.world.tick;
     const target = targetTick(state, new Date().toISOString());
-    const { ctx, ticks } = runTicks(state, { target, maxTicks: opts.maxTicks ?? MAX_CATCHUP, budgetMs: opts.budgetMs ?? 12_000, now: () => Date.now() });
+    const { ctx, ticks } = runTicks(state, { target, maxTicks: opts.maxTicks ?? MAX_CATCHUP, budgetMs: opts.budgetMs ?? 12_000, now: () => Date.now(), tolerant: true });
     const actionChanges: Changes[] = [];
     const makeCtx = (personId: string) => {
       // fase única por personagem e sequência de ações: ids e sorteios reprodutíveis
@@ -643,10 +645,24 @@ export async function withWorld<T>(
       await persist(worldId, changes, expected);
     }
     ok = true;
+    await logFaults(worldId, ctx.faults);
     return { result, ticks, state };
   } finally {
     await closeWorld(worldId, w, dirty, ok);
   }
+}
+
+/**
+ * Etapas do dia que quebraram e foram puladas (o motor em modo tolerante não trava o mundo):
+ * vão para o registro de erros, uma vez por etapa e mensagem.
+ */
+async function logFaults(worldId: string, faults: DayFault[]): Promise<void> {
+  const seen = new Set<string>();
+  const once = faults.filter((f) => {
+    const key = `${f.step}|${f.error.message}`;
+    return !seen.has(key) && !!seen.add(key);
+  });
+  await Promise.all(once.slice(0, 5).map((f) => reportError("motor", `${worldId} · ${f.step} · ${f.date}`, f.error)));
 }
 
 /** Avança um mundo (cron / catch-up em segundo plano). */
@@ -786,7 +802,7 @@ export async function fastForward(worldId: string, days: number, userId: string)
     const plan = planAdvance(state, clock, manualFrom, days);
     if (!plan.ok) return (ok = true), { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
     const from = state.world.game_date;
-    const { ctx, ticks } = runTicks(state, { target: caughtUp + plan.days, maxTicks: MAX_CATCHUP + plan.days, budgetMs: 25_000, now: () => Date.now() });
+    const { ctx, ticks } = runTicks(state, { target: caughtUp + plan.days, maxTicks: MAX_CATCHUP + plan.days, budgetMs: 25_000, now: () => Date.now(), tolerant: true });
     const manual = Math.max(0, state.world.tick - caughtUp);
     state.world.anchor_tick = state.world.tick;
     state.world.anchor_real_at = now;
@@ -801,6 +817,7 @@ export async function fastForward(worldId: string, days: number, userId: string)
     dirty = true;
     await persist(worldId, ctx.changes, expected);
     ok = true;
+    await logFaults(worldId, ctx.faults);
     const news = ctx.changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
     const headlines = news
       .sort((a, b) => b.importance - a.importance || b.tick - a.tick)
@@ -882,9 +899,9 @@ export async function advanceStep(worldId: string, days: number, userId: string)
     if (!plan.ok) return (ok = true), { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
     const from = state.world.game_date;
     // 1) o relógio automático alcança o presente
-    const auto = runTicks(state, { target: caughtUp, maxTicks: MAX_CATCHUP, budgetMs: 8_000, now: () => Date.now() });
+    const auto = runTicks(state, { target: caughtUp, maxTicks: MAX_CATCHUP, budgetMs: 8_000, now: () => Date.now(), tolerant: true });
     // 2) os dias vividos pelo jogador, um a um
-    const step = stepDays(state, me.id, { days: plan.days, budgetMs: 20_000, now: () => Date.now() });
+    const step = stepDays(state, me.id, { days: plan.days, budgetMs: 20_000, now: () => Date.now(), tolerant: true });
     const manual = step.ticks;
     state.world.anchor_tick = state.world.tick;
     state.world.anchor_real_at = now;
@@ -901,6 +918,7 @@ export async function advanceStep(worldId: string, days: number, userId: string)
     dirty = true;
     await persist(worldId, changes, expected);
     ok = true;
+    await logFaults(worldId, [...auto.ctx.faults, ...step.ctx.faults]);
     const news = changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
     const headlines = news
       .sort((a, b) => b.importance - a.importance || b.tick - a.tick)

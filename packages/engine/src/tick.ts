@@ -100,20 +100,48 @@ function electionCalendarDay(ctx: Ctx, e: ElectionRow): void {
  * Uma etapa do dia com nome: se quebrar, o erro diz qual etapa e em que data
  * (em produção o motor roda minificado e a pilha sozinha não diz onde foi).
  */
+let current: Ctx | null = null;
 function step(name: string, date: string, fn: () => void): void {
   try {
     fn();
   } catch (e) {
-    throw new Error(`[${name} · ${date}] ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+    const err = new Error(`[${name} · ${date}] ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+    // produção: a etapa fica para o dia seguinte e o erro vai para o registro; o mundo não trava
+    if (current?.tolerant) current.faults.push({ step: name, date, error: err });
+    else throw err;
+  }
+}
+
+/**
+ * Quem saiu da vida pública (morte, aposentadoria, condenação) não segue candidato nem
+ * filiado. A pessoa nem fica na memória do mundo, então uma candidatura esquecida aberta
+ * quebrava as pesquisas e a apuração e travava o dia. Roda antes de tudo: também cura
+ * mundos em que isso ficou para trás.
+ */
+export function tidyRetired(ctx: Ctx): void {
+  const gone = (id: string) => ctx.t.persons.get(id)?.status !== "ACTIVE";
+  for (const c of ctx.t.candidacies.values()) {
+    if (!(c.status === "PRE" || c.status === "HOMOLOGADA" || c.status === "SEGUNDO_TURNO") || !gone(c.person_id)) continue;
+    c.status = "DESISTENTE";
+    c.note = "Candidatura encerrada: deixou a vida pública.";
+    ctx.save("candidacies", c);
+  }
+  for (const m of ctx.t.memberships.values()) {
+    if (m.status !== "ATIVA" || !gone(m.person_id)) continue;
+    m.status = "ENCERRADA";
+    m.left_on = ctx.date;
+    ctx.save("memberships", m);
   }
 }
 
 export function advanceDay(ctx: Ctx): void {
+  current = ctx;
   const w = ctx.world;
   w.tick += 1;
   w.game_date = addDays(w.game_date, 1);
   ctx.beginTick();
   const d = w.game_date;
+  step("coerência de candidaturas e filiações", d, () => tidyRetired(ctx));
 
   // Energia e renda dos jogadores
   step("energia dos jogadores", d, () => {
@@ -180,8 +208,9 @@ export function targetTick(state: WorldState, nowIso: string): number {
 }
 
 /** Avança até `maxTicks` dias (ou até o alvo) e devolve as mudanças acumuladas. */
-export function runTicks(state: WorldState, opts: { target: number; maxTicks: number; budgetMs?: number; now?: () => number }): { ctx: Ctx; ticks: number } {
+export function runTicks(state: WorldState, opts: { target: number; maxTicks: number; budgetMs?: number; now?: () => number; tolerant?: boolean }): { ctx: Ctx; ticks: number } {
   const ctx = new Ctx(state, "tick");
+  ctx.tolerant = !!opts.tolerant;
   const now = opts.now ?? (() => 0);
   const start = now();
   let ticks = 0;
