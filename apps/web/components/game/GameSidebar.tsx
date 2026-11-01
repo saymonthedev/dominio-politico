@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePopover } from "../a11y";
 import { Icon } from "../Icon";
@@ -95,17 +96,17 @@ export function GameSidebar({ year, profile: initial, badges }: { year: number; 
   const moreBadge = ALL.filter(([s]) => !PRIMARY.includes(s)).reduce((n, [s]) => n + (badges[s] ?? 0), 0);
 
   const link = ([suffix, label, icon]: Item, cls = "") => (
-    <a key={suffix} href={base + suffix} className={[cls, active(suffix) ? "on" : ""].filter(Boolean).join(" ")} aria-current={active(suffix) ? "page" : undefined}>
+    <Link key={suffix} href={base + suffix} prefetch={false} className={[cls, active(suffix) ? "on" : ""].filter(Boolean).join(" ")} aria-current={active(suffix) ? "page" : undefined}>
       <Icon name={icon} size={18} />
       <span>{label}</span>
       {badges[suffix] ? <em className="gnav__badge">{badges[suffix]}</em> : null}
-    </a>
+    </Link>
   );
 
   return (
     <>
       <aside className="gside" aria-label="Navegação do jogo">
-        <a className="gprofile" href={`${base}/carreira`}>
+        <Link className="gprofile" href={`${base}/carreira`} prefetch={false}>
           <span className="gprofile__avatar" style={{ ["--c" as string]: profile.party?.color ?? "var(--planalto-2)" }}>
             {profile.photo ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -126,7 +127,7 @@ export function GameSidebar({ year, profile: initial, badges }: { year: number; 
               <span className="gprofile__town">{profile.place.replace(/ /g, "\u00a0")}</span>
             </span>
           </span>
-        </a>
+        </Link>
         <div className="gmeters">
           <div title="Energia: recupera 25 por dia de jogo">
             <span>

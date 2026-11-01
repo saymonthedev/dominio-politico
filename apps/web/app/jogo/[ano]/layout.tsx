@@ -13,7 +13,7 @@ import { LogoMark } from "@/components/Logo";
 import { STAGE_LABEL } from "@/components/ui";
 import { initials } from "@/lib/format";
 import { getSession, getWorld, requireMe } from "@/lib/game";
-import { advanceWorld, citiesFor, ensureWorld } from "@/lib/sim";
+import { asPlayer, backgroundAdvance, citiesFor, ensureWorld } from "@/lib/sim";
 
 export const dynamic = "force-dynamic";
 /** avançar 30 dias pode levar alguns segundos */
@@ -39,11 +39,15 @@ export default async function GameLayout({ children, params }: { children: React
   const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
   const invites = (invitesQ.data ?? []).map((r) => r.id as string);
 
-  // O mundo segue andando: se o relógio está atrasado, avança em segundo plano
+  // O mundo segue andando: se o relógio está atrasado, avança em segundo plano (com trava: uma tentativa
+  // por mundo a cada 90 s nesta instância, sem fila de servidores esperando o mesmo lease)
   if (world) {
     const hours = (Date.now() - Date.parse(world.anchor_real_at)) / 3_600_000;
     const behind = world.anchor_tick + Math.floor(hours * world.game_days_per_real_hour) - world.tick;
-    if (behind > 0) after(() => advanceWorld(year).catch(() => undefined));
+    if (behind > 0) {
+      const token = (await sb.auth.getSession()).data.session?.access_token;
+      after(() => asPlayer(token, () => backgroundAdvance(year)));
+    }
   }
   const d = world ? new Date(`${world.game_date}T12:00:00Z`) : null;
   const city = canonicalGeo(me.person.municipality);

@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { SUPABASE_KEY, SUPABASE_URL } from "../env";
 
@@ -18,8 +19,24 @@ export async function supabaseServer() {
   });
 }
 
+/** Quem está logado, pelo que o token assinado garante (id e e-mail). */
+export interface SessionUser {
+  id: string;
+  email?: string;
+}
+
+/**
+ * Usuário da sessão sem ida ao servidor de login: o token é conferido localmente com a chave
+ * pública do projeto (getClaims). Telas que precisam dos dados completos da conta usam getUser.
+ */
+export async function sessionUser(sb: SupabaseClient): Promise<SessionUser | null> {
+  const { data } = await sb.auth.getClaims();
+  const c = data?.claims;
+  if (!c?.sub) return null;
+  return { id: c.sub, email: typeof c.email === "string" ? c.email : undefined };
+}
+
 export async function currentUser() {
   const sb = await supabaseServer();
-  const { data } = await sb.auth.getUser();
-  return { sb, user: data.user };
+  return { sb, user: await sessionUser(sb) };
 }

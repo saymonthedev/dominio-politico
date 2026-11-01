@@ -43,6 +43,7 @@ import {
   type DayDigest,
   type EconomyRow,
   type StoryDelta,
+  type StatefulTable,
   type StoryEvent,
   type WorldRow,
   type WorldState,
@@ -103,15 +104,17 @@ export class SimDbError extends Error {
 
 const isTimeout = (e: unknown) => e instanceof SimDbError && (e.code === "57014" || /statement timeout/i.test(e.message));
 
-async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+async function rpc<T>(fn: string, args: Record<string, unknown>, opts: { retries?: number } = {}): Promise<T> {
   const token = playerToken.getStore();
   const call = (t?: string) => db(t).rpc(fn, { p_secret: simSecret(), ...args });
   let { data, error } = await call(token);
   // token vencido ou recusado: segue no papel anônimo
   if (error && token && (/^PGRST3/.test(error.code ?? "") || /jwt/i.test(error.message))) ({ data, error } = await call());
-  // banco num pico de carga: tenta de novo (leituras e gravações do motor são idempotentes)
-  for (let i = 0; error && i < 2 && (error.code === "57014" || /statement timeout/i.test(error.message)); i++) {
-    await new Promise((ok) => setTimeout(ok, 400 * (i + 1)));
+  // banco num pico de carga: tenta de novo (leituras e gravações do motor são idempotentes), com
+  // espera crescente e sorteada, para as novas tentativas de vários servidores não chegarem juntas
+  const retries = opts.retries ?? 2;
+  for (let i = 0; error && i < retries && (error.code === "57014" || /statement timeout/i.test(error.message)); i++) {
+    await new Promise((ok) => setTimeout(ok, 600 * (i + 1) + Math.random() * 900));
     ({ data, error } = await call(token));
   }
   if (error) throw new SimDbError(fn, error.code, error.message);
@@ -243,24 +246,37 @@ export async function ensureWorld(year: number, worldId = worldIdFor(year)): Pro
   await rpc("sim_apply", { p_world: state.world.id, p_changes: { worlds: [worldRow] }, p_expected_tick: null });
   changes.rows.delete("worlds");
   await persist(state.world.id, changes, null);
+  // quem leu o mundo pela metade, durante a criação, recarrega inteiro
+  await bumpWorldRev(state.world.id).catch(() => undefined);
 }
 
 type LoadedJson = Record<string, unknown[]> & { world: WorldRow; economy: EconomyRow };
 
 const LOAD_PARTS = ["core", "persons", "person_states", "parties", "elections", "mandates", "crime"] as const;
 
-/** Busca o mundo em partes paralelas (cada uma bem abaixo do limite de tempo do banco); cai no sim_load inteiro se preciso. */
+/** A função não existe no banco (migração ainda não aplicada). */
+const missingFn = (e: unknown) => e instanceof SimDbError && (e.code === "PGRST202" || /schema cache|does not exist/i.test(e.message));
+
+/** sem sim_world_part no banco: usa as funções antigas até a migração chegar */
+let legacyParts = false;
+
+/**
+ * Busca o mundo em partes paralelas (cada uma bem abaixo do limite de tempo do banco). O banco monta
+ * JSON direto (sim_world_part), bem mais barato que o formato antigo (sim_load_part), que fica de reserva.
+ */
 async function fetchWorld(worldId: string): Promise<LoadedJson | null> {
+  // leitura pesada: no máximo uma nova tentativa (repetir várias vezes só afunda um banco sobrecarregado)
+  const parts = (fn: string) => Promise.all(LOAD_PARTS.map((part) => rpc<Record<string, unknown> | null>(fn, { p_world: worldId, p_part: part }, { retries: 1 })));
+  let got: Array<Record<string, unknown> | null>;
   try {
-    const parts = await Promise.all(LOAD_PARTS.map((part) => rpc<Record<string, unknown> | null>("sim_load_part", { p_world: worldId, p_part: part })));
-    if (parts.some((x) => !x)) return null;
-    return Object.assign({}, ...parts) as LoadedJson;
+    got = await parts(legacyParts ? "sim_load_part" : "sim_world_part");
   } catch (e) {
-    if (e instanceof Error && /sim_load_part/.test(e.message) && /function|does not exist|schema cache/i.test(e.message)) {
-      return rpc<LoadedJson | null>("sim_load", { p_world: worldId });
-    }
-    throw e;
+    if (legacyParts || !missingFn(e)) throw e;
+    legacyParts = true;
+    got = await parts("sim_load_part");
   }
+  if (got.some((x) => !x)) return null;
+  return Object.assign({}, ...got) as LoadedJson;
 }
 
 export async function loadState(worldId: string): Promise<WorldState> {
@@ -282,33 +298,110 @@ export async function loadState(worldId: string): Promise<WorldState> {
 /** Municípios já convertidos para os nomes de cada mundo fictício. */
 const fictionCities = new Map<string, Map<string, CityBase>>();
 
-/** Mundo em memória: o estado e a revisão do banco em que ele foi lido (ou gravado). */
+/* ---------- atualização incremental: só o que mudou desde a revisão em memória ---------- */
+
+/** O que mudou no mundo depois de uma revisão (sim_world_delta). */
+interface DeltaJson {
+  rev: number;
+  /** o registro de mudanças não cobre o intervalo: só recarregando tudo */
+  full: boolean;
+  world?: WorldRow;
+  economy?: EconomyRow | null;
+  tables?: Partial<Record<StatefulTable, Array<{ id: string }>>>;
+}
+
+/** Mudanças desde a revisão `since`. Sem a função no banco (migração por aplicar), pede a carga completa. */
+async function fetchDelta(worldId: string, since: number): Promise<DeltaJson | null> {
+  try {
+    return await rpc<DeltaJson | null>("sim_world_delta", { p_world: worldId, p_since: since }, { retries: 1 });
+  } catch (e) {
+    if (missingFn(e)) return { rev: since, full: true };
+    throw e;
+  }
+}
+
+/** Data ISO `years` anos antes (29/2 vira 28/2, como no banco). */
+function yearsBefore(d: string, years: number): string {
+  const md = d.slice(5, 10) === "02-29" ? "02-28" : d.slice(5, 10);
+  return `${String(Number(d.slice(0, 4)) - years).padStart(4, "0")}-${md}`;
+}
+
+/**
+ * As mesmas regras da carga completa (sim_world_part) para o que fica na memória:
+ * quem mantém o mundo por atualizações incrementais termina com o mesmo estado de
+ * quem acabou de carregá-lo inteiro (e a memória não cresce com o tempo).
+ */
+export function trimToLoad(state: WorldState): void {
+  const t = state.t;
+  const keep = <V>(m: Map<string, V>, ok: (v: V) => boolean) => {
+    for (const [id, v] of m) if (!ok(v)) m.delete(id);
+  };
+  keep(t.persons, (p) => p.status === "ACTIVE" || p.kind === "PLAYER");
+  keep(t.person_states, (s) => t.persons.has(s.id));
+  keep(t.memberships, (m) => m.status === "ATIVA");
+  keep(t.affiliation_requests, (r) => r.status === "PENDENTE");
+  const open = new Set<string>();
+  for (const e of t.elections.values()) if (e.status !== "ENCERRADA") open.add(e.id);
+  keep(t.races, (r) => open.has(r.election_id));
+  keep(t.candidacies, (c) => open.has(c.election_id));
+  keep(t.debates, (d) => d.status === "AGENDADO" || d.status === "AO_VIVO");
+  const mandFloor = yearsBefore(state.world.game_date, 9);
+  keep(t.mandates, (m) => m.status === "ATIVO" || m.status === "FUTURO" || (!!m.end_on && m.end_on > mandFloor));
+  keep(t.bills, (b) => b.status === "TRAMITANDO");
+  keep(t.policies, (p) => p.status === "EM_ANDAMENTO" || p.status === "ATRASADA");
+  keep(t.rumors, (r) => r.status === "ATIVO");
+  const actFloor = yearsBefore(state.world.game_date, 6);
+  keep(t.illicit_acts, (a) => !a.discovered || a.created_on > actFloor);
+  keep(t.investigations, (i) => i.outcome == null);
+}
+
+/** Aplica no estado em memória as linhas que mudaram no banco. */
+export function applyDelta(state: WorldState, d: DeltaJson): void {
+  if (d.world) state.world = d.world;
+  if (d.economy) state.economy = d.economy;
+  for (const [name, rows] of Object.entries(d.tables ?? {})) {
+    const map = state.t[name as StatefulTable] as Map<string, unknown> | undefined;
+    if (!map || !rows) continue;
+    for (const row of rows) map.set(row.id, row);
+  }
+  hydrateState(state);
+  trimToLoad(state);
+}
+
+/** Mundo em memória: o estado e a revisão do banco em que ele está. */
 interface Cached {
   state: WorldState;
-  at: number;
+  /** quando foi lido inteiro do banco (depois de CACHE_MAX_MS, é relido inteiro) */
+  born: number;
   rev: number | null;
+  /** este servidor está gravando o mundo agora (com o lease): a memória está à frente do banco */
+  writing: boolean;
 }
 const cache = new Map<string, Cached>();
 const loading = new Map<string, Promise<Cached>>();
-/** sem revisão conhecida, a memória vale por pouco tempo */
+/** uma busca de mudanças por vez para cada memória */
+const syncing = new WeakMap<Cached, Promise<SyncResult>>();
+/** sem revisão conhecida (o banco não respondeu), a memória vale por pouco tempo */
 const CACHE_MS = 8_000;
-/** com revisão, vale enquanto ninguém gravar (e some depois de um tempo parado) */
-const CACHE_MAX_MS = 20 * 60_000;
+/** com as atualizações incrementais a memória dura; de tempos em tempos é relida inteira */
+const CACHE_MAX_MS = 2 * 60 * 60_000;
 /** poucos mundos por instância: o menos usado sai primeiro */
 const CACHE_WORLDS = 4;
 
-function remember(worldId: string, state: WorldState, rev: number | null): void {
+function remember(worldId: string, entry: Cached): void {
   cache.delete(worldId);
-  cache.set(worldId, { state, at: Date.now(), rev });
+  cache.set(worldId, entry);
   while (cache.size > CACHE_WORLDS) cache.delete(cache.keys().next().value as string);
 }
+
+const usable = (e: Cached | undefined): e is Cached => !!e && e.rev !== null && Date.now() - e.born < CACHE_MAX_MS;
 
 const asRev = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
 /** Revisão do mundo no banco: sobe a cada gravação (null se não deu para ler). */
 async function worldRev(worldId: string): Promise<number | null> {
   try {
-    return asRev(await rpc<number | null>("world_rev", { p_world: worldId }));
+    return asRev(await rpc<number | null>("world_rev", { p_world: worldId }, { retries: 1 }));
   } catch {
     return null;
   }
@@ -320,7 +413,7 @@ export async function bumpWorldRev(worldId: string, by = 1): Promise<void> {
   await rpc("sim_bump_rev", { p_world: worldId, p_by: by });
 }
 
-/** O que a tela leu agora do banco, para conferir se o estado em cache ainda vale. */
+/** O que a tela leu agora do banco, para conferir se o estado em cache já está pelo menos nesse ponto. */
 export interface Freshness {
   tick?: number | null;
   personId?: string;
@@ -328,69 +421,124 @@ export interface Freshness {
   seq?: number | null;
 }
 
+/** A memória está pelo menos tão adiante quanto o que a tela leu (dia de jogo e ações do jogador)? */
 function matches(state: WorldState, f?: Freshness): boolean {
   if (!f) return true;
-  if (f.tick != null && state.world.tick !== f.tick) return false;
-  if (f.personId && f.seq != null && state.t.person_states.get(f.personId)?.action_seq !== f.seq) return false;
+  if (f.tick != null && state.world.tick < f.tick) return false;
+  if (f.personId && f.seq != null && (state.t.person_states.get(f.personId)?.action_seq ?? -1) < f.seq) return false;
   return true;
 }
 
+/** Carga completa (uma por vez para cada mundo nesta instância). */
 function load(worldId: string): Promise<Cached> {
   let p = loading.get(worldId);
   if (!p) {
     p = (async () => {
-      // a revisão é lida antes: se alguém gravar no meio da leitura, a próxima conferência recarrega
+      // a revisão é lida antes: se alguém gravar no meio da leitura, a próxima conferência busca o que faltou
       const rev = await worldRev(worldId);
       const state = await loadState(worldId);
-      remember(worldId, state, rev);
-      return { state, at: Date.now(), rev };
+      const entry: Cached = { state, born: Date.now(), rev, writing: false };
+      // uma gravação começou aqui mesmo durante a leitura: a memória dela está mais adiante
+      if (!cache.get(worldId)?.writing) remember(worldId, entry);
+      return entry;
     })().finally(() => loading.delete(worldId));
     loading.set(worldId, p);
   }
   return p;
 }
 
+type SyncResult = "ok" | "full" | "busy";
+
+/** Atualiza a memória com o que mudou no banco desde a revisão dela. */
+function sync(worldId: string, entry: Cached): Promise<SyncResult> {
+  let p = syncing.get(entry);
+  if (!p) {
+    p = (async (): Promise<SyncResult> => {
+      const d = await fetchDelta(worldId, entry.rev ?? 0);
+      // gravando aqui mesmo: a memória já está à frente do banco, e só quem grava mexe nela
+      if (entry.writing) return "busy";
+      if (!d || d.full) return "full";
+      applyDelta(entry.state, d);
+      entry.rev = d.rev;
+      return "ok";
+    })().finally(() => syncing.delete(entry));
+    syncing.set(entry, p);
+  }
+  return p;
+}
+
 /**
- * Estado para as telas. A memória vale enquanto a revisão do mundo no banco não
- * mudar (ninguém gravou) e bate com o que a tela acabou de ler (dia de jogo e
- * número de ações do jogador); senão, recarrega.
+ * Estado para as telas. Se ninguém gravou desde a revisão em memória, usa a
+ * memória; se gravaram, busca só o que mudou. A carga completa fica para a
+ * primeira vez em cada instância (ou quando o registro de mudanças não cobre).
  */
 export async function cachedState(worldId: string, fresh?: Freshness): Promise<WorldState> {
   const hit = cache.get(worldId);
-  if (hit && matches(hit.state, fresh)) {
-    const age = Date.now() - hit.at;
-    if (hit.rev !== null && age < CACHE_MAX_MS && (await worldRev(worldId)) === hit.rev) return hit.state;
-    if (hit.rev === null && age < CACHE_MS) return hit.state;
+  if (hit?.writing) return hit.state;
+  if (hit && hit.rev === null && Date.now() - hit.born < CACHE_MS) return hit.state;
+  if (usable(hit)) {
+    const rev = await worldRev(worldId);
+    if (hit.writing) return hit.state;
+    if (rev !== null && rev === hit.rev && matches(hit.state, fresh)) return hit.state;
+    const r = await sync(worldId, hit);
+    if (r === "busy" || (r === "ok" && matches(hit.state, fresh))) return hit.state;
   }
   const got = await load(worldId);
-  // uma carga que já estava em andamento pode ter começado antes da última ação
-  return matches(got.state, fresh) ? got.state : (await load(worldId)).state;
+  if (matches(got.state, fresh)) return got.state;
+  // uma carga que já estava em andamento pode ter começado antes da última ação: completa com o que mudou
+  if (usable(got) && (await sync(worldId, got)) !== "full") return got.state;
+  return (await load(worldId)).state;
 }
 
-/** Mundo trancado para gravar: o estado (o da memória, se a revisão bate) e quem segura o lease. */
+/** Mundo trancado para gravar: o estado, a memória que ele ocupa e quem segura o lease. */
 interface Opened {
   holder: string;
   state: WorldState;
+  entry: Cached;
 }
 
-/** Tranca o mundo e devolve o estado; null se outro processo está com ele há mais de ~4 s. */
-async function openWorld(worldId: string): Promise<Opened | null> {
+/**
+ * Tranca o mundo e devolve o estado (a memória atualizada com o que mudou, ou o
+ * mundo lido inteiro). null se outro processo está com ele: esperando até ~4 s,
+ * ou sem esperar (avanço em segundo plano).
+ */
+async function openWorld(worldId: string, opts: { wait?: boolean } = {}): Promise<Opened | null> {
   const holder = crypto.randomUUID();
+  const tries = opts.wait === false ? 1 : 6;
   let rev: number | null = null;
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < tries; i++) {
     rev = asRev(await rpc<number | null>("sim_lease_rev", { p_world: worldId, p_holder: holder, p_seconds: 90 }));
     if (rev !== null) break;
-    await new Promise((r) => setTimeout(r, 700));
+    if (i < tries - 1) await new Promise((r) => setTimeout(r, 700));
   }
   if (rev === null) return null;
+  let entry: Cached | undefined;
   try {
     const hit = cache.get(worldId);
-    const reuse = !!hit && hit.rev === rev && Date.now() - hit.at < CACHE_MAX_MS;
-    const state = reuse ? hit!.state : await loadState(worldId);
-    // enquanto o mundo muda, as telas não leem da memória um estado pela metade
-    cache.delete(worldId);
-    return { holder, state };
+    if (usable(hit) && !hit.writing) {
+      // daqui em diante só esta gravação mexe na memória (as telas leem dela como está)
+      hit.writing = true;
+      entry = hit;
+      if (hit.rev !== rev) {
+        // com o lease na mão, o registro tem tudo o que mudou desde a revisão da memória
+        const d = await fetchDelta(worldId, hit.rev!);
+        if (d && !d.full) {
+          applyDelta(hit.state, d);
+          hit.rev = d.rev;
+        } else {
+          hit.writing = false;
+          entry = undefined;
+        }
+      }
+    }
+    if (!entry) entry = { state: await loadState(worldId), born: Date.now(), rev, writing: true };
+    remember(worldId, entry);
+    return { holder, state: entry.state, entry };
   } catch (e) {
+    if (entry) {
+      entry.writing = false;
+      if (cache.get(worldId) === entry) cache.delete(worldId);
+    }
     await rpc("sim_release_rev", { p_world: worldId, p_holder: holder, p_dirty: false }).catch(() => undefined);
     throw e;
   }
@@ -399,8 +547,14 @@ async function openWorld(worldId: string): Promise<Opened | null> {
 /** Libera o mundo. Deu certo: a memória fica com o estado novo e a revisão nova; deu errado: esquece. */
 async function closeWorld(worldId: string, w: Opened, dirty: boolean, ok: boolean): Promise<void> {
   const rev = asRev(await rpc<number | null>("sim_release_rev", { p_world: worldId, p_holder: w.holder, p_dirty: dirty }).catch(() => null));
-  if (ok && rev !== null) remember(worldId, w.state, rev);
-  else cache.delete(worldId);
+  w.entry.writing = false;
+  if (ok && rev !== null) {
+    w.entry.rev = rev;
+    trimToLoad(w.entry.state);
+    remember(worldId, w.entry);
+  } else if (cache.get(worldId) === w.entry) {
+    cache.delete(worldId);
+  }
 }
 
 /**
@@ -410,9 +564,9 @@ async function closeWorld(worldId: string, w: Opened, dirty: boolean, ok: boolea
 export async function withWorld<T>(
   worldId: string,
   fn?: (state: WorldState, actionCtx: (personId: string) => Ctx) => T,
-  opts: { maxTicks?: number } = {},
+  opts: { maxTicks?: number; budgetMs?: number; waitLease?: boolean } = {},
 ): Promise<{ result?: T; ticks: number; state: WorldState }> {
-  const w = await openWorld(worldId);
+  const w = await openWorld(worldId, { wait: opts.waitLease });
   if (!w) throw new Error("O mundo está ocupado processando o dia. Tente de novo em instantes.");
   let dirty = false;
   let ok = false;
@@ -420,7 +574,7 @@ export async function withWorld<T>(
     const state = w.state;
     const expected = state.world.tick;
     const target = targetTick(state, new Date().toISOString());
-    const { ctx, ticks } = runTicks(state, { target, maxTicks: opts.maxTicks ?? MAX_CATCHUP, budgetMs: 15_000, now: () => Date.now() });
+    const { ctx, ticks } = runTicks(state, { target, maxTicks: opts.maxTicks ?? MAX_CATCHUP, budgetMs: opts.budgetMs ?? 12_000, now: () => Date.now() });
     const actionChanges: Changes[] = [];
     const makeCtx = (personId: string) => {
       // fase única por personagem e sequência de ações: ids e sorteios reprodutíveis
@@ -449,6 +603,26 @@ export async function withWorld<T>(
 export async function advanceWorld(year: number, maxTicks = MAX_CATCHUP): Promise<number> {
   const { ticks } = await withWorld(worldIdFor(year), undefined, { maxTicks });
   return ticks;
+}
+
+/** Última tentativa de alcançar o relógio em segundo plano, por mundo, nesta instância. */
+const bgTried = new Map<string, number>();
+const BG_EVERY_MS = 90_000;
+
+/**
+ * O relógio do mundo compartilhado atrasou: avança depois da resposta da tela.
+ * No máximo uma tentativa por mundo a cada 90 s nesta instância e sem esperar o
+ * lease (se outro servidor já está avançando, este desiste na hora).
+ */
+export async function backgroundAdvance(year: number): Promise<void> {
+  const worldId = worldIdFor(year);
+  if (Date.now() - (bgTried.get(worldId) ?? 0) < BG_EVERY_MS) return;
+  bgTried.set(worldId, Date.now());
+  try {
+    await withWorld(worldId, undefined, { budgetMs: 10_000, waitLease: false });
+  } catch {
+    // ocupado ou banco lento: a próxima tela tenta de novo
+  }
 }
 
 export interface PersonSnapshot {
@@ -562,7 +736,7 @@ export async function fastForward(worldId: string, days: number, userId: string)
     const plan = planAdvance(state, clock, manualFrom, days);
     if (!plan.ok) return (ok = true), { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
     const from = state.world.game_date;
-    const { ctx, ticks } = runTicks(state, { target: caughtUp + plan.days, maxTicks: MAX_CATCHUP + plan.days, budgetMs: 40_000, now: () => Date.now() });
+    const { ctx, ticks } = runTicks(state, { target: caughtUp + plan.days, maxTicks: MAX_CATCHUP + plan.days, budgetMs: 25_000, now: () => Date.now() });
     const manual = Math.max(0, state.world.tick - caughtUp);
     state.world.anchor_tick = state.world.tick;
     state.world.anchor_real_at = now;
@@ -658,9 +832,9 @@ export async function advanceStep(worldId: string, days: number, userId: string)
     if (!plan.ok) return (ok = true), { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
     const from = state.world.game_date;
     // 1) o relógio automático alcança o presente
-    const auto = runTicks(state, { target: caughtUp, maxTicks: MAX_CATCHUP, budgetMs: 12_000, now: () => Date.now() });
+    const auto = runTicks(state, { target: caughtUp, maxTicks: MAX_CATCHUP, budgetMs: 8_000, now: () => Date.now() });
     // 2) os dias vividos pelo jogador, um a um
-    const step = stepDays(state, me.id, { days: plan.days, budgetMs: 30_000, now: () => Date.now() });
+    const step = stepDays(state, me.id, { days: plan.days, budgetMs: 20_000, now: () => Date.now() });
     const manual = step.ticks;
     state.world.anchor_tick = state.world.tick;
     state.world.anchor_real_at = now;

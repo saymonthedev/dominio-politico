@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { Icon } from "../Icon";
 import { LiveNumber } from "./ActionFx";
 import { useLiveVitals } from "./live-vitals";
@@ -20,7 +21,7 @@ export function MobileStatus(props: { year: number; energy: number; money: numbe
   const approval = live ? live.approval : props.approval;
   const fatigue = live?.fatigue ?? props.fatigue;
   return (
-    <a className="gstat" href={`/jogo/${year}/carreira`} aria-label={`Energia ${energy} de 100, caixa ${brl(money)}, reputação ${reputation}. Ver a carreira.`}>
+    <Link className="gstat" href={`/jogo/${year}/carreira`} prefetch={false} aria-label={`Energia ${energy} de 100, caixa ${brl(money)}, reputação ${reputation}. Ver a carreira.`}>
       <span className={`gstat__item gstat__energy${energy < 20 ? " is-low" : ""}`} title="Energia (recupera 25 por dia)">
         <Icon name="zap" size={13} />
         <b className="mono">
@@ -56,6 +57,6 @@ export function MobileStatus(props: { year: number; energy: number; money: numbe
       ) : (
         <span className="gstat__stage">{stage}</span>
       )}
-    </a>
+    </Link>
   );
 }

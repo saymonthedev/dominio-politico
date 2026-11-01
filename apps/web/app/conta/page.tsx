@@ -14,7 +14,11 @@ export const metadata: Metadata = { title: "Minha conta" };
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ senha?: string; email?: string; mundo?: string }> }) {
   const { senha, email: emailFlag, mundo } = await searchParams;
-  const { user } = await getSession();
+  const { sb } = await getSession();
+  // dados completos da conta (criação, confirmação do e-mail): aqui vale a ida ao servidor de login
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
   if (!user) redirect("/entrar?next=/conta");
   const chars = await myCharacters();
   const email = user.email ?? "";

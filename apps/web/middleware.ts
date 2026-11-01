@@ -21,9 +21,10 @@ export async function middleware(request: NextRequest) {
       },
     },
   });
-  const { data } = await supabase.auth.getUser();
+  // renova o token quando vence e confere a assinatura localmente (sem ida ao servidor de login)
+  const { data } = await supabase.auth.getClaims();
   const path = request.nextUrl.pathname;
-  if ((path.startsWith("/jogo") || path.startsWith("/conta")) && !data.user) {
+  if ((path.startsWith("/jogo") || path.startsWith("/conta")) && !data?.claims?.sub) {
     const url = request.nextUrl.clone();
     url.pathname = "/entrar";
     url.searchParams.set("next", path);

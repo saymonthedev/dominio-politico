@@ -1,15 +1,18 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { PartyRow, PersonRow, PersonStateRow, WorldRow, WorldState } from "@dp/engine";
-import { supabaseServer } from "./supabase/server";
+import { sessionUser, supabaseServer } from "./supabase/server";
 import { asPlayer, cachedState, isStartYear, modeOfWorld, worldIdFor, yearOfWorld, type WorldMode } from "./sim";
 
 export type PublicWorld = Omit<WorldRow, "seed">;
 
+/**
+ * Sessão da requisição. O token é conferido aqui mesmo (assinatura ES256 do projeto, chaves em
+ * cache), sem uma ida ao servidor de login a cada tela; a renovação do token continua automática.
+ */
 export const getSession = cache(async () => {
   const sb = await supabaseServer();
-  const { data } = await sb.auth.getUser();
-  return { sb, user: data.user };
+  return { sb, user: await sessionUser(sb) };
 });
 
 export const myCharacters = cache(async (): Promise<Array<{ world_id: string; person_id: string }>> => {
@@ -98,8 +101,22 @@ export const playerState = cache(async (year: number): Promise<WorldState> => {
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [world, session] = await Promise.all([getWorld(year), sb.auth.getSession()]);
-  return asPlayer(session.data.session?.access_token, () => cachedState(me.worldId, { tick: world?.tick, personId: me.person.id, seq: me.state.action_seq }));
+  const load = asPlayer(session.data.session?.access_token, () => cachedState(me.worldId, { tick: world?.tick, personId: me.person.id, seq: me.state.action_seq }));
+  // banco num pico: melhor a tela tentar de novo sozinha (a carga segue e fica na memória) do que
+  // estourar o limite de 60 s da função e cair na página de erro da hospedagem
+  return withDeadline(load, STATE_DEADLINE_MS, "O mundo demorou para carregar. Tentando de novo…");
 });
+
+/** Tempo máximo para a tela esperar o mundo (o resto da função ainda precisa de folga). */
+const STATE_DEADLINE_MS = 25_000;
+
+function withDeadline<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
 
 export const getParties = cache(async (worldId: string): Promise<PartyRow[]> => {
   const { sb } = await getSession();

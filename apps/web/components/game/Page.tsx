@@ -1,4 +1,5 @@
 /** Blocos visuais comuns às páginas do jogo. */
+import Link from "next/link";
 import { Icon } from "../Icon";
 
 export function GameHeader({ kicker, title, lede, icon, children }: { kicker?: string; title: React.ReactNode; lede?: React.ReactNode; icon?: string; children?: React.ReactNode }) {
@@ -49,9 +50,9 @@ export function Panel({
           )}
           {aside}
           {href && (
-            <a href={href} className="gpanel__link">
+            <Link href={href} prefetch={false} className="gpanel__link">
               {hrefLabel} <Icon name="arrow" size={14} />
-            </a>
+            </Link>
           )}
         </div>
       )}
