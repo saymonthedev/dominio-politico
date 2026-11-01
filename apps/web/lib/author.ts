@@ -2,6 +2,8 @@
 export const AUTHOR = {
   name: "Saymon Oliveira",
   initials: "SO",
+  /** foto do site do autor (128 px, quadrada) */
+  photo: "/autor.webp",
   handle: "@saymonthedev",
   site: "https://saymonthedev.com",
   siteLabel: "saymonthedev.com",

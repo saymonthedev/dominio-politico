@@ -123,9 +123,8 @@ export function Footer() {
               <span className="footer-legend__txt">Toda notícia indica de onde vem.</span>
             </div>
             <div className="footer-author">
-              <span className="footer-author__mark" aria-hidden="true">
-                {AUTHOR.initials}
-              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="footer-author__photo" src={AUTHOR.photo} alt="" width={44} height={44} loading="lazy" decoding="async" />
               <span className="footer-author__who">
                 <small>Criado por</small>
                 <b>{AUTHOR.name}</b>

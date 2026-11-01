@@ -2733,7 +2733,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 /* créditos do autor no rodapé público */
 .footer-author { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 12px; row-gap: 10px; margin-top: 22px; padding: 14px 16px; max-width: 380px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; background: rgba(255,255,255,.03); }
-.footer-author__mark { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-size: .9rem; letter-spacing: .02em; color: var(--planalto); background: linear-gradient(140deg, var(--faixa-suave), var(--faixa)); }
+.footer-author__photo { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: #10284b; box-shadow: 0 0 0 2px #081629, 0 0 0 3.5px var(--faixa); }
 .footer-author__who { display: grid; line-height: 1.25; }
 .footer-author__who small { font-size: .72rem; color: #8193ad; text-transform: uppercase; letter-spacing: .12em; font-family: var(--f-mono); }
 .footer-author__who b { color: #fff; font-size: .98rem; }
