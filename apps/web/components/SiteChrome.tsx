@@ -1,3 +1,4 @@
+import { AUTHOR, authorSite } from "@/lib/author";
 import { Icon } from "./Icon";
 import { Brand, LogoMark } from "./Logo";
 
@@ -121,6 +122,23 @@ export function Footer() {
               <span className="badge sim">Simulação</span>
               <span className="footer-legend__txt">Toda notícia indica de onde vem.</span>
             </div>
+            <div className="footer-author">
+              <span className="footer-author__mark" aria-hidden="true">
+                {AUTHOR.initials}
+              </span>
+              <span className="footer-author__who">
+                <small>Criado por</small>
+                <b>{AUTHOR.name}</b>
+              </span>
+              <span className="footer-author__links">
+                <a href={authorSite("rodape")} target="_blank" rel="noopener" aria-label={`Site de ${AUTHOR.name}: ${AUTHOR.siteLabel} (abre em nova aba)`}>
+                  <Icon name="globe" size={15} /> {AUTHOR.siteLabel}
+                </a>
+                <a href={AUTHOR.instagram} target="_blank" rel="noopener" aria-label={`Instagram de ${AUTHOR.name}: ${AUTHOR.handle} (abre em nova aba)`}>
+                  <Icon name="instagram" size={15} /> {AUTHOR.handle}
+                </a>
+              </span>
+            </div>
           </div>
           {FOOTER_COLS.map((c) => (
             <nav key={c.title} className="footer-col" aria-label={c.title}>
@@ -147,7 +165,12 @@ export function Footer() {
         <div className="footer-bottom">
           <span className="rating" title="Classificação indicativa: não recomendado para menores de 16 anos">16</span>
           <p>{DISCLAIMER} Pessoas reais nunca recebem crimes, falas ou condições de saúde inventadas.</p>
-          <span className="footer-copy">© {new Date().getFullYear()} Domínio Político</span>
+          <span className="footer-copy">
+            © {new Date().getFullYear()} Domínio Político · por{" "}
+            <a href={AUTHOR.instagram} target="_blank" rel="noopener">
+              {AUTHOR.handle}
+            </a>
+          </span>
         </div>
       </div>
     </footer>

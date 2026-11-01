@@ -1,5 +1,6 @@
 /** Ícones de traço (24×24), desenhados para o projeto. */
 const PATHS: Record<string, string> = {
+  instagram: "M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5z M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z M17.5 6.5h.01",
   ballot: "M4 10h16v10H4z M8 10V4h8v6 M10 7h4 M9 15h6",
   users: "M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 20v-2a4 4 0 0 0-3-3.9 M16 2.1a4 4 0 0 1 0 7.8",
   landmark: "M3 21h18 M5 21V11 M9 21V11 M15 21V11 M19 21V11 M2 11l10-7 10 7z",

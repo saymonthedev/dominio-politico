@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { AUTHOR } from "./author";
 
 /** Tamanho padrão das prévias de link (WhatsApp, redes sociais, buscadores). */
 export const OG_SIZE = { width: 1200, height: 630 };
@@ -45,6 +46,8 @@ export async function ogImage({ kicker, title, accent, lede, duel }: OgContent):
           <div style={{ display: "flex", fontSize: 34, fontWeight: 800, letterSpacing: -0.5 }}>
             Domínio&nbsp;<span style={{ color: "#d4a53c" }}>Político</span>
           </div>
+          {/* assinatura do criador: aparece em toda prévia de link compartilhado */}
+          <div style={{ display: "flex", marginLeft: "auto", fontSize: 22, color: "#9fb0c9" }}>por&nbsp;<span style={{ color: "#f4d58d" }}>{AUTHOR.handle}</span></div>
         </div>
         <div style={{ display: "flex", marginTop: 54, fontSize: 22, letterSpacing: 4, textTransform: "uppercase", color: "#d4a53c" }}>{kicker}</div>
         <div style={{ display: "flex", flexWrap: "wrap", columnGap: title.endsWith("-") ? 0 : 22, marginTop: 12, fontSize: 76, fontWeight: 800, lineHeight: 1.05, letterSpacing: -2 }}>

@@ -2,8 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Poppins } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { RECOVER_SCRIPT } from "@/components/recover";
+import { Signature } from "@/components/Signature";
 import { TipLayer } from "@/components/TipLayer";
 import { VersionWatch } from "@/components/VersionWatch";
+import { AUTHOR } from "@/lib/author";
 import { SITE_URL } from "@/lib/env";
 import "./globals.css";
 
@@ -16,6 +18,9 @@ export const metadata: Metadata = {
   description:
     "Jogo de política brasileira, online e grátis: comece como cidadão em um Brasil real — a partir de 2002, 2006, 2010, 2014, 2018, 2022 ou 2026 — e construa uma carreira até a Presidência. Partidos, eleições, economia, imprensa, investigações e escândalos.",
   applicationName: "Domínio Político",
+  authors: [{ name: AUTHOR.name, url: AUTHOR.site }],
+  creator: AUTHOR.name,
+  publisher: AUTHOR.name,
   openGraph: { type: "website", locale: "pt_BR", siteName: "Domínio Político" },
 };
 
@@ -37,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <TipLayer />
+        <Signature />
         <VersionWatch />
         <Analytics />
       </body>

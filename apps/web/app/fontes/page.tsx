@@ -1,4 +1,5 @@
 import { Callout, ContentPage } from "@/components/ContentPage";
+import { AUTHOR, authorSite } from "@/lib/author";
 import { LOGO_CREDITS } from "@/lib/logos";
 
 export const metadata = { title: "Fontes", alternates: { canonical: "/fontes" } };
@@ -10,6 +11,28 @@ export default function Page() {
       title="Fontes e licenças"
       lede="Os pontos de partida são construídos com dados públicos oficiais. Só importamos o mínimo necessário (LGPD): nome de urna, partido, cargo, UF, ano de nascimento, situação e votos."
       sections={[
+        {
+          id: "autoria",
+          title: "Quem fez",
+          icon: "user",
+          body: (
+            <div className="author-credit">
+              <p>
+                Concepção, design, código e textos de <b>{AUTHOR.name}</b>, desenvolvedor. Os dados reais vêm das fontes oficiais abaixo; a simulação, as
+                regras e as histórias são criação do projeto.
+              </p>
+              <p className="author-credit__links">
+                <a href={authorSite("fontes")} target="_blank" rel="noopener">
+                  {AUTHOR.siteLabel}
+                </a>
+                <span aria-hidden="true">·</span>
+                <a href={AUTHOR.instagram} target="_blank" rel="noopener">
+                  Instagram {AUTHOR.handle}
+                </a>
+              </p>
+            </div>
+          ),
+        },
         {
           id: "oficiais",
           title: "Dados oficiais",

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AUTHOR, authorSite } from "@/lib/author";
 import { usePopover } from "../a11y";
 import { Icon } from "../Icon";
 import { LiveNumber } from "./ActionFx";
@@ -55,6 +56,25 @@ function readClosed(): string[] {
   } catch {
     return [];
   }
+}
+
+/** Assinatura discreta do criador: no fim da barra lateral e do menu "Mais" (links abrem em outra aba). */
+function Credit() {
+  return (
+    <div className="gcredit">
+      <span className="gcredit__by">
+        Criado por <b>{AUTHOR.name}</b>
+      </span>
+      <span className="gcredit__links">
+        <a href={authorSite("jogo")} target="_blank" rel="noopener" aria-label={`Site de ${AUTHOR.name}: ${AUTHOR.siteLabel} (abre em nova aba)`}>
+          <Icon name="globe" size={13} /> {AUTHOR.siteLabel}
+        </a>
+        <a href={AUTHOR.instagram} target="_blank" rel="noopener" aria-label={`Instagram de ${AUTHOR.name}: ${AUTHOR.handle} (abre em nova aba)`}>
+          <Icon name="instagram" size={13} /> {AUTHOR.handle}
+        </a>
+      </span>
+    </div>
+  );
 }
 
 export function GameSidebar({ year, profile: initial, badges }: { year: number; profile: SideProfile; badges: Record<string, number> }) {
@@ -201,6 +221,7 @@ export function GameSidebar({ year, profile: initial, badges }: { year: number; 
             );
           })}
         </nav>
+        <Credit />
       </aside>
 
       <nav className="gtabs" aria-label="Seções do jogo">
@@ -227,6 +248,7 @@ export function GameSidebar({ year, profile: initial, badges }: { year: number; 
                   <div className="gmore__grid">{g.items.map((it) => link(it, "gmore__item"))}</div>
                 </div>
               ))}
+              <Credit />
             </div>
           )}
         </div>

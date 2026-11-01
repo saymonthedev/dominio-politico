@@ -2255,7 +2255,7 @@ html[data-kbd] .skip:focus-visible { top: 12px; box-shadow: 0 0 0 3px var(--plan
 .vwatch button { border: 0; border-radius: 10px; padding: 8px 14px; background: var(--faixa); color: var(--planalto); font-weight: 700; cursor: pointer; }
 
 /* menu lateral: cidade inteira e atributos da carreira */
-.gside { grid-template-columns: minmax(0, 1fr); overflow-x: hidden; }
+.gside { grid-template-columns: minmax(0, 1fr); grid-auto-rows: max-content; overflow-x: hidden; }
 .gside > * { min-height: max-content; }
 .gprofile__town { display: inline-block; max-width: 100%; overflow-wrap: break-word; }
 .gattrs { margin: 10px 4px 0; border-top: 1px solid var(--linha); padding-top: 8px; }
@@ -2730,3 +2730,29 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .gskel__bar--short { width: 60%; }
 @keyframes gskel { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .gskel__bar { animation: none; } }
+
+/* créditos do autor no rodapé público */
+.footer-author { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 12px; row-gap: 10px; margin-top: 22px; padding: 14px 16px; max-width: 380px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; background: rgba(255,255,255,.03); }
+.footer-author__mark { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-size: .9rem; letter-spacing: .02em; color: var(--planalto); background: linear-gradient(140deg, var(--faixa-suave), var(--faixa)); }
+.footer-author__who { display: grid; line-height: 1.25; }
+.footer-author__who small { font-size: .72rem; color: #8193ad; text-transform: uppercase; letter-spacing: .12em; font-family: var(--f-mono); }
+.footer-author__who b { color: #fff; font-size: .98rem; }
+.footer-author__links { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.footer-author__links a { display: inline-flex; align-items: center; gap: 7px; color: #c3cde0; text-decoration: none; font-size: .84rem; min-height: 32px; }
+.footer-author__links a svg { color: var(--faixa); }
+.footer-author__links a:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+.footer-copy a { color: #b8c4d8; text-decoration: none; }
+.footer-copy a:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+
+/* assinatura discreta do autor dentro do jogo (fim da barra lateral e do menu "Mais") */
+.gcredit { display: grid; gap: 4px; margin: 18px 4px 4px; padding-top: 12px; border-top: 1px solid var(--linha); font-size: .74rem; color: var(--apagado); line-height: 1.4; }
+.gcredit__by b { font-weight: 600; color: var(--tinta); }
+.gcredit__links { display: flex; flex-wrap: wrap; gap: 0 12px; }
+.gcredit__links a { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; color: inherit; text-decoration: none; white-space: nowrap; }
+.gcredit__links a:hover { color: var(--tinta); text-decoration: underline; text-underline-offset: 3px; }
+.gmore .gcredit { margin: 14px 2px 0; }
+
+/* créditos do autor na página de fontes */
+.author-credit p { margin: 0 0 10px; line-height: 1.7; }
+.author-credit__links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.author-credit__links a { font-weight: 600; }

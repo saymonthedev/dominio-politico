@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { profileFor, UFS } from "@dp/engine";
+import { AUTHOR } from "@/lib/author";
 import { SITE_URL } from "@/lib/env";
 import { ElectionMap, type MapYear } from "@/components/ElectionMap";
 import { Icon } from "@/components/Icon";
@@ -65,6 +66,8 @@ const JSON_LD = [
     isAccessibleForFree: true,
     offers: { "@type": "Offer", price: "0", priceCurrency: "BRL" },
     image: `${SITE_URL}/opengraph-image`,
+    author: { "@type": "Person", name: AUTHOR.name, url: AUTHOR.site, sameAs: [AUTHOR.site, AUTHOR.instagram] },
+    creator: { "@type": "Person", name: AUTHOR.name, url: AUTHOR.site },
   },
 ];
 
