@@ -174,23 +174,23 @@ function halves(b: Batch): [Batch, Batch] {
   return [pack(flat.slice(0, mid)), pack(flat.slice(mid))];
 }
 
-/** Grava um lote; se estourar o tempo do banco, divide ao meio e tenta de novo (o upsert é idempotente). */
-async function applyBatch(worldId: string, batch: Batch): Promise<void> {
+/**
+ * Grava um lote (sim_apply: upsert; sim_fill: só insere o que falta); se estourar o tempo do banco,
+ * divide ao meio e tenta de novo (as duas gravações são idempotentes).
+ */
+async function applyBatch(worldId: string, batch: Batch, fn: "sim_apply" | "sim_fill" = "sim_apply"): Promise<void> {
   try {
-    await rpc("sim_apply", { p_world: worldId, p_changes: batch, p_expected_tick: null });
+    await rpc(fn, fn === "sim_apply" ? { p_world: worldId, p_changes: batch, p_expected_tick: null } : { p_world: worldId, p_changes: batch });
   } catch (e) {
     if (!isTimeout(e) || rowsIn(batch) < 2) throw e;
     const [a, b] = halves(batch);
-    await applyBatch(worldId, a);
-    await applyBatch(worldId, b);
+    await applyBatch(worldId, a, fn);
+    await applyBatch(worldId, b, fn);
   }
 }
 
-/** Grava as mudanças em lotes paralelos; a linha do mundo vai por último, com checagem de tick. */
-export async function persist(worldId: string, changes: Changes, expectedTick: number | null): Promise<void> {
-  const json = changes.toJSON();
-  const worldRows = json.worlds ?? [];
-  delete json.worlds;
+/** Divide as mudanças em lotes de até CHUNK_ROWS linhas. */
+function batchesOf(json: Record<string, unknown[]>): Batch[] {
   const batches: Batch[] = [];
   let batch: Batch = {};
   let count = 0;
@@ -207,26 +207,60 @@ export async function persist(worldId: string, changes: Changes, expectedTick: n
     }
   }
   if (count) batches.push(batch);
+  return batches;
+}
+
+/** Grava os lotes com alguns em paralelo; espera todos antes de falhar (nada fica gravando depois). */
+async function writeBatches(worldId: string, batches: Batch[], fn: "sim_apply" | "sim_fill"): Promise<void> {
   let next = 0;
   const workers = Array.from({ length: Math.min(PARALLEL_BATCHES, batches.length) }, async () => {
-    while (next < batches.length) await applyBatch(worldId, batches[next++]);
+    while (next < batches.length) await applyBatch(worldId, batches[next++], fn);
   });
-  // espera todos terminarem antes de falhar: nada fica gravando depois que o mundo é liberado
   const failed = (await Promise.allSettled(workers)).find((r): r is PromiseRejectedResult => r.status === "rejected");
   if (failed) throw failed.reason;
+}
+
+/** Grava as mudanças em lotes paralelos; a linha do mundo vai por último, com checagem de tick. */
+export async function persist(worldId: string, changes: Changes, expectedTick: number | null): Promise<void> {
+  const json = changes.toJSON();
+  const worldRows = json.worlds ?? [];
+  delete json.worlds;
+  await writeBatches(worldId, batchesOf(json), "sim_apply");
   if (worldRows.length) {
     await rpc("sim_apply", { p_world: worldId, p_changes: { worlds: worldRows }, p_expected_tick: expectedTick });
   }
 }
 
+/** Criação marcada há mais que isto (segundos) foi interrompida e pode ser retomada. */
+const BUILD_STALE_S = 45;
+
+/** null: mundo não existe; 0: pronto; senão, a hora (epoch, s) em que a criação começou. */
+async function worldBuilding(worldId: string): Promise<number | null> {
+  try {
+    return asRev(await rpc<number | null>("sim_world_building", { p_world: worldId }));
+  } catch (e) {
+    // banco sem a função (migração por aplicar): vale o jeito antigo
+    if (missingFn(e)) return (await worldExists(worldId)) ? 0 : null;
+    throw e;
+  }
+}
+
 /**
- * Cria o mundo de um ponto de partida (idempotente: a seed é fixa por mundo).
+ * Cria o mundo de um ponto de partida (idempotente: a semente é fixa por mundo).
  * Mundos próprios têm o relógio parado (só andam quando o dono avança) e,
  * no modo fictício, nomes inventados para todas as pessoas e partidos.
+ *
+ * A linha do mundo nasce marcada como "em construção" e só perde a marca no fim.
+ * Se a criação foi interrompida (limite de tempo, banco sobrecarregado), a próxima
+ * chamada a retoma: gera de novo o mesmo mundo e insere só as linhas que faltam,
+ * sem tocar no que já existe (nem no que o jogador já fez).
  */
 export async function ensureWorld(year: number, worldId = worldIdFor(year)): Promise<void> {
   if (!isStartYear(year) || yearOfWorld(worldId) !== year) throw new Error("Ponto de partida inválido");
-  if (await worldExists(worldId)) return;
+  const building = await worldBuilding(worldId);
+  if (building === 0) return;
+  // outra requisição está criando este mundo agora mesmo
+  if (building !== null && Date.now() / 1000 - building < BUILD_STALE_S) return;
   const mode = modeOfWorld(worldId);
   const snap = await loadSnapshot(year);
   const cities = await citiesFor(year);
@@ -241,13 +275,21 @@ export async function ensureWorld(year: number, worldId = worldIdFor(year)): Pro
   });
   if (mode !== "SHARED") state.world.stats[PRIVATE_FLAG] = 1;
   if (mode === "FICTIONAL") fictionalizeWorld(state, changes);
-  // linha do mundo primeiro (com start_year) para as próximas leituras
-  const worldRow = { ...state.world, start_year: year };
-  await rpc("sim_apply", { p_world: state.world.id, p_changes: { worlds: [worldRow] }, p_expected_tick: null });
   changes.rows.delete("worlds");
-  await persist(state.world.id, changes, null);
+  if (building === null) {
+    // linha do mundo primeiro (com start_year e a marca de construção) para as próximas leituras
+    const worldRow = { ...state.world, start_year: year, stats: { ...state.world.stats, building: Math.floor(Date.now() / 1000) } };
+    await rpc("sim_apply", { p_world: worldId, p_changes: { worlds: [worldRow] }, p_expected_tick: null });
+    await writeBatches(worldId, batchesOf(changes.toJSON()), "sim_apply");
+  } else {
+    // retomada: só o que falta (a linha do mundo e o que já existe ficam como estão)
+    await writeBatches(worldId, batchesOf(changes.toJSON()), "sim_fill");
+  }
+  await rpc("sim_world_ready", { p_world: worldId }).catch((e) => {
+    if (!missingFn(e)) throw e;
+  });
   // quem leu o mundo pela metade, durante a criação, recarrega inteiro
-  await bumpWorldRev(state.world.id).catch(() => undefined);
+  await bumpWorldRev(worldId).catch(() => undefined);
 }
 
 type LoadedJson = Record<string, unknown[]> & { world: WorldRow; economy: EconomyRow };
@@ -532,6 +574,14 @@ async function openWorld(worldId: string, opts: { wait?: boolean } = {}): Promis
       }
     }
     if (!entry) entry = { state: await loadState(worldId), born: Date.now(), rev, writing: true };
+    if (entry.state.world.stats?.building) {
+      // mundo criado pela metade (criação interrompida): completa antes de mexer nele
+      entry.writing = false;
+      if (cache.get(worldId) === entry) cache.delete(worldId);
+      await ensureWorld(yearOfWorld(worldId), worldId);
+      entry = { state: await loadState(worldId), born: Date.now(), rev: await worldRev(worldId), writing: true };
+      if (entry.state.world.stats?.building) throw new Error("O mundo ainda está sendo montado. Tente de novo em instantes.");
+    }
     remember(worldId, entry);
     return { holder, state: entry.state, entry };
   } catch (e) {

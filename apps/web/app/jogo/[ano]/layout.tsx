@@ -26,8 +26,10 @@ export default async function GameLayout({ children, params }: { children: React
   const year = Number((await params).ano);
   const me = await requireMe(year);
   const world = await getWorld(year);
-  if (!world) await ensureWorld(year);
   const { sb, user } = await getSession();
+  const token = (await sb.auth.getSession()).data.session?.access_token;
+  // mundo que não existe ou ficou pela metade (criação interrompida): monta ou completa agora
+  if (!world || world.stats?.building) await asPlayer(token, () => ensureWorld(year, me.worldId));
   const [unreadQ, recentQ, invitesQ, cities] = await Promise.all([
     sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("world_id", me.worldId).is("read_at", null),
     sb.from("notifications").select("*").eq("user_id", user!.id).eq("world_id", me.worldId).order("tick", { ascending: false }).limit(8),
@@ -44,10 +46,7 @@ export default async function GameLayout({ children, params }: { children: React
   if (world) {
     const hours = (Date.now() - Date.parse(world.anchor_real_at)) / 3_600_000;
     const behind = world.anchor_tick + Math.floor(hours * world.game_days_per_real_hour) - world.tick;
-    if (behind > 0) {
-      const token = (await sb.auth.getSession()).data.session?.access_token;
-      after(() => asPlayer(token, () => backgroundAdvance(year)));
-    }
+    if (behind > 0) after(() => asPlayer(token, () => backgroundAdvance(year)));
   }
   const d = world ? new Date(`${world.game_date}T12:00:00Z`) : null;
   const city = canonicalGeo(me.person.municipality);
