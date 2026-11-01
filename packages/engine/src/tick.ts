@@ -96,6 +96,18 @@ function electionCalendarDay(ctx: Ctx, e: ElectionRow): void {
 }
 
 /** Avança o mundo um dia. */
+/**
+ * Uma etapa do dia com nome: se quebrar, o erro diz qual etapa e em que data
+ * (em produção o motor roda minificado e a pilha sozinha não diz onde foi).
+ */
+function step(name: string, date: string, fn: () => void): void {
+  try {
+    fn();
+  } catch (e) {
+    throw new Error(`[${name} · ${date}] ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+  }
+}
+
 export function advanceDay(ctx: Ctx): void {
   const w = ctx.world;
   w.tick += 1;
@@ -104,55 +116,59 @@ export function advanceDay(ctx: Ctx): void {
   const d = w.game_date;
 
   // Energia e renda dos jogadores
-  for (const p of ctx.t.persons.values()) {
-    if (p.kind !== "PLAYER" || p.status !== "ACTIVE") continue;
-    const st = ctx.pstate(p.id);
-    if (!st) continue;
-    const before = st.energy;
-    // muito cansaço, lesão ou falta de casa devolvem menos energia
-    st.energy = Math.min(100, st.energy + energyRecovery(st, d));
-    st.offers = st.offers.filter((o) => o.expires_tick > w.tick);
-    if (st.jailed_until && st.jailed_until <= d) {
-      st.jailed_until = null;
-      ctx.notify(p.id, "Você deixou o regime fechado", "A pena progrediu de regime. Você volta a poder agir, mas a condenação continua na sua ficha.", "/jogo/investigacoes");
+  step("energia dos jogadores", d, () => {
+    for (const p of ctx.t.persons.values()) {
+      if (p.kind !== "PLAYER" || p.status !== "ACTIVE") continue;
+      const st = ctx.pstate(p.id);
+      if (!st) continue;
+      const before = st.energy;
+      // muito cansaço, lesão ou falta de casa devolvem menos energia
+      st.energy = Math.min(100, st.energy + energyRecovery(st, d));
+      st.offers = st.offers.filter((o) => o.expires_tick > w.tick);
+      if (st.jailed_until && st.jailed_until <= d) {
+        st.jailed_until = null;
+        ctx.notify(p.id, "Você deixou o regime fechado", "A pena progrediu de regime. Você volta a poder agir, mas a condenação continua na sua ficha.", "/jogo/investigacoes");
+      }
+      if (st.energy !== before) ctx.save("person_states", st);
     }
-    if (st.energy !== before) ctx.save("person_states", st);
-  }
+  });
   if (day(d) === 1) {
-    monthlyFinances(ctx);
-    monthlyApproval(ctx);
+    step("finanças do mês", d, () => monthlyFinances(ctx));
+    step("aprovação do mês", d, () => monthlyApproval(ctx));
   }
 
-  processMandates(ctx);
-  processAffiliationRequests(ctx);
-  processPartyInvites(ctx);
-  dailyPartyFormation(ctx);
+  step("mandatos", d, () => processMandates(ctx));
+  step("pedidos de filiação", d, () => processAffiliationRequests(ctx));
+  step("convites de partido", d, () => processPartyInvites(ctx));
+  step("partidos em formação", d, () => dailyPartyFormation(ctx));
   for (const e of [...ctx.t.elections.values()].sort((a, b) => a.year - b.year)) {
     if (e.status === "ENCERRADA") continue;
-    electionCalendarDay(ctx, e);
+    step(`calendário da eleição ${e.year} (${e.status})`, d, () => electionCalendarDay(ctx, e));
   }
-  scheduleLiveDebates(ctx, runDebates(ctx));
-  dailyCrime(ctx);
-  dailyPolicies(ctx);
-  dailyBillVotes(ctx);
-  if (isCopomDay(d)) copomMeeting(ctx);
+  step("debates", d, () => scheduleLiveDebates(ctx, runDebates(ctx)));
+  step("crimes do dia", d, () => dailyCrime(ctx));
+  step("políticas públicas", d, () => dailyPolicies(ctx));
+  step("votações", d, () => dailyBillVotes(ctx));
+  if (isCopomDay(d)) step("Copom", d, () => copomMeeting(ctx));
 
   if (weekday(d) === 1) {
-    partyInvitations(ctx);
-    playerPartyRecruitment(ctx);
-    weeklyAgenda(ctx);
+    step("convites da semana", d, () => partyInvitations(ctx));
+    step("recrutamento de jogadores", d, () => playerPartyRecruitment(ctx));
+    step("agenda da semana", d, () => weeklyAgenda(ctx));
   }
   if (day(d) === 1) {
-    monthlyEconomy(ctx);
-    monthlyFiscalStance(ctx);
-    monthlyBills(ctx);
-    monthlyCrime(ctx);
-    monthlyPartyFinances(ctx);
+    step("economia do mês", d, () => monthlyEconomy(ctx));
+    step("postura fiscal", d, () => monthlyFiscalStance(ctx));
+    step("projetos do mês", d, () => monthlyBills(ctx));
+    step("crimes do mês", d, () => monthlyCrime(ctx));
+    step("finanças dos partidos", d, () => monthlyPartyFinances(ctx));
   }
-  if (month(d) === 1 && day(d) === 2) yearlyRenewal(ctx);
+  if (month(d) === 1 && day(d) === 2) step("renovação do ano", d, () => yearlyRenewal(ctx));
   // a vida de cada jogador: saúde, prazos, continuações e (para quem está vivendo os dias) o acaso
-  dailyStory(ctx);
-  for (const p of ctx.t.persons.values()) if (p.kind === "PLAYER" && p.status === "ACTIVE") checkAchievements(ctx, p);
+  step("vida dos jogadores", d, () => dailyStory(ctx));
+  step("conquistas", d, () => {
+    for (const p of ctx.t.persons.values()) if (p.kind === "PLAYER" && p.status === "ACTIVE") checkAchievements(ctx, p);
+  });
   ctx.saveWorld();
 }
 
