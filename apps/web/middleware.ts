@@ -1,15 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Endereços que abrem o mesmo site e devem levar ao domínio oficial (um só endereço para o Google). */
-const ALIAS_HOSTS = new Set(["dominio-politico.vercel.app"]);
-
+/**
+ * Renova a sessão só nas telas que usam o login (jogo, conta, admin e as rotas de dados do jogo).
+ * As páginas públicas (início, manual, glossário, partidas...) não passam por aqui: abrem mesmo
+ * com o servidor de login lento, sem gastar uma chamada a mais por visita. O domínio antigo
+ * (vercel.app) é redirecionado pelo next.config, antes de qualquer função rodar.
+ */
 export async function middleware(request: NextRequest) {
-  const host = request.headers.get("host") ?? "";
-  if (ALIAS_HOSTS.has(host)) {
-    const url = new URL(request.nextUrl.pathname + request.nextUrl.search, "https://dominio-politico.com.br");
-    return NextResponse.redirect(url, 308);
-  }
   let response = NextResponse.next({ request });
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
     cookies: {
@@ -21,12 +19,22 @@ export async function middleware(request: NextRequest) {
       },
     },
   });
-  // renova o token quando vence e confere a assinatura localmente (sem ida ao servidor de login)
-  const { data } = await supabase.auth.getClaims();
+  // renova o token quando vence e confere a assinatura localmente (sem ida ao servidor de login).
+  // Com o servidor de login travado, segue sem renovar depois de alguns segundos (a tela decide)
+  // em vez de prender a visita até o limite de 25 s da Vercel.
+  const claims = await Promise.race([
+    supabase.auth.getClaims().then(
+      (r) => r.data?.claims ?? null,
+      () => null,
+    ),
+    new Promise<"lento">((ok) => setTimeout(() => ok("lento"), 12_000)),
+  ]);
+  if (claims === "lento") return response;
   const path = request.nextUrl.pathname;
-  if ((path.startsWith("/jogo") || path.startsWith("/conta")) && !data?.claims?.sub) {
+  if ((path.startsWith("/jogo") || path.startsWith("/conta")) && !claims?.sub) {
     const url = request.nextUrl.clone();
     url.pathname = "/entrar";
+    url.search = "";
     url.searchParams.set("next", path);
     return NextResponse.redirect(url);
   }
@@ -34,5 +42,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|icons/|logo-mark.svg|manifest.webmanifest|robots.txt|sitemap.xml|api/cron).*)"],
+  matcher: ["/jogo/:path*", "/conta/:path*", "/admin/:path*", "/api/meus-dados", "/api/mundo/:path*", "/redefinir-senha"],
 };

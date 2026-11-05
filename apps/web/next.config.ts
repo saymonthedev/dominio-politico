@@ -8,6 +8,18 @@ const config: NextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: "1mb" },
   },
+  // endereços que abrem o mesmo site levam ao domínio oficial (um só endereço para o Google),
+  // direto na borda da Vercel, sem rodar função nenhuma
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "dominio-politico.vercel.app" }],
+        destination: "https://dominio-politico.com.br/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
