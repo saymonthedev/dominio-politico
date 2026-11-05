@@ -676,8 +676,10 @@ export function finishDebate(ctx: Ctx, d: DebateRow): void {
   const scores: Record<string, number> = {};
   for (const cid of d.participants) {
     const c = ctx.t.candidacies.get(cid);
-    if (!c) continue;
-    const p = ctx.person(c.person_id)!;
+    // quem desistiu (ou saiu da vida pública) depois de convidado não sobe ao palco
+    if (!c || !(c.status === "HOMOLOGADA" || c.status === "SEGUNDO_TURNO")) continue;
+    const p = ctx.person(c.person_id);
+    if (!p) continue;
     const st = ctx.pstate(p.id);
     const traits = st?.traits;
     const choice = d.player_choices[cid];

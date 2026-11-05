@@ -24,3 +24,20 @@ describe("candidato que sai da vida pública no meio da campanha", () => {
     expect(state.t.candidacies.get(cand!.id)?.status).toBe("DESISTENTE");
   }, 180_000);
 });
+
+describe("debate com participante que saiu da vida pública", () => {
+  it("o debate acontece sem ele (o dia não trava)", () => {
+    const { state } = freshWorld("debate-aposentado");
+    const scheduled = () => [...state.t.debates.values()].find((d) => d.status === "AGENDADO" && d.participants.length >= 2 && d.scheduled_on > state.world.game_date);
+    for (let i = 0; i < 140 && !scheduled(); i++) runTicks(state, { target: state.world.tick + 15, maxTicks: 15 });
+    const debate = scheduled();
+    expect(debate).toBeTruthy();
+    const gone = state.t.candidacies.get(debate!.participants[0])!;
+    state.t.persons.delete(gone.person_id);
+    state.t.person_states.delete(gone.person_id);
+    expect(() => {
+      while (state.world.game_date <= debate!.scheduled_on) runTicks(state, { target: state.world.tick + 3, maxTicks: 3 });
+    }).not.toThrow();
+    expect(state.t.debates.get(debate!.id)?.status === "AGENDADO").toBe(false);
+  }, 180_000);
+});
