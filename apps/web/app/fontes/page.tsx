@@ -1,8 +1,9 @@
+import { pageMeta } from "@/lib/seo";
 import { Callout, ContentPage } from "@/components/ContentPage";
 import { AUTHOR, authorSite } from "@/lib/author";
 import { LOGO_CREDITS } from "@/lib/logos";
 
-export const metadata = { title: "Fontes", alternates: { canonical: "/fontes" } };
+export const metadata = pageMeta({ title: "Fontes", path: "/fontes", description: "Fontes e licenças dos dados reais do Domínio Político: resultados e fotos do TSE, Banco Central e IBGE, só com o mínimo necessário (LGPD)." });
 
 export default function Page() {
   return (

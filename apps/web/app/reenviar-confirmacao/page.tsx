@@ -1,9 +1,10 @@
+import { pageMeta } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/AuthShell";
 import { ResendConfirmationForm } from "@/components/AuthForms";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 
-export const metadata: Metadata = { title: "Reenviar confirmação" };
+export const metadata: Metadata = pageMeta({ title: "Reenviar confirmação", path: "/reenviar-confirmacao", description: "Receba de novo o e-mail de confirmação da sua conta no Domínio Político.", index: false });
 
 export default function Page() {
   return (

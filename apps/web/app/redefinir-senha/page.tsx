@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/AuthShell";
 import { ResetPasswordForm } from "@/components/AuthForms";
@@ -5,7 +6,7 @@ import { FormMessage } from "@/components/forms";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 import { getSession } from "@/lib/game";
 
-export const metadata: Metadata = { title: "Criar senha nova" };
+export const metadata: Metadata = pageMeta({ title: "Criar senha nova", path: "/redefinir-senha", description: "Crie uma senha nova para a sua conta no Domínio Político.", index: false });
 
 export default async function Page() {
   const { user } = await getSession();

@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import { Icon } from "@/components/Icon";
+import { AuthLink } from "@/components/AuthAware";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
-import { currentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Página não encontrada", robots: { index: false } };
 
 /** Qualquer endereço que não existe cai aqui, no visual do jogo. */
-export default async function NotFound() {
-  const { user } = await currentUser();
+export default function NotFound() {
   return (
     <>
-      <PublicHeader loggedIn={!!user} />
+      <PublicHeader />
       <main className="nf">
         <div className="container nf__inner">
           <div className="nf__ballot" aria-hidden="true">
@@ -26,9 +25,18 @@ export default async function NotFound() {
               O endereço pode ter mudado, renunciado antes da posse ou nunca ter sido registrado. Confira o link ou volte para um lugar seguro.
             </p>
             <div className="cta">
-              <a className="btn gold" href={user ? "/jogo" : "/"}>
-                {user ? "Voltar aos meus mundos" : "Ir para o início"} <Icon name="arrow" size={18} />
-              </a>
+              <AuthLink
+                className="btn gold"
+                href="/"
+                authHref="/jogo"
+                authChildren={
+                  <>
+                    Voltar aos meus mundos <Icon name="arrow" size={18} />
+                  </>
+                }
+              >
+                Ir para o início <Icon name="arrow" size={18} />
+              </AuthLink>
               <a className="btn on-dark" href="/manual">
                 Manual do jogador
               </a>

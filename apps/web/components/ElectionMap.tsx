@@ -44,7 +44,7 @@ export function ElectionMap({ paths, years, initial, ufNames }: { paths: UfPath[
         ))}
       </div>
       <div className="map-canvas" ref={box} onPointerLeave={() => { setHover(null); setTip(null); }}>
-        <svg viewBox="0 0 600 620" role="img" aria-label={`Mapa do 2º turno presidencial de ${year} por estado`}>
+        <svg viewBox="0 0 600 620" role="group" aria-label={`Mapa do 2º turno presidencial de ${year} por estado`}>
           {paths.map((p) => {
             const r = data.ufResults[p.uf];
             const intensity = r ? Math.min(1, 0.55 + (r.share - 50) / 40) : 0.3;
@@ -57,6 +57,7 @@ export function ElectionMap({ paths, years, initial, ufNames }: { paths: UfPath[
                 stroke={hover === p.uf ? "#f4d58d" : "#0b1f3a"}
                 strokeWidth={hover === p.uf ? 2.4 : 0.8}
                 tabIndex={0}
+                role="img"
                 aria-label={r ? `${ufNames[p.uf] ?? p.uf}: ${r.name} venceu com ${pct(r.share)}` : ufNames[p.uf] ?? p.uf}
                 onPointerEnter={(e) => { setHover(p.uf); move(e); }}
                 onPointerMove={move}

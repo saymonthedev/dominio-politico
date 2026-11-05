@@ -1,7 +1,8 @@
+import { pageMeta } from "@/lib/seo";
 import { Callout, ContentPage } from "@/components/ContentPage";
 import { DataInventory, NeverList, ProviderList, RightsGrid, Steps, SummaryTiles, UpdatedAt } from "@/components/Legal";
 
-export const metadata = { title: "Privacidade", alternates: { canonical: "/privacidade" } };
+export const metadata = pageMeta({ title: "Privacidade", path: "/privacidade", description: "Política de privacidade do Domínio Político: que dados guardamos, para quê, por quanto tempo e como apagar sua conta e todos os seus dados (LGPD)." });
 
 export default function Page() {
   return (

@@ -1,7 +1,8 @@
+import { pageMeta } from "@/lib/seo";
 import { ContentPage } from "@/components/ContentPage";
 import { GLOSSARY } from "@/lib/glossary";
 
-export const metadata = { title: "Glossário", alternates: { canonical: "/glossario" } };
+export const metadata = pageMeta({ title: "Glossário", path: "/glossario", description: "Glossário do Domínio Político: termos de eleição, partidos, Congresso, dinheiro e justiça eleitoral explicados de forma simples, do jeito que aparecem no jogo." });
 
 export default function Page() {
   return (

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { profileFor, UF_BY_CODE } from "@dp/engine";
+import { AuthLink } from "@/components/AuthAware";
 import { Icon } from "@/components/Icon";
 import { Footer, PageHero, PublicHeader } from "@/components/SiteChrome";
-import { currentUser } from "@/lib/supabase/server";
+import { pageMeta } from "@/lib/seo";
 import { START_POINTS } from "@/lib/startpoints";
 
 const pct = (v: number) => `${v.toFixed(2).replace(".", ",")}%`;
@@ -17,8 +18,14 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ ano: string }> }): Promise<Metadata> {
   const sp = pointOf((await params).ano);
   if (!sp) return {};
-  const description = `Comece no Brasil de ${date(sp.date)}, dia seguinte ao 2º turno em que ${sp.winner} (${sp.winnerParty}) venceu ${sp.rival} (${sp.rivalParty}) com ${pct(sp.winnerShare)} dos votos válidos. Os partidos, os eleitos e a economia daquele momento; daí em diante, a história é sua.`;
-  return { title: `Ponto de partida ${sp.year}`, description, alternates: { canonical: `/partida/${sp.year}` }, openGraph: { title: `Brasil pós-${sp.year} · Domínio Político`, description } };
+  const description = `Jogue a partir de ${date(sp.date)}, após o 2º turno em que ${sp.winner} (${sp.winnerParty}) venceu ${sp.rival} (${sp.rivalParty}) com ${pct(sp.winnerShare)}. Daí em diante, a história é sua.`;
+  return pageMeta({
+    title: `Ponto de partida ${sp.year}`,
+    path: `/partida/${sp.year}`,
+    description,
+    shareTitle: `Brasil pós-${sp.year} · Domínio Político`,
+    image: `/partida/${sp.year}/opengraph-image`,
+  });
 }
 
 /** Regras que valem na primeira eleição geral do mundo (quatro anos depois do ponto de partida). */
@@ -37,8 +44,6 @@ function rulesFor(start: number): string[] {
 export default async function Page({ params }: { params: Promise<{ ano: string }> }) {
   const sp = pointOf((await params).ano);
   if (!sp) notFound();
-  const { user } = await currentUser();
-  const start = user ? `/jogo/novo?ano=${sp.year}` : `/cadastro?ano=${sp.year}`;
   const wc = profileFor(sp.winnerParty, sp.year).color;
   const rc = profileFor(sp.rivalParty, sp.year).color;
   const ufs = Object.entries(sp.ufResults).sort(([a], [b]) => (UF_BY_CODE[a]?.name ?? a).localeCompare(UF_BY_CODE[b]?.name ?? b, "pt-BR"));
@@ -46,16 +51,16 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
   return (
     <>
-      <PublicHeader loggedIn={!!user} />
+      <PublicHeader />
       <PageHero
         kicker={`Ponto de partida · ${date(sp.date)}`}
         title={`Brasil pós-${sp.year}`}
         lede={`O mundo começa no dia seguinte ao 2º turno. ${sp.winner} (${sp.winnerParty}) venceu ${sp.rival} (${sp.rivalParty}) e ${sp.incumbent === sp.winner ? "foi reeleito(a)" : `vai suceder ${sp.incumbent}`}. Você chega como cidadão comum, sem partido e sem mandato.`}
       >
         <div className="cta sp-cta">
-          <a className="btn gold" href={start}>
+          <AuthLink className="btn gold" href={`/cadastro?ano=${sp.year}`} authHref={`/jogo/novo?ano=${sp.year}`}>
             Começar em {sp.year} <Icon name="arrow" size={18} />
-          </a>
+          </AuthLink>
           <a className="btn on-dark" href="/como-funciona">
             Como funciona
           </a>

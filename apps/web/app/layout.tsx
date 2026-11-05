@@ -7,21 +7,24 @@ import { TipLayer } from "@/components/TipLayer";
 import { VersionWatch } from "@/components/VersionWatch";
 import { AUTHOR } from "@/lib/author";
 import { SITE_URL } from "@/lib/env";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE } from "@/lib/seo";
 import "./globals.css";
 
-const poppins = Poppins({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700", "800", "900"], style: ["normal", "italic"], variable: "--font-poppins", display: "swap" });
-const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-mono", display: "swap" });
+// Sem pré-carregar os arquivos de fonte: eram 17 (todos os pesos e o itálico) disputando a conexão
+// com o que desenha a tela. O texto aparece na hora com a fonte reserva (ajustada para não pular) e
+// cada página baixa só os pesos que usa. O peso 900 não é usado em lugar nenhum.
+const poppins = Poppins({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700", "800"], style: ["normal", "italic"], variable: "--font-poppins", display: "swap", preload: false });
+const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-mono", display: "swap", preload: false });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: "Domínio Político — jogo de política brasileira, do bairro ao Planalto", template: "%s · Domínio Político" },
-  description:
-    "Jogo de política brasileira, online e grátis: comece como cidadão em um Brasil real — a partir de 2002, 2006, 2010, 2014, 2018, 2022 ou 2026 — e construa uma carreira até a Presidência. Partidos, eleições, economia, imprensa, investigações e escândalos.",
-  applicationName: "Domínio Político",
+  title: { default: SITE_TITLE, template: `%s · ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
   authors: [{ name: AUTHOR.name, url: AUTHOR.site }],
   creator: AUTHOR.name,
   publisher: AUTHOR.name,
-  openGraph: { type: "website", locale: "pt_BR", siteName: "Domínio Político" },
+  openGraph: { type: "website", locale: "pt_BR", siteName: SITE_NAME, title: SITE_TITLE, description: SITE_DESCRIPTION },
 };
 
 export const viewport: Viewport = {

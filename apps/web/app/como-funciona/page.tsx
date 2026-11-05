@@ -1,6 +1,7 @@
+import { pageMeta } from "@/lib/seo";
 import { Callout, ContentPage } from "@/components/ContentPage";
 
-export const metadata = { title: "Como funciona", alternates: { canonical: "/como-funciona" } };
+export const metadata = pageMeta({ title: "Como funciona", path: "/como-funciona", description: "Como funciona o Domínio Político: escolha um Brasil real de 2002 a 2026, crie seu personagem e dispute eleições, cargos e partidos num país que segue andando." });
 
 export default function Page() {
   return (

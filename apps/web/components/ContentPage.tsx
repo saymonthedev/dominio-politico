@@ -1,4 +1,3 @@
-import { currentUser } from "@/lib/supabase/server";
 import { Icon } from "./Icon";
 import { Footer, PublicHeader } from "./SiteChrome";
 
@@ -10,11 +9,10 @@ export interface Section {
 }
 
 /** Modelo das páginas institucionais: faixa de abertura, índice lateral e seções em cartões. */
-export async function ContentPage({ title, kicker, lede, sections, children, heroExtra }: { title: string; kicker?: string; lede?: string; sections?: Section[]; children?: React.ReactNode; heroExtra?: React.ReactNode }) {
-  const { user } = await currentUser();
+export function ContentPage({ title, kicker, lede, sections, children, heroExtra }: { title: string; kicker?: string; lede?: string; sections?: Section[]; children?: React.ReactNode; heroExtra?: React.ReactNode }) {
   return (
     <>
-      <PublicHeader loggedIn={!!user} />
+      <PublicHeader />
       <section className="page-hero">
         <div className="container">
           {kicker && <div className="kicker">{kicker}</div>}

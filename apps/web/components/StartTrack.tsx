@@ -1,17 +1,29 @@
 import { profileFor } from "@dp/engine";
 import { START_POINTS } from "@/lib/startpoints";
+import { AuthLink } from "./AuthAware";
 
 const pct = (v: number) => v.toFixed(2).replace(".", ",");
 
-/** Linha do tempo dos pontos de partida (2º turno presidencial real de cada ano). */
-export function StartTrack({ hrefFor, taken = new Set() }: { hrefFor: (year: number) => string; taken?: Set<number> }) {
+/**
+ * Linha do tempo dos pontos de partida (2º turno presidencial real de cada ano). Com `authHrefFor`,
+ * quem já entrou vai para outro destino (decidido no navegador: a página pública fica estática).
+ */
+export function StartTrack({
+  hrefFor,
+  authHrefFor,
+  taken = new Set(),
+}: {
+  hrefFor: (year: number) => string;
+  authHrefFor?: (year: number) => string;
+  taken?: Set<number>;
+}) {
   return (
     <div className="track">
       {START_POINTS.map((s) => {
         const wc = profileFor(s.winnerParty, s.year).color;
         const rc = profileFor(s.rivalParty, s.year).color;
-        return (
-          <a key={s.year} href={hrefFor(s.year)} className={taken.has(s.year) ? "taken" : undefined}>
+        const card = (
+          <>
             <span className="dot" />
             <div className="card">
               <div className="year">{s.year}</div>
@@ -28,6 +40,15 @@ export function StartTrack({ hrefFor, taken = new Set() }: { hrefFor: (year: num
               <div className="score">vs. {s.rival}</div>
               {taken.has(s.year) && <span className="badge gold plain mt">Você joga aqui</span>}
             </div>
+          </>
+        );
+        return authHrefFor ? (
+          <AuthLink key={s.year} href={hrefFor(s.year)} authHref={authHrefFor(s.year)}>
+            {card}
+          </AuthLink>
+        ) : (
+          <a key={s.year} href={hrefFor(s.year)} className={taken.has(s.year) ? "taken" : undefined}>
+            {card}
           </a>
         );
       })}

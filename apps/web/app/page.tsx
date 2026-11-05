@@ -3,12 +3,13 @@ import { profileFor, UFS } from "@dp/engine";
 import { AUTHOR } from "@/lib/author";
 import { SITE_URL } from "@/lib/env";
 import { ElectionMap, type MapYear } from "@/components/ElectionMap";
+import { AuthLink } from "@/components/AuthAware";
 import { Icon } from "@/components/Icon";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 import { StartTrack } from "@/components/StartTrack";
 import { brazilUfPaths } from "@/lib/geo-paths";
+import { homeMeta } from "@/lib/seo";
 import { START_POINTS } from "@/lib/startpoints";
-import { currentUser } from "@/lib/supabase/server";
 
 const pct = (v: number) => v.toFixed(2).replace(".", ",");
 
@@ -39,7 +40,7 @@ const FEATURES = [
   { icon: "shield", title: "Fato e ficção separados", text: "Toda notícia diz se é fato real (com fonte) ou simulação. Pessoas reais nunca recebem crimes ou falas inventadas." },
 ];
 
-export const metadata: Metadata = { alternates: { canonical: "/" } };
+export const metadata: Metadata = homeMeta;
 
 /** Dados estruturados: dizem ao Google que o site é um jogo (nome, gênero, grátis, em português). */
 const JSON_LD = [
@@ -71,8 +72,7 @@ const JSON_LD = [
   },
 ];
 
-export default async function Home() {
-  const { user } = await currentUser();
+export default function Home() {
   const latest = START_POINTS[START_POINTS.length - 1];
   const paths = brazilUfPaths(600, 620);
   const years: MapYear[] = START_POINTS.map((s) => {
@@ -87,12 +87,13 @@ export default async function Home() {
       ufResults: s.ufResults,
     };
   });
-  const startHref = (year?: number) => (user ? (year ? `/jogo/novo?ano=${year}` : "/jogo") : year ? `/cadastro?ano=${year}` : "/cadastro");
+  const startHref = (year?: number) => (year ? `/cadastro?ano=${year}` : "/cadastro");
+  const playHref = (year?: number) => (year ? `/jogo/novo?ano=${year}` : "/jogo");
 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
-      <PublicHeader loggedIn={!!user} />
+      <PublicHeader />
       <section className="home-hero">
         <div className="container inner">
           <div>
@@ -107,9 +108,9 @@ export default async function Home() {
               simulada, e o país continua andando mesmo quando você sai.
             </p>
             <div className="cta">
-              <a className="btn gold" href={startHref()}>
+              <AuthLink className="btn gold" href={startHref()} authHref={playHref()}>
                 Começar minha carreira <Icon name="arrow" size={18} />
-              </a>
+              </AuthLink>
               <a className="btn on-dark" href="/como-funciona">Como funciona</a>
             </div>
             <div className="hero-facts">
@@ -160,7 +161,7 @@ export default async function Home() {
             <h2>Escolha em que Brasil você começa</h2>
             <p>Sempre o dia seguinte ao 2º turno presidencial, com o resultado oficial do TSE. Cada ano tem um mundo compartilhado, e você também pode jogar num mundo só seu.</p>
           </div>
-          <StartTrack hrefFor={(y) => startHref(y)} />
+          <StartTrack hrefFor={(y) => startHref(y)} authHrefFor={(y) => playHref(y)} />
           <nav className="sp-years sp-years--home" aria-label="Conheça cada ponto de partida">
             <span className="muted small">Conheça cada um:</span>
             {START_POINTS.map((s) => (
@@ -201,9 +202,9 @@ export default async function Home() {
             <h2>A próxima eleição já está no calendário.</h2>
             <p>Crie sua conta, escolha o ano e comece como cidadão. Gratuito, 16+.</p>
           </div>
-          <a className="btn" href={startHref()}>
-            {user ? "Ir para meus mundos" : "Criar conta grátis"}
-          </a>
+          <AuthLink className="btn" href={startHref()} authHref={playHref()} authChildren="Ir para meus mundos">
+            Criar conta grátis
+          </AuthLink>
         </div>
       </section>
       <Footer />

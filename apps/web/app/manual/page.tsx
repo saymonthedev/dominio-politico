@@ -1,6 +1,7 @@
+import { pageMeta } from "@/lib/seo";
 import { Callout, ContentPage } from "@/components/ContentPage";
 
-export const metadata = { title: "Manual", alternates: { canonical: "/manual" } };
+export const metadata = pageMeta({ title: "Manual", path: "/manual", description: "Manual do jogador: primeiros passos, filiação, campanha, mandato, dinheiro, crimes e investigações, fase a fase da carreira, com os prazos legais de cada época." });
 
 export default function Page() {
   return (

@@ -1,10 +1,11 @@
+import { pageMeta } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/AuthShell";
 import { SignInForm } from "@/components/AuthForms";
 import { FormMessage } from "@/components/forms";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 
-export const metadata: Metadata = { title: "Entrar" };
+export const metadata: Metadata = pageMeta({ title: "Entrar", path: "/entrar", description: "Entre na sua conta do Domínio Político e continue sua carreira política de onde parou.", index: false });
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ next?: string; erro?: string }> }) {
   const { next, erro } = await searchParams;

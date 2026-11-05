@@ -1,4 +1,5 @@
 import { AUTHOR, authorSite } from "@/lib/author";
+import { HeaderCta, MobileEnter } from "./AuthAware";
 import { Icon } from "./Icon";
 import { Brand, LogoMark } from "./Logo";
 
@@ -9,8 +10,11 @@ const LINKS: Array<[string, string]> = [
   ["/fontes", "Fontes"],
 ];
 
-/** Cabeçalho público; na tela de cadastro, o botão do topo leva para "Entrar" (e vice-versa). */
-export function PublicHeader({ loggedIn, page }: { loggedIn: boolean; page?: "entrar" | "cadastro" }) {
+/**
+ * Cabeçalho público; na tela de cadastro, o botão do topo leva para "Entrar" (e vice-versa).
+ * Sem `loggedIn`, quem decide o botão é o navegador (a página continua estática, servida pela CDN).
+ */
+export function PublicHeader({ loggedIn, page }: { loggedIn?: boolean; page?: "entrar" | "cadastro" }) {
   return (
     <header className="masthead">
       <div className="container inner">
@@ -21,7 +25,9 @@ export function PublicHeader({ loggedIn, page }: { loggedIn: boolean; page?: "en
             <a key={href} className="link" href={href}>{label}</a>
           ))}
         </nav>
-        {loggedIn ? (
+        {loggedIn === undefined ? (
+          <HeaderCta page={page} />
+        ) : loggedIn ? (
           <a className="btn gold small" href="/jogo">Jogar</a>
         ) : (
           page === "cadastro" ? (
@@ -39,7 +45,7 @@ export function PublicHeader({ loggedIn, page }: { loggedIn: boolean; page?: "en
             {LINKS.map(([href, label]) => (
               <a key={href} href={href}>{label}</a>
             ))}
-            {!loggedIn && <a href="/entrar">Entrar</a>}
+            {loggedIn === undefined ? <MobileEnter /> : !loggedIn && <a href="/entrar">Entrar</a>}
           </div>
         </details>
       </div>
@@ -109,11 +115,12 @@ export function Footer() {
       <div className="container">
         <div className="footer-top">
           <div className="footer-brand">
-            <a href="/" className="footer-logo" aria-label="Domínio Político, página inicial">
+            <a href="/" className="footer-logo">
               <LogoMark size={46} />
               <span>
                 <b>Domínio <span>Político</span></b>
                 <small>Simulador de carreira política</small>
+                <span className="sr-only"> (página inicial)</span>
               </span>
             </a>
             <p>Do bairro ao Planalto num Brasil que começa real e segue simulado. Partidos e eleitos de verdade no ponto de partida; o futuro é com você.</p>
@@ -166,7 +173,7 @@ export function Footer() {
           <p>{DISCLAIMER} Pessoas reais nunca recebem crimes, falas ou condições de saúde inventadas.</p>
           <span className="footer-copy">
             © {new Date().getFullYear()} Domínio Político · por{" "}
-            <a href={AUTHOR.instagram} target="_blank" rel="noopener">
+            <a href={AUTHOR.instagram} target="_blank" rel="noopener" className="footer-copy__link">
               {AUTHOR.handle}
             </a>
           </span>
