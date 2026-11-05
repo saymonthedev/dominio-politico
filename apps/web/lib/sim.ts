@@ -1098,18 +1098,29 @@ export async function clearPlayerWorlds(chars: Array<{ world_id: string; person_
   }
 }
 
-export interface AdminWorld {
+/** Uma linha barata por mundo (todos os mundos). */
+export interface AdminWorldRow {
   id: string;
   game_date: string;
   tick: number;
   anchor_real_at: string;
+  anchor_tick?: number;
   speed: number;
-  persons: number;
+  created_at?: string;
   players: number;
   players_24h: number;
-  players_7d: number;
   actions_24h: number;
   advances_24h: number;
+  last_active?: string | null;
+  /** sendo removido (aos pedaços) ou avisado de que vai ser removido por estar parado */
+  dropping?: boolean;
+  warned?: boolean;
+}
+
+/** Detalhes que só valem a conta nos mundos compartilhados. */
+export interface AdminSharedWorld {
+  id: string;
+  persons: number;
   acts: number;
   acts_discovered: number;
   investigations_open: number;
@@ -1125,25 +1136,27 @@ export interface AdminOverview {
   db_bytes: number;
   accounts: number;
   accounts_7d: number;
+  accounts_24h?: number;
   unconfirmed: number;
   errors_24h: number;
   errors_7d: number;
   errors: Array<{ at: string; source: string; path: string | null; message: string; digest: string | null }>;
   tables: Array<{ name: string; bytes: number }>;
-  worlds: AdminWorld[];
+  worlds: AdminWorldRow[];
+  /** banco ainda sem o painel leve: os detalhes vêm dentro de cada mundo */
+  shared?: AdminSharedWorld[];
 }
 
-/** Números agregados para o painel de saúde (só para administradores). */
+/** Números agregados para o painel de saúde (só para administradores). Sem abrir mundo nenhum. */
 export function adminOverview(): Promise<AdminOverview> {
-  return rpc<AdminOverview>("admin_overview", {});
+  return rpc<AdminOverview>("admin_overview", {}, { retries: 0 });
 }
 
-/** Mede quanto tempo leva para carregar um mundo inteiro e quantos dias o relógio está atrasado. */
-export async function probeWorld(worldId: string): Promise<{ loadMs: number; lagDays: number }> {
-  const t0 = Date.now();
-  const state = await loadState(worldId);
-  const loadMs = Date.now() - t0;
-  return { loadMs, lagDays: Math.max(0, targetTick(state, new Date().toISOString()) - state.world.tick) };
+/** Dias que o relógio de um mundo compartilhado está atrasado (os próprios só andam quando o dono avança). */
+export function lagDaysOf(w: Pick<AdminWorldRow, "tick" | "anchor_real_at" | "anchor_tick" | "speed">, now = Date.now()): number {
+  if (!w.speed || w.anchor_tick == null) return 0;
+  const target = w.anchor_tick + Math.floor(((now - Date.parse(w.anchor_real_at)) / 3_600_000) * w.speed);
+  return Math.max(0, target - w.tick);
 }
 
 export { reportError as logError } from "./report-error";
@@ -1152,8 +1165,8 @@ export interface MaintenanceResult {
   news: number;
   events: number;
   notifications: number;
-  /** donos de mundos próprios parados, a avisar por e-mail */
-  warn: Array<{ world: string; email: string; last_active: string; delete_after: string }>;
+  /** donos de mundos próprios parados, a avisar por e-mail (rule_days: 10 para mundos quase sem uso, 90 para os demais) */
+  warn: Array<{ world: string; email: string; last_active: string; delete_after: string; rule_days?: number }>;
   dropped: string[];
 }
 

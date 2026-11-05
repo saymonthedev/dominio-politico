@@ -16,11 +16,13 @@ function warnMail(w: MaintenanceResult["warn"][number]) {
   const year = yearOfWorld(w.world);
   const link = `${SITE_URL}/jogo/${year}`;
   const subject = "Seu mundo próprio vai ser apagado · Domínio Político";
-  const text = `Seu mundo próprio pós-${year} está parado desde ${fmt(w.last_active)}. Mundos próprios sem uso por 90 dias são apagados para liberar espaço. Se quiser mantê-lo, basta entrar e jogar até ${fmt(w.delete_after)}: ${link}`;
+  // mundo quase sem uso (menos de 30 dias de jogo) sai mais cedo: as vagas de mundos próprios são poucas
+  const rule = (w.rule_days ?? 90) <= 10 ? "Mundos próprios quase sem uso (menos de 30 dias de jogo) são apagados depois de 10 dias parados" : "Mundos próprios sem uso por 90 dias são apagados";
+  const text = `Seu mundo próprio pós-${year} está parado desde ${fmt(w.last_active)}. ${rule} para liberar vaga para outros jogadores. Se quiser mantê-lo, basta entrar e jogar até ${fmt(w.delete_after)}: ${link}`;
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#12161d">
   <p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#7d5c0e">Domínio Político</p>
   <h1 style="margin:0 0 14px;font-size:22px;color:#0b1f3a">Seu mundo pós-${year} está parado</h1>
-  <p style="font-size:15px;line-height:24px;color:#3d434e">Ninguém joga nele desde <b>${fmt(w.last_active)}</b>. Mundos próprios sem uso por 90 dias são apagados para liberar espaço para outros jogadores.</p>
+  <p style="font-size:15px;line-height:24px;color:#3d434e">Ninguém joga nele desde <b>${fmt(w.last_active)}</b>. ${rule} para liberar vaga para outros jogadores.</p>
   <p style="font-size:15px;line-height:24px;color:#3d434e">Para manter o mundo, é só entrar e fazer qualquer ação até <b>${fmt(w.delete_after)}</b>.</p>
   <p style="margin:24px 0"><a href="${link}" style="display:inline-block;padding:13px 24px;border-radius:12px;background:#d4a53c;color:#0b1f3a;font-weight:700;text-decoration:none">Voltar ao meu mundo &rarr;</a></p>
   <p style="font-size:12px;color:#7a8190">Se não quiser mais o mundo, não precisa fazer nada.</p>

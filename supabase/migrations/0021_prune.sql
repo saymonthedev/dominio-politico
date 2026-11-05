@@ -17,6 +17,9 @@
 -- * notícias com mais de 1 ano de jogo, menos as factuais, as privadas e as que citam jogadores;
 -- * notificações já lidas com mais de 6 meses de jogo;
 -- * mundos próprios sem dono há mais de 1 dia (conta apagada ou mundo criado sem personagem).
+--
+-- E mais: painel de saúde leve (admin_overview) e mundos próprios quase sem uso removidos mais cedo
+-- (com aviso por e-mail), regra aprovada pelo dono do jogo.
 
 create extension if not exists pg_cron with schema pg_catalog;
 
@@ -189,18 +192,26 @@ end $$;
 revoke all on procedure private.prune_all() from public;
 
 -- Manutenção diária: só os avisos e as remoções de mundos próprios parados (a poda é da tarefa do banco).
+-- Mundo quase sem uso (menos de 30 dias de jogo): aviso por e-mail aos 7 dias parado e remoção aos 10
+-- (pelo menos 3 dias depois do aviso). Os demais: aviso aos 83 dias e remoção aos 90, como antes.
 create or replace function public.sim_maintenance(p_secret text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   w record;
   warn jsonb := '[]'::jsonb; dropped jsonb := '[]'::jsonb;
   last_active timestamptz; warned_at timestamptz;
+  warn_after interval; drop_after interval; grace interval; rule_days int;
 begin
   if not private.check_secret(p_secret) then raise exception 'forbidden' using errcode = '42501'; end if;
   for w in
-    select x.id, x.created_at, x.stats from public.worlds x
+    select x.id, x.tick, x.created_at, x.stats from public.worlds x
      where x.id ~ '^br[0-9]{4}[pf][0-9a-f]{10}$' and not coalesce(x.stats ? 'dropping', false)
   loop
+    if coalesce(w.tick, 0) < 30 then
+      warn_after := interval '7 days'; drop_after := interval '10 days'; grace := interval '3 days'; rule_days := 10;
+    else
+      warn_after := interval '83 days'; drop_after := interval '90 days'; grace := interval '6 days'; rule_days := 90;
+    end if;
     select greatest(w.created_at, coalesce(max(e.created_at), w.created_at)) into last_active
       from public.world_events e
      where e.world_id = w.id and e.type = any (private.player_event_types());
@@ -209,15 +220,15 @@ begin
     if warned_at is not null and last_active > warned_at then
       -- voltou a jogar depois do aviso
       update public.worlds set stats = stats - 'cleanup_warned' where id = w.id;
-    elsif last_active < now() - interval '90 days' and warned_at is not null and warned_at < now() - interval '6 days' then
+    elsif last_active < now() - drop_after and warned_at is not null and warned_at < now() - grace then
       -- marca para remoção; a tarefa do banco tira o mundo aos pedaços
       update public.worlds set stats = coalesce(stats, '{}'::jsonb) || jsonb_build_object('dropping', extract(epoch from now())::bigint) where id = w.id;
       dropped := dropped || to_jsonb(w.id);
-    elsif last_active < now() - interval '83 days' and warned_at is null then
-      update public.worlds set stats = stats || jsonb_build_object('cleanup_warned', extract(epoch from now())::bigint) where id = w.id;
+    elsif last_active < now() - warn_after and warned_at is null then
+      update public.worlds set stats = coalesce(stats, '{}'::jsonb) || jsonb_build_object('cleanup_warned', extract(epoch from now())::bigint) where id = w.id;
       warn := warn || (
-        select coalesce(jsonb_agg(jsonb_build_object('world', w.id, 'email', u.email, 'last_active', last_active,
-                                                      'delete_after', greatest(last_active + interval '90 days', now() + interval '7 days'))), '[]'::jsonb)
+        select coalesce(jsonb_agg(jsonb_build_object('world', w.id, 'email', u.email, 'last_active', last_active, 'rule_days', rule_days,
+                                                      'delete_after', greatest(last_active + drop_after, now() + grace + interval '1 day'))), '[]'::jsonb)
           from private.person_owners o join auth.users u on u.id = o.user_id
          where o.world_id = w.id and u.email is not null
       );
@@ -228,11 +239,71 @@ end $$;
 revoke all on function public.sim_maintenance(text) from public;
 grant execute on function public.sim_maintenance(text) to anon, authenticated;
 
--- Índice nunca usado (0 leituras) que só pesava nas gravações e no tamanho do banco.
-drop index if exists public.news_persons_idx;
+-- Painel de saúde leve. Antes contava crimes, investigações e notícias de todos os mundos de uma vez
+-- (e o painel ainda abria cada mundo inteiro): estourava o tempo e ficava carregando. Agora: uma linha
+-- barata por mundo (jogadores, atividade, relógio) e os detalhes só dos mundos compartilhados.
+create or replace function public.admin_overview(p_secret text)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare res jsonb;
+begin
+  if not private.check_secret(p_secret) then raise exception 'forbidden' using errcode = '42501'; end if;
+  select jsonb_build_object(
+    'now', now(),
+    'db_bytes', pg_database_size(current_database()),
+    'accounts', (select count(*) from auth.users),
+    'accounts_7d', (select count(*) from auth.users where created_at > now() - interval '7 days'),
+    'accounts_24h', (select count(*) from auth.users where created_at > now() - interval '24 hours'),
+    'unconfirmed', (select count(*) from auth.users where email_confirmed_at is null),
+    'errors_24h', (select count(*) from private.app_errors where at > now() - interval '24 hours'),
+    'errors_7d', (select count(*) from private.app_errors where at > now() - interval '7 days'),
+    'errors', (select coalesce(jsonb_agg(jsonb_build_object('at', e.at, 'source', e.source, 'path', e.path, 'message', e.message, 'digest', e.digest) order by e.at desc), '[]'::jsonb)
+                 from (select * from private.app_errors order by at desc limit 25) e),
+    'tables', (
+      select coalesce(jsonb_agg(jsonb_build_object('name', t.relname, 'bytes', t.bytes) order by t.bytes desc), '[]'::jsonb)
+        from (select c.relname, pg_total_relation_size(c.oid) bytes from pg_class c join pg_namespace n on n.oid = c.relnamespace
+               where n.nspname in ('public', 'private') and c.relkind = 'r' order by 2 desc limit 8) t
+    ),
+    'worlds', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'id', w.id, 'game_date', w.game_date, 'tick', w.tick, 'anchor_real_at', w.anchor_real_at, 'anchor_tick', w.anchor_tick,
+        'speed', w.game_days_per_real_hour, 'created_at', w.created_at,
+        'dropping', coalesce(w.stats ? 'dropping', false), 'warned', coalesce(w.stats ? 'cleanup_warned', false),
+        'players', (select count(*) from private.person_owners o where o.world_id = w.id),
+        'last_active', a.last_active, 'actions_24h', a.actions_24h, 'players_24h', a.players_24h, 'advances_24h', a.advances_24h
+      ) order by a.last_active desc nulls last), '[]'::jsonb)
+      from public.worlds w
+      cross join lateral (
+        select max(e.created_at) last_active,
+               count(*) filter (where e.type = 'PLAYER_ACTION' and e.created_at > now() - interval '24 hours') actions_24h,
+               count(distinct e.actors[1]) filter (where e.type = 'PLAYER_ACTION' and e.created_at > now() - interval '24 hours') players_24h,
+               coalesce(sum((e.payload ->> 'days')::numeric) filter (where e.type = 'TIME_ADVANCED' and e.created_at > now() - interval '24 hours'), 0) advances_24h
+          from public.world_events e
+         where e.world_id = w.id and e.type = any (private.player_event_types())
+      ) a
+    ),
+    'shared', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'id', w.id,
+        'persons', (select count(*) from public.persons p where p.world_id = w.id and p.status = 'ACTIVE'),
+        'acts', (select count(*) from public.illicit_acts x where x.world_id = w.id),
+        'acts_discovered', (select count(*) from public.illicit_acts x where x.world_id = w.id and x.discovered),
+        'investigations_open', (select count(*) from public.investigations x where x.world_id = w.id and x.outcome is null),
+        'investigations_closed', (select count(*) from public.investigations x where x.world_id = w.id and x.outcome is not null),
+        'convictions', (select count(*) from public.investigations x where x.world_id = w.id and x.outcome = 'CONDENADO'),
+        'news', (select count(*) from public.news_articles x where x.world_id = w.id),
+        'parties_player', (select count(*) from public.parties x where x.world_id = w.id and x.founder_id is not null and x.status <> 'EXTINTO'),
+        'economy', (select coalesce(jsonb_agg(jsonb_build_object('month', s.month, 'selic', s.selic, 'inflation', s.inflation_12m, 'unemployment', s.unemployment, 'gdp', s.gdp_growth) order by s.month), '[]'::jsonb)
+                      from (select * from public.economy_snapshots e where e.world_id = w.id order by e.month desc limit 36) s)
+      ) order by w.id), '[]'::jsonb)
+      from public.worlds w where w.id !~ '^br[0-9]{4}[pf]'
+    )
+  ) into res;
+  return res;
+end $$;
+revoke all on function public.admin_overview(text) from public;
+grant execute on function public.admin_overview(text) to anon, authenticated;
 
--- Agenda a tarefa (idempotente: troca a anterior de mesmo nome).
-select cron.unschedule(jobid) from cron.job where jobname = 'poda-mundos';
+-- Agenda a tarefa (idempotente: com o mesmo nome, o pg_cron atualiza a existente).
 select cron.schedule('poda-mundos', '*/10 * * * *', 'call private.prune_all()');
 
 notify pgrst, 'reload schema';
