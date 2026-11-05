@@ -137,10 +137,19 @@ export async function countPrivateWorlds(): Promise<number> {
   return Number(data ?? 0);
 }
 
-/** Remove um mundo próprio inteiro (o banco recusa os compartilhados). */
+/**
+ * Remove um mundo próprio inteiro (o banco recusa os compartilhados). Sai aos pedaços, cada
+ * chamada bem abaixo do limite de tempo do banco; se faltar um resto, a tarefa do banco termina.
+ */
 export async function dropWorld(worldId: string): Promise<void> {
   if (modeOfWorld(worldId) === "SHARED") return;
-  await rpc("sim_drop_world", { p_world: worldId });
+  try {
+    for (let i = 0; i < 40; i++) if (await rpc<boolean>("sim_drop_world_step", { p_world: worldId })) break;
+  } catch (e) {
+    // banco ainda sem a remoção aos pedaços: a função antiga, de uma vez
+    if (!missingFn(e)) throw e;
+    await rpc("sim_drop_world", { p_world: worldId });
+  }
   // a revisão salta: um mundo recriado com o mesmo id nunca reaproveita uma memória antiga
   await bumpWorldRev(worldId, 1_000_000).catch(() => undefined);
   fictionCities.delete(worldId);
@@ -222,11 +231,30 @@ async function writeBatches(worldId: string, batches: Batch[], fn: "sim_apply" |
   if (failed) throw failed.reason;
 }
 
+/** Eventos que contam a história do jogador (a Carreira e a limpeza de mundos parados leem). */
+const PLAYER_EVENT_TYPES = new Set(["PLAYER_ACTION", "TIME_ADVANCED", "CHARACTER_CREATED", "PLAYER_RETIREMENT"]);
+
+/**
+ * Só vão para o banco os eventos que alguma tela lê: os que envolvem um jogador. Os internos do
+ * motor (etapas de investigação, crimes e saídas de partido entre NPCs, Copom...) eram a maior
+ * tabela do banco e ninguém os lia; as notícias e o estado do mundo continuam com tudo.
+ */
+function keepPlayerEvents(json: Record<string, unknown[]>, state: WorldState): void {
+  const events = json.world_events as Array<{ type: string; actors?: string[] | null }> | undefined;
+  if (!events?.length) return;
+  const players = new Set<string>();
+  for (const p of state.t.persons.values()) if (p.kind === "PLAYER") players.add(p.id);
+  const kept = events.filter((e) => PLAYER_EVENT_TYPES.has(e.type) || (e.actors ?? []).some((id) => players.has(id)));
+  if (kept.length) json.world_events = kept;
+  else delete json.world_events;
+}
+
 /** Grava as mudanças em lotes paralelos; a linha do mundo vai por último, com checagem de tick. */
-export async function persist(worldId: string, changes: Changes, expectedTick: number | null): Promise<void> {
+export async function persist(worldId: string, changes: Changes, expectedTick: number | null, state?: WorldState): Promise<void> {
   const json = changes.toJSON();
   const worldRows = json.worlds ?? [];
   delete json.worlds;
+  if (state) keepPlayerEvents(json, state);
   await writeBatches(worldId, batchesOf(json), "sim_apply");
   if (worldRows.length) {
     await rpc("sim_apply", { p_world: worldId, p_changes: { worlds: worldRows }, p_expected_tick: expectedTick });
@@ -261,6 +289,8 @@ export async function ensureWorld(year: number, worldId = worldIdFor(year)): Pro
   if (!isStartYear(year) || yearOfWorld(worldId) !== year) throw new Error("Ponto de partida inválido");
   const building = await worldBuilding(worldId);
   if (building === 0) return;
+  // o mundo anterior com este id ainda está saindo (remoção aos pedaços): espera terminar
+  if (building === -1) throw new Error("O mundo anterior ainda está sendo apagado. Tente de novo em 1 minuto.");
   // outra requisição está criando este mundo agora mesmo
   if (building !== null && Date.now() / 1000 - building < BUILD_STALE_S) return;
   const mode = modeOfWorld(worldId);
@@ -299,7 +329,7 @@ type LoadedJson = Record<string, unknown[]> & { world: WorldRow; economy: Econom
 const LOAD_PARTS = ["core", "persons", "person_states", "parties", "elections", "mandates", "crime"] as const;
 
 /** A função não existe no banco (migração ainda não aplicada). */
-const missingFn = (e: unknown) => e instanceof SimDbError && (e.code === "PGRST202" || /schema cache|does not exist/i.test(e.message));
+const missingFn = (e: unknown) => e instanceof SimDbError && (e.code === "PGRST202" || /could not find the function|schema cache/i.test(e.message));
 
 /** sem sim_world_part no banco: usa as funções antigas até a migração chegar */
 let legacyParts = false;
@@ -310,7 +340,9 @@ let legacyParts = false;
  */
 async function fetchWorld(worldId: string): Promise<LoadedJson | null> {
   // leitura pesada: no máximo uma nova tentativa (repetir várias vezes só afunda um banco sobrecarregado)
-  const parts = (fn: string) => Promise.all(LOAD_PARTS.map((part) => rpc<Record<string, unknown> | null>(fn, { p_world: worldId, p_part: part }, { retries: 1 })));
+  // e poucas partes ao mesmo tempo por instância (várias cargas juntas derrubavam o banco inteiro)
+  const parts = (fn: string) =>
+    Promise.all(LOAD_PARTS.map((part) => heavy(() => rpc<Record<string, unknown> | null>(fn, { p_world: worldId, p_part: part }, { retries: 1 }))));
   let got: Array<Record<string, unknown> | null>;
   try {
     got = await parts(legacyParts ? "sim_load_part" : "sim_world_part");
@@ -326,6 +358,7 @@ async function fetchWorld(worldId: string): Promise<LoadedJson | null> {
 export async function loadState(worldId: string): Promise<WorldState> {
   const data = await fetchWorld(worldId);
   if (!data) throw new Error("Mundo não encontrado");
+  if (data.world.stats?.dropping) throw new Error("Este mundo foi apagado.");
   const t = emptyTables();
   for (const name of STATEFUL_TABLES) {
     const map = t[name] as Map<string, unknown>;
@@ -428,14 +461,42 @@ const syncing = new WeakMap<Cached, Promise<SyncResult>>();
 /** sem revisão conhecida (o banco não respondeu), a memória vale por pouco tempo */
 const CACHE_MS = 8_000;
 /** com as atualizações incrementais a memória dura; de tempos em tempos é relida inteira */
-const CACHE_MAX_MS = 2 * 60 * 60_000;
-/** poucos mundos por instância: o menos usado sai primeiro */
-const CACHE_WORLDS = 4;
+const CACHE_MAX_MS = 6 * 60 * 60_000;
+/**
+ * Mundos guardados por instância (o menos usado sai primeiro). Cada carga completa custa ~10 s de
+ * banco; com 4 vagas e dezenas de mundos próprios ativos, a memória girava e o banco recarregava
+ * mundos o tempo todo. O teto de memória tira os mais antigos antes de a instância apertar.
+ */
+const CACHE_WORLDS = 12;
+const CACHE_HEAP_MAX = 1_100 * 1024 * 1024;
 
 function remember(worldId: string, entry: Cached): void {
   cache.delete(worldId);
   cache.set(worldId, entry);
   while (cache.size > CACHE_WORLDS) cache.delete(cache.keys().next().value as string);
+  // memória apertada: solta os menos usados (nunca o que acabou de entrar nem um que está gravando)
+  for (const [id, e] of cache) {
+    if (cache.size <= 2 || process.memoryUsage().heapUsed < CACHE_HEAP_MAX) break;
+    if (id !== worldId && !e.writing) cache.delete(id);
+  }
+}
+
+/** Leituras pesadas ao mesmo tempo nesta instância (cada carga completa são 7 consultas grandes). */
+const HEAVY_SLOTS = 3;
+let heavyBusy = 0;
+const heavyQueue: Array<() => void> = [];
+
+async function heavy<T>(fn: () => Promise<T>): Promise<T> {
+  if (heavyBusy < HEAVY_SLOTS) heavyBusy++;
+  else await new Promise<void>((ok) => heavyQueue.push(ok));
+  try {
+    return await fn();
+  } finally {
+    // a vaga passa direto para quem espera; sem fila, fica livre
+    const next = heavyQueue.shift();
+    if (next) next();
+    else heavyBusy--;
+  }
 }
 
 const usable = (e: Cached | undefined): e is Cached => !!e && e.rev !== null && Date.now() - e.born < CACHE_MAX_MS;
@@ -642,7 +703,7 @@ export async function withWorld<T>(
     for (const c of actionChanges) changes.merge(c);
     if (changes.count() > 0 || ticks > 0) {
       dirty = true;
-      await persist(worldId, changes, expected);
+      await persist(worldId, changes, expected, state);
     }
     ok = true;
     await logFaults(worldId, ctx.faults);
@@ -683,6 +744,9 @@ const BG_EVERY_MS = 90_000;
 export async function backgroundAdvance(year: number): Promise<void> {
   const worldId = worldIdFor(year);
   if (Date.now() - (bgTried.get(worldId) ?? 0) < BG_EVERY_MS) return;
+  // a memória (que a tela acabou de conferir) já está no dia de hoje: nada a avançar, sem trancar o mundo
+  const mem = cache.get(worldId);
+  if (mem && !mem.writing && targetTick(mem.state, new Date().toISOString()) <= mem.state.world.tick) return;
   bgTried.set(worldId, Date.now());
   try {
     await withWorld(worldId, undefined, { budgetMs: 10_000, waitLease: false });
@@ -815,7 +879,7 @@ export async function fastForward(worldId: string, days: number, userId: string)
       }
     }
     dirty = true;
-    await persist(worldId, ctx.changes, expected);
+    await persist(worldId, ctx.changes, expected, state);
     ok = true;
     await logFaults(worldId, ctx.faults);
     const news = ctx.changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
@@ -916,7 +980,7 @@ export async function advanceStep(worldId: string, days: number, userId: string)
     changes.merge(auto.ctx.changes);
     changes.merge(step.ctx.changes);
     dirty = true;
-    await persist(worldId, changes, expected);
+    await persist(worldId, changes, expected, state);
     ok = true;
     await logFaults(worldId, [...auto.ctx.faults, ...step.ctx.faults]);
     const news = changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
