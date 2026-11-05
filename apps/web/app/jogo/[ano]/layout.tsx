@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { sideVitals } from "@/lib/vitals";
 import { canonicalGeo, geoName, type NotificationRow } from "@dp/engine";
+import { Announce } from "@/components/Announce";
 import { GameSidebar } from "@/components/game/GameSidebar";
 import { HashScroll } from "@/components/game/HashScroll";
 import { KeyboardMode } from "@/components/game/KeyboardMode";
@@ -116,6 +117,7 @@ export default async function GameLayout({ children, params }: { children: React
         <main className="gmain" id="conteudo" tabIndex={-1}>
           <HashScroll />
           <KeyboardMode />
+          <Announce />
           {children}
         </main>
       </div>

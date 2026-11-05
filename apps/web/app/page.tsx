@@ -42,8 +42,21 @@ const FEATURES = [
 
 export const metadata: Metadata = homeMeta;
 
-/** Dados estruturados: dizem ao Google que o site é um jogo (nome, gênero, grátis, em português). */
+/** Imagem oficial do site (a mesma das prévias de link): buscadores e assistentes usam esta, e não outra da página. */
+const SHARE_IMAGE = { "@type": "ImageObject", url: `${SITE_URL}/opengraph-image`, width: 1200, height: 630, caption: "Domínio Político: do bairro ao Planalto" };
+const LOGO = { "@type": "ImageObject", url: `${SITE_URL}/icons/icon-512.png`, width: 512, height: 512 };
+
+/** Dados estruturados: dizem ao Google (e ao ChatGPT) que o site é um jogo, com nome, imagem e logo oficiais. */
 const JSON_LD = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Domínio Político",
+    url: `${SITE_URL}/`,
+    logo: LOGO,
+    image: SHARE_IMAGE,
+    sameAs: [AUTHOR.instagram],
+  },
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -51,6 +64,8 @@ const JSON_LD = [
     alternateName: ["Dominio Politico", "dominio-politico", "Domínio Político jogo"],
     url: `${SITE_URL}/`,
     inLanguage: "pt-BR",
+    image: SHARE_IMAGE,
+    publisher: { "@type": "Organization", name: "Domínio Político", logo: LOGO },
   },
   {
     "@context": "https://schema.org",
@@ -66,7 +81,8 @@ const JSON_LD = [
     inLanguage: "pt-BR",
     isAccessibleForFree: true,
     offers: { "@type": "Offer", price: "0", priceCurrency: "BRL" },
-    image: `${SITE_URL}/opengraph-image`,
+    image: SHARE_IMAGE,
+    screenshot: SHARE_IMAGE,
     author: { "@type": "Person", name: AUTHOR.name, url: AUTHOR.site, sameAs: [AUTHOR.site, AUTHOR.instagram] },
     creator: { "@type": "Person", name: AUTHOR.name, url: AUTHOR.site },
   },

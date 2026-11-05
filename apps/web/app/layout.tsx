@@ -25,6 +25,8 @@ export const metadata: Metadata = {
   creator: AUTHOR.name,
   publisher: AUTHOR.name,
   openGraph: { type: "website", locale: "pt_BR", siteName: SITE_NAME, title: SITE_TITLE, description: SITE_DESCRIPTION },
+  // ícone grande além do favicon: buscadores e assistentes (ChatGPT) preferem o maior PNG declarado
+  icons: { other: [{ rel: "icon", url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }] },
 };
 
 export const viewport: Viewport = {

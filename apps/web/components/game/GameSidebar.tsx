@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { AUTHOR, authorSite } from "@/lib/author";
 import { usePopover } from "../a11y";
 import { Icon } from "../Icon";
+import { DONATIONS } from "@/lib/donations";
+import { SupportTrigger } from "../Support";
 import { LiveNumber } from "./ActionFx";
 import { useLiveVitals } from "./live-vitals";
 
@@ -72,6 +74,11 @@ function Credit() {
         <a href={AUTHOR.instagram} target="_blank" rel="noopener" aria-label={`Instagram de ${AUTHOR.name}: ${AUTHOR.handle} (abre em nova aba)`}>
           <Icon name="instagram" size={13} /> {AUTHOR.handle}
         </a>
+        {DONATIONS && (
+          <SupportTrigger className="gcredit__support">
+            <Icon name="heart" size={13} /> Apoiar com Pix
+          </SupportTrigger>
+        )}
       </span>
     </div>
   );

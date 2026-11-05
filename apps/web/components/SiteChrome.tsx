@@ -1,4 +1,5 @@
 import { AUTHOR, authorSite } from "@/lib/author";
+import { DONATIONS } from "@/lib/donations";
 import { HeaderCta, MobileEnter } from "./AuthAware";
 import { Icon } from "./Icon";
 import { Brand, LogoMark } from "./Logo";
@@ -143,6 +144,11 @@ export function Footer() {
                 <a href={AUTHOR.instagram} target="_blank" rel="noopener" aria-label={`Instagram de ${AUTHOR.name}: ${AUTHOR.handle} (abre em nova aba)`}>
                   <Icon name="instagram" size={15} /> {AUTHOR.handle}
                 </a>
+                {DONATIONS && (
+                  <a href="/apoie" className="footer-author__support">
+                    <Icon name="heart" size={15} /> Apoie com Pix
+                  </a>
+                )}
               </span>
             </div>
           </div>

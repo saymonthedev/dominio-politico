@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Announce } from "@/components/Announce";
 import { Icon } from "@/components/Icon";
 import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
 import { StartTrack } from "@/components/StartTrack";
@@ -117,6 +118,8 @@ export default async function Page() {
         </div>
         <StartTrack hrefFor={(y) => (taken.has(y) ? `/jogo/${y}` : `/jogo/novo?ano=${y}`)} taken={taken} />
       </main>
+      {/* novidades da versão (uma vez) e lembrete de apoio (no máximo uma vez por dia) */}
+      <Announce />
       <Footer />
     </>
   );
