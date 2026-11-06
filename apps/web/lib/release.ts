@@ -15,6 +15,7 @@ export const RELEASE = {
       icon: "globe",
       text: "Mundos próprios abandonados liberam vaga: com menos de 30 dias de jogo e parados há 10 dias, são apagados, sempre com aviso por e-mail antes.",
     },
+    { icon: "calendar", text: "Ao criar personagem, a tela mostra em que data cada mundo compartilhado já está. Para começar do início do ano escolhido, use um mundo só seu." },
     { icon: "heart", text: "Gosta do jogo? Agora tem um botão Apoiar no topo, para contribuir com Pix se quiser. O jogo continua 100% grátis.", donation: true },
   ],
 } as const;

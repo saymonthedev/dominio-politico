@@ -60,7 +60,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
                 <span className="ico"><Icon name="globe" size={20} /></span>
                 <div>
                   <h2>Mundo próprio pós-{yearOfWorld(c.world_id)}{modeOfWorld(c.world_id) === "FICTIONAL" ? " (fictício)" : ""}</h2>
-                  <p>Só você joga nele. Apagar remove o mundo inteiro e o seu personagem, sem volta, e libera a vaga para criar outro. Se ficar 90 dias sem uso, ele é apagado sozinho, com aviso por e-mail uma semana antes.</p>
+                  <p>Só você joga nele. Apagar remove o mundo inteiro e o seu personagem, sem volta, e libera a vaga para criar outro. Se ficar parado, ele é apagado sozinho para liberar vaga, sempre com aviso por e-mail antes: os quase sem uso (menos de 30 dias de jogo) depois de 10 dias parados; os outros, depois de 90.</p>
                 </div>
               </header>
               <form action={deleteMyWorld} className="account-form">

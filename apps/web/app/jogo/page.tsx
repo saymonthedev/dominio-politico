@@ -8,7 +8,8 @@ import { DONATIONS } from "@/lib/donations";
 import { STAGE_LABEL } from "@/components/ui";
 import { getSession, myCharacters } from "@/lib/game";
 import { fmtDate, initials } from "@/lib/format";
-import { modeOfWorld, yearOfWorld } from "@/lib/sim";
+import { modeOfWorld, worldIdFor, yearOfWorld } from "@/lib/sim";
+import { START_POINTS } from "@/lib/startpoints";
 
 export const metadata: Metadata = { title: "Seus mundos" };
 
@@ -33,6 +34,13 @@ export default async function Page() {
   // carreiras encerradas (morte ou aposentadoria) ficam como legado, com o balanço
   const ended = details.filter((d) => d.person && d.person.status !== "ACTIVE").sort((a, b) => a.year - b.year);
   const taken = new Set(active.map((d) => d.year));
+  // mundos compartilhados andam com todos os jogadores: a linha do tempo mostra em que data cada um está
+  const { data: shared } = await sb.from("worlds").select("id, game_date").in("id", START_POINTS.map((s) => worldIdFor(s.year)));
+  const sharedDates: Record<number, string> = {};
+  for (const w of shared ?? []) {
+    const sp = START_POINTS.find((s) => worldIdFor(s.year) === w.id);
+    if (sp && w.game_date && String(w.game_date).slice(0, 7) > sp.date.slice(0, 7)) sharedDates[sp.year] = String(w.game_date);
+  }
   return (
     <>
       <AppHeader />
@@ -121,7 +129,7 @@ export default async function Page() {
           <h2>Comece em outro Brasil</h2>
           <p>Um personagem por mundo. Os anos em que você já joga aparecem marcados.</p>
         </div>
-        <StartTrack hrefFor={(y) => (taken.has(y) ? `/jogo/${y}` : `/jogo/novo?ano=${y}`)} taken={taken} />
+        <StartTrack hrefFor={(y) => (taken.has(y) ? `/jogo/${y}` : `/jogo/novo?ano=${y}`)} taken={taken} sharedDates={sharedDates} />
       </main>
       {/* novidades da versão (uma vez) e lembrete de apoio (no máximo uma vez por dia) */}
       <Announce />

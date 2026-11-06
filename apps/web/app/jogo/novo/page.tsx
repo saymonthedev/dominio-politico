@@ -4,8 +4,9 @@ import { AXES, AXIS_INFO, CAPITAL_IBGE, ORIGINS, PROFESSIONS, profileFor, UFS } 
 import { CharacterForm } from "@/components/CharacterForm";
 import { Icon } from "@/components/Icon";
 import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
-import { myActiveCharacters, myCharacters } from "@/lib/game";
-import { countPrivateWorlds, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, yearOfWorld } from "@/lib/sim";
+import { fmtMonthYear } from "@/lib/format";
+import { getSession, myActiveCharacters, myCharacters } from "@/lib/game";
+import { countPrivateWorlds, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, worldIdFor, yearOfWorld } from "@/lib/sim";
 import { START_POINTS } from "@/lib/startpoints";
 
 export const metadata: Metadata = { title: "Novo personagem" };
@@ -29,12 +30,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
   if ((await myActiveCharacters()).some((c) => yearOfWorld(c.world_id) === year)) redirect(`/jogo/${year}`);
   const privateOpen = !chars.some((c) => modeOfWorld(c.world_id) !== "SHARED") && (await countPrivateWorlds().catch(() => MAX_PRIVATE_WORLDS)) < MAX_PRIVATE_WORLDS;
   const sp = START_POINTS.find((s) => s.year === year)!;
+  // o compartilhado anda com todos os jogadores: mostra em que data ele está hoje
+  const { sb } = await getSession();
+  const { data: shared } = await sb.from("worlds").select("game_date").eq("id", worldIdFor(year)).maybeSingle();
+  const sharedDate = (shared?.game_date as string | undefined) ?? null;
+  const sharedAhead = !!sharedDate && sharedDate.slice(0, 7) > sp.date.slice(0, 7);
   const wc = profileFor(sp.winnerParty, year).color;
   const rc = profileFor(sp.rivalParty, year).color;
   return (
     <>
       <AppHeader />
-      <PageHero kicker={`Mundo pós-${year} · começa em ${sp.date.split("-").reverse().join("/")}`} title="Novo personagem" lede="Você ainda não participa formalmente da política. Defina quem você é; o resto se conquista jogando." />
+      <PageHero kicker={`Mundo pós-${year} · ponto de partida em ${sp.date.split("-").reverse().join("/")}`} title="Novo personagem" lede="Você ainda não participa formalmente da política. Defina quem você é; o resto se conquista jogando." />
       <main className="container page-body">
         <div className="cf-layout">
           <CharacterForm
@@ -44,6 +50,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
             professions={PROFESSIONS.map((p) => ({ value: p.id, label: cap(p.label), hint: `${brl(p.income)}/mês`, icon: PROF_ICON[p.id] }))}
             origins={ORIGINS.map((o) => ({ value: o.id, label: cap(o.label), hint: `Economias: ${brl(o.savings)}`, icon: ORIGIN_ICON[o.id] }))}
             privateOpen={privateOpen}
+            start={sp.date}
+            sharedDate={sharedDate}
             axes={AXES.map((a) => ({ key: a, label: AXIS_INFO[a].label, neg: AXIS_INFO[a].neg, pos: AXIS_INFO[a].pos }))}
           />
           <aside className="cf-aside">
@@ -77,6 +85,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
               <p className="cf-world__note">
                 <Icon name="info" size={15} /> Resultado oficial do TSE. A partir desta data, tudo é simulação.
               </p>
+              {sharedAhead && (
+                <p className="cf-world__note">
+                  <Icon name="clock" size={15} /> O mundo compartilhado deste ponto de partida já está em {fmtMonthYear(sharedDate!)}. Os mundos só seus começam aqui.
+                </p>
+              )}
             </div>
           </aside>
         </div>

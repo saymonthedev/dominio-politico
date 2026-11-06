@@ -537,12 +537,15 @@ export function ChoiceCards({
   options,
   defaultValue,
   columns = 3,
+  onChange,
 }: {
   name: string;
   label: string;
   options: Array<Option & { icon?: string }>;
   defaultValue?: string;
   columns?: number;
+  /** avisa a escolha (o campo continua indo no formulário do mesmo jeito) */
+  onChange?: (value: string) => void;
 }) {
   const id = useId();
   const [value, setValue] = useState(defaultValue ?? options[0]?.value ?? "");
@@ -552,7 +555,10 @@ export function ChoiceCards({
       <div className="ui-choices__grid" style={{ ["--cols" as string]: columns }}>
         {options.map((o) => (
           <label key={o.value} className={`ui-choice${value === o.value ? " is-on" : ""}`} htmlFor={`${id}-${o.value}`}>
-            <input className="ui-sr" type="radio" id={`${id}-${o.value}`} name={name} value={o.value} checked={value === o.value} onChange={() => setValue(o.value)} />
+            <input className="ui-sr" type="radio" id={`${id}-${o.value}`} name={name} value={o.value} checked={value === o.value} onChange={() => {
+                setValue(o.value);
+                onChange?.(o.value);
+              }} />
             {o.icon && (
               <span className="ui-choice__icon" aria-hidden="true">
                 <Icon name={o.icon} size={18} />

@@ -14,6 +14,12 @@ export function fmtDateLong(d: string): string {
   return `${WEEKDAYS[wd]}, ${dd} de ${MONTHS_LONG[m - 1]} de ${y}`;
 }
 
+/** "março de 2015" */
+export function fmtMonthYear(d: string): string {
+  const [y, m] = d.slice(0, 10).split("-").map(Number);
+  return `${MONTHS_LONG[m - 1]} de ${y}`;
+}
+
 export const fmtMoney = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
 export const fmtNum = (v: number) => Math.round(v).toLocaleString("pt-BR");
 export const fmtPct = (v: number, d = 1) => `${v.toFixed(d).replace(".", ",")}%`;

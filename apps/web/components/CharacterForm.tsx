@@ -1,7 +1,9 @@
 "use client";
 import { useActionState, useState } from "react";
 import { createCharacterAction, type ActionState } from "@/app/jogo/actions";
+import { fmtDate, fmtMonthYear } from "@/lib/format";
 import { ChoiceCards, FormMessage, Select, Slider, Stepper, SubmitButton, TextField, type Option } from "./forms";
+import { Icon } from "./Icon";
 
 interface Axis { key: string; label: string; neg: string; pos: string }
 type Choice = Option & { icon?: string };
@@ -29,10 +31,16 @@ export function CharacterForm({
   origins,
   axes,
   privateOpen,
+  start,
+  sharedDate,
 }: {
   year: number;
   /** ainda há vagas para mundos próprios */
   privateOpen: boolean;
+  /** data em que os mundos novos começam (ponto de partida real) */
+  start: string;
+  /** data de hoje no mundo compartilhado deste ano (null se ele ainda não existe) */
+  sharedDate: string | null;
   ufs: Option[];
   capitals: Record<string, string>;
   professions: Choice[];
@@ -40,6 +48,10 @@ export function CharacterForm({
   axes: Axis[];
 }) {
   const [state, action] = useActionState<ActionState, FormData>(createCharacterAction, { ok: true, message: "" });
+  const [mode, setMode] = useState("SHARED");
+  // o compartilhado anda com todos os jogadores: quem chega entra na data de hoje dele, não no ponto de partida
+  const sharedAhead = !!sharedDate && sharedDate.slice(0, 7) > start.slice(0, 7);
+  const entersOn = mode === "SHARED" && sharedAhead ? fmtMonthYear(sharedDate!) : String(year);
   const [name, setName] = useState("");
   const [uf, setUf] = useState("");
   const [cities, setCities] = useState<Record<string, Option[]>>({});
@@ -59,17 +71,34 @@ export function CharacterForm({
           name="mode"
           label="Tipo de mundo"
           columns={3}
+          onChange={setMode}
           options={[
-            { value: "SHARED", label: "Compartilhado", hint: "Com outros jogadores. O relógio anda sozinho e todos veem o mesmo país.", icon: "users" },
+            {
+              value: "SHARED",
+              label: "Compartilhado",
+              hint: sharedAhead
+                ? `Com outros jogadores. O relógio anda para todos: hoje este mundo está em ${fmtMonthYear(sharedDate!)}.`
+                : "Com outros jogadores. O relógio anda sozinho e todos veem o mesmo país.",
+              icon: "users",
+            },
             ...(privateOpen
               ? [
-                  { value: "PRIVATE", label: "Só meu", hint: "Os mesmos dados reais, sem outros jogadores. O tempo só passa quando você avança.", icon: "lock" },
-                  { value: "FICTIONAL", label: "Fictício, só meu", hint: "Pessoas e partidos inventados. Qualquer político pode cometer crimes e ser investigado.", icon: "book" },
+                  { value: "PRIVATE", label: "Só meu", hint: `Começa em ${fmtDate(start)}, com os dados reais e sem outros jogadores. O tempo só passa quando você avança.`, icon: "lock" },
+                  { value: "FICTIONAL", label: "Fictício, só meu", hint: `Começa em ${fmtDate(start)}, com pessoas e partidos inventados. Qualquer político pode cometer crimes e ser investigado.`, icon: "book" },
                 ]
               : []),
           ]}
         />
-        {privateOpen && <p className="muted small">Mundos próprios parados por 90 dias são apagados, com aviso por e-mail uma semana antes.</p>}
+        {mode === "SHARED" && sharedAhead && (
+          <p className="cf-note">
+            <Icon name="info" size={15} />
+            <span>
+              No compartilhado você entra em <b>{fmtMonthYear(sharedDate!)}</b>, não em {year}: os jogadores de lá já passaram o tempo.
+              {privateOpen ? " Para começar do início, escolha um mundo só seu." : " Para começar do início, crie um mundo só seu quando abrir vaga."}
+            </span>
+          </p>
+        )}
+        {privateOpen && <p className="muted small">Mundos próprios parados são apagados para liberar vaga, sempre com aviso por e-mail antes: os quase sem uso (menos de 30 dias de jogo) depois de 10 dias parados; os outros, depois de 90.</p>}
         {!privateOpen && <p className="muted small">As vagas para mundos próprios estão esgotadas no momento. Tente de novo mais tarde.</p>}
       </Block>
       <Block n={2} title="Identidade" text="Um nome fictício. Nomes de políticos reais são recusados.">
@@ -105,7 +134,7 @@ export function CharacterForm({
       <div className="cf-submit">
         <div>
           <b>{name.trim() || "Seu personagem"}</b>
-          <span>entra na vida pública em {year}</span>
+          <span>entra na vida pública em {entersOn}</span>
         </div>
         <SubmitButton tone="gold" size="lg" icon="play" pendingLabel="Montando o país…">
           Entrar na vida pública

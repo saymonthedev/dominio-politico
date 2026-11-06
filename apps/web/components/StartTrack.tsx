@@ -1,4 +1,5 @@
 import { profileFor } from "@dp/engine";
+import { fmtMonthYear } from "@/lib/format";
 import { START_POINTS } from "@/lib/startpoints";
 import { AuthLink } from "./AuthAware";
 
@@ -12,10 +13,13 @@ export function StartTrack({
   hrefFor,
   authHrefFor,
   taken = new Set(),
+  sharedDates,
 }: {
   hrefFor: (year: number) => string;
   authHrefFor?: (year: number) => string;
   taken?: Set<number>;
+  /** data de hoje dos mundos compartilhados que já andaram (ano → data) */
+  sharedDates?: Record<number, string>;
 }) {
   return (
     <div className="track">
@@ -38,6 +42,7 @@ export function StartTrack({
                 <span style={{ width: `${s.rivalShare}%`, background: rc, opacity: 0.6 }} />
               </div>
               <div className="score">vs. {s.rival}</div>
+              {sharedDates?.[s.year] && <div className="track__now">Compartilhado já em {fmtMonthYear(sharedDates[s.year])}</div>}
               {taken.has(s.year) && <span className="badge gold plain mt">Você joga aqui</span>}
             </div>
           </>
