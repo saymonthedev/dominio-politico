@@ -2,10 +2,10 @@ import QRCode from "qrcode";
 
 /**
  * Pix para quem quiser apoiar o jogo (doação opcional, sem intermediário: vai direto para a conta).
- * Chave e dados de recebedor do site do autor (saymonthedev.com).
+ * Chave informada pelo autor.
  */
 export const PIX = {
-  key: "saymonthedev@gmail.com",
+  key: "saymonoliveiracastro@gmail.com",
   /** nome e cidade do recebedor no QR Code (padrão do Banco Central: sem acento, até 25 e 15 letras) */
   name: "Saymon Oliveira",
   city: "Jaragua do Sul",
