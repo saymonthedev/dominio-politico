@@ -11,6 +11,8 @@ import { StoryBell } from "@/components/game/StoryCenter";
 import { Toaster } from "@/components/game/Toaster";
 import { UserMenu } from "@/components/game/UserMenu";
 import { LogoMark } from "@/components/Logo";
+import { SupportTopButton } from "@/components/Support";
+import { DONATIONS } from "@/lib/donations";
 import { STAGE_LABEL } from "@/components/ui";
 import { initials } from "@/lib/format";
 import { getSession, getWorld, requireMe } from "@/lib/game";
@@ -85,6 +87,7 @@ export default async function GameLayout({ children, params }: { children: React
             )}
           </a>
           <span className="gtop__spacer" />
+          {DONATIONS && <SupportTopButton />}
           <StoryBell year={year} events={storyPending} today={world?.game_date ?? storyPending[0]?.on ?? ""} />
           <NotificationBell
             year={year}

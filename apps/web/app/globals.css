@@ -2791,13 +2791,42 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .footer-author__links .footer-author__support { display: inline-flex; align-items: center; gap: 7px; color: var(--faixa-suave); background: none; border: 0; padding: 0; font: inherit; font-size: .84rem; font-weight: 600; min-height: 32px; cursor: pointer; }
 .footer-author__links .footer-author__support svg { color: var(--faixa); }
 .footer-author__links .footer-author__support:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
-.gcredit__links .gcredit__support { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; color: var(--faixa-texto); background: none; border: 0; padding: 0; font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.gcredit__links .gcredit__support:hover { text-decoration: underline; text-underline-offset: 3px; }
 .umenu__pop button[role="menuitem"] svg { flex-shrink: 0; }
 @media (prefers-color-scheme: dark) {
-  .support__icon, .news__icon { color: var(--faixa-suave); }
-  .news__kicker, .news__list li svg, .gcredit__links .gcredit__support, .support__qr-toggle { color: var(--faixa-suave); }
+  .support__icon, .news__icon, .supcard__icon { color: var(--faixa-suave); }
+  .news__kicker, .news__list li svg, .support__qr-toggle { color: var(--faixa-suave); }
 }
+
+/* convite para apoiar sempre à vista, sem pop-up: botão do topo do jogo, cartão no menu e na tela de mundos */
+.topbtn--support { display: inline-flex; align-items: center; gap: 7px; width: auto; padding: 0 13px; color: var(--faixa); border-color: color-mix(in srgb, var(--faixa) 40%, transparent); font-size: .8rem; font-weight: 700; }
+.topbtn--support:hover { background: color-mix(in srgb, var(--faixa) 14%, transparent); }
+@media (max-width: 1000px) {
+  .topbtn--support { width: 40px; padding: 0; justify-content: center; }
+  .topbtn--support span { display: none; }
+}
+/* celular pequeno: o topo não tem espaço; o convite fica no menu "Mais" e no menu da conta */
+@media (max-width: 480px) { .topbtn--support { display: none; } }
+.supcard { display: grid; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--faixa) 35%, var(--linha)); background: color-mix(in srgb, var(--faixa) 7%, var(--cartao)); color: var(--tinta); }
+.supcard__icon { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--faixa) 18%, transparent); color: var(--faixa-texto); }
+.supcard__text { display: grid; gap: 2px; font-size: .78rem; line-height: 1.45; color: var(--apagado); }
+.supcard__text b { font-size: .84rem; font-weight: 700; color: var(--tinta); }
+.supcard__btn { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 0 16px; border-radius: 10px; background: var(--faixa); color: var(--planalto); font-size: .82rem; font-weight: 700; white-space: nowrap; }
+.supcard__btn:hover { background: var(--faixa-suave); }
+.supcard__btn:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--faixa) 50%, transparent); }
+.supcard--side { grid-template-columns: auto minmax(0, 1fr); align-items: start; margin: 16px 4px 0; }
+.supcard--side .supcard__btn { grid-column: 1 / -1; }
+.gmore .supcard--side { margin: 0 2px; }
+.supcard--wide { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 16px 18px; margin-top: 28px; }
+.supcard--wide .supcard__icon { width: 42px; height: 42px; border-radius: 12px; }
+.supcard--wide .supcard__text { font-size: .88rem; }
+.supcard--wide .supcard__text b { font-size: .98rem; }
+@media (max-width: 640px) {
+  .supcard--wide { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+  .supcard--wide .supcard__btn { grid-column: 1 / -1; }
+}
+.masthead a.link.top-links__support { display: inline-flex; align-items: center; gap: 6px; color: var(--faixa-suave); }
+.masthead a.link.top-links__support svg { color: var(--faixa); }
+.masthead a.link.top-links__support:hover { color: #fff; }
 .support-page { max-width: 520px; display: grid; gap: 4px; }
 .support-page .support__free { margin: 0 0 12px; font-size: .9rem; color: var(--mata); font-weight: 600; }
 .support-page .support__how { margin: 10px 0 12px; font-size: .84rem; color: var(--apagado); line-height: 1.6; }

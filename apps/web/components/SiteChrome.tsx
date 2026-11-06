@@ -25,6 +25,11 @@ export function PublicHeader({ loggedIn, page }: { loggedIn?: boolean; page?: "e
           {LINKS.map(([href, label]) => (
             <a key={href} className="link" href={href}>{label}</a>
           ))}
+          {DONATIONS && (
+            <a className="link top-links__support" href="/apoie">
+              <Icon name="heart" size={14} /> Apoie
+            </a>
+          )}
         </nav>
         {loggedIn === undefined ? (
           <HeaderCta page={page} />
@@ -46,6 +51,7 @@ export function PublicHeader({ loggedIn, page }: { loggedIn?: boolean; page?: "e
             {LINKS.map(([href, label]) => (
               <a key={href} href={href}>{label}</a>
             ))}
+            {DONATIONS && <a href="/apoie">Apoie com Pix</a>}
             {loggedIn === undefined ? <MobileEnter /> : !loggedIn && <a href="/entrar">Entrar</a>}
           </div>
         </details>

@@ -3,6 +3,8 @@ import { Announce } from "@/components/Announce";
 import { Icon } from "@/components/Icon";
 import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
 import { StartTrack } from "@/components/StartTrack";
+import { SupportCard } from "@/components/Support";
+import { DONATIONS } from "@/lib/donations";
 import { STAGE_LABEL } from "@/components/ui";
 import { getSession, myCharacters } from "@/lib/game";
 import { fmtDate, initials } from "@/lib/format";
@@ -88,6 +90,9 @@ export default async function Page() {
             <p>Escolha um ponto de partida abaixo. Você pode ter um personagem em cada mundo.</p>
           </div>
         )}
+
+        {/* convite parado, só para quem já joga (quem acabou de chegar vê primeiro o jogo) */}
+        {DONATIONS && details.length > 0 && <SupportCard variant="wide" />}
 
         {ended.length > 0 && (
           <div className="legacy">
