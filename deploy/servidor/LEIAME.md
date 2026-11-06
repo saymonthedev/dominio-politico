@@ -1,11 +1,12 @@
 # Domínio Político num servidor próprio (AWS)
 
-Tira o jogo da Vercel e põe num servidor próprio na AWS. O banco continua no Supabase. Depois de
-instalado, todo commit na `main` do GitHub entra no ar sozinho em poucos minutos, como era na Vercel.
+Plano B, caso o jogo precise sair da Vercel: põe o jogo num servidor próprio na AWS. O banco continua
+no Supabase. Depois de instalado, todo commit na `main` do GitHub entra no ar sozinho em poucos
+minutos, como na Vercel.
 
-**Custo:** a conta no **plano gratuito** da AWS dura 6 meses (ou até acabarem os créditos de
-US$ 100 a 200) e não cobra nada. Esta máquina gasta uns US$ 18 por mês dos créditos. Antes de o plano
-acabar, é preciso passar para o plano pago (aí sim, uns US$ 18 por mês) ou mudar o jogo de lugar.
+**Custo:** a AWS anuncia US$ 100 de crédito para contas novas no plano gratuito, mas a conta criada
+em novembro de 2026 não recebeu nenhum. Confira em **Faturamento → Créditos** antes de criar a
+máquina. Sem crédito, esta máquina custa uns US$ 18 por mês.
 
 ## 1. Criar o servidor (~10 min)
 

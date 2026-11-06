@@ -186,9 +186,11 @@ supabase/templates/    e-mails de autenticação no visual do jogo
 
 **Relógio preguiçoso.** O mundo não precisa de um processo rodando: ao abrir uma página ou executar uma ação, o servidor calcula quantos dias deveriam ter passado e processa a diferença. A rota `/api/cron/tick` faz o mesmo para os mundos compartilhados e roda todo dia pelo Vercel Cron (`apps/web/vercel.json`), para que o mundo ande mesmo sem ninguém abrindo o jogo. Mundos próprios têm velocidade zero: só andam quando o dono avança.
 
-**Manutenção diária.** A mesma tarefa chama `sim_maintenance`, que poda o que já não serve: notícias com mais de dois anos de jogo (menos as de importância 3, os fatos com fonte e tudo o que envolve jogadores), eventos antigos sem jogadores e notificações lidas com mais de um ano de jogo. Ela também cuida dos mundos próprios parados: aos 83 dias sem uso, o dono recebe um aviso por e-mail (pela API da Resend, com uma chave própria, separada da usada no SMTP do Supabase; ligado em produção); aos 90, o mundo é apagado.
+**Poda do banco.** O próprio banco apaga o que já não serve, a cada 10 minutos (`pg_cron`, tarefa `poda-mundos`, que chama `private.prune_all()`), em lotes pequenos para não travar o jogo: eventos sem jogadores com mais de 30 dias de jogo, notícias com mais de um ano de jogo (menos os fatos com fonte, as notícias privadas e as que citam jogadores) e notificações lidas com mais de 180 dias de jogo. Mundos marcados para apagar saem aos pedaços pelo mesmo caminho. Com isso, o banco fica abaixo dos 500 MB do plano grátis do Supabase (cerca de 400 MB em novembro de 2026). `DELETE` não devolve espaço em disco: depois de uma poda grande, rode `vacuum (full, analyze)` nas tabelas maiores.
 
-**Erros e métricas.** Erros de páginas, ações e da tarefa diária ficam guardados por 14 dias (fora da API pública) e aparecem no painel `/admin`. As visitas são contadas pelo Vercel Web Analytics (ligado no projeto, aba Analytics), sem cookies.
+**Mundos próprios parados.** A tarefa diária chama `sim_maintenance`. Um mundo com menos de 30 dias de jogo, parado há 7 dias, gera um aviso por e-mail ao dono e é apagado aos 10. Um mundo mais jogado recebe o aviso aos 83 dias e é apagado aos 90. Quem volta a jogar depois do aviso cancela a remoção. Os avisos saem pela API da Resend, com uma chave própria, separada da usada no SMTP do Supabase. Sem `RESEND_API_KEY`, essa parte não roda: ninguém é avisado e nada é apagado.
+
+**Erros e métricas.** Erros de páginas, ações e da tarefa diária ficam guardados por 14 dias (fora da API pública) e aparecem no painel `/admin`. As visitas são contadas pelo Vercel Web Analytics (aba Analytics do projeto), sem cookies.
 
 **Mundos próprios.** O id diz o tipo: `br2026` (compartilhado), `br2026p…` (só meu) e `br2026f…` (fictício), com o começo do id da conta. No fictício, a troca de nomes é determinística (semente do mundo + nome real), então os dados estáticos dos municípios são convertidos de novo a cada carga, sem guardar uma tabela de nomes; o mundo guarda só o número de cada sigla real, para achar o partido correspondente. A função `sim_drop_world` apaga um mundo próprio inteiro e recusa os compartilhados.
 
@@ -211,7 +213,7 @@ supabase/templates/    e-mails de autenticação no visual do jogo
 - [d3-geo](https://d3js.org/d3-geo) e [topojson-client](https://github.com/topojson/topojson-client) para o mapa
 - [Vitest](https://vitest.dev) no motor
 - Poppins e IBM Plex Mono via `next/font`
-- Publicado na [Vercel](https://vercel.com) (região São Paulo); cada push na `main` gera uma nova versão
+- Publicado na [Vercel](https://vercel.com) (plano Pro, região São Paulo); cada push na `main` gera uma nova versão. Ver [Publicação](#publicação)
 
 ## Rodando
 
@@ -268,9 +270,27 @@ Em `apps/web/.env.local` (fora do Git):
 | `RESEND_API_KEY` | Não | Chave da Resend (só envio) para os avisos de mundo parado. Sem ela, os avisos não saem por e-mail. |
 | `MAIL_FROM` | Não | Remetente dos avisos. Padrão: `Domínio Político <nao-responda@dominio-politico.com.br>`. |
 | `MAX_PRIVATE_WORLDS` | Não | Quantos mundos próprios podem existir ao mesmo tempo (cada um ocupa alguns MB). Padrão: 30. |
-| `CRON_SECRET` | Não | Protege `/api/cron/tick`. Sem ele, a rota usa o `SIM_SECRET`. |
+| `CRON_SECRET` | Não | Protege `/api/cron/tick`. Na Vercel, o cron envia sozinho. Sem ele, a rota usa o `SIM_SECRET`. |
+| `NEXT_PUBLIC_DONATIONS` | Não | `1` liga a caixa de apoio por Pix (pop-up, rodapé e `/apoie`). Desligada por padrão, porque o plano grátis da Vercel não permite pedir doações. |
 | `WORLD_GAME_DAYS_PER_HOUR` | Não | Velocidade do relógio. Padrão: 2 dias por hora real. |
 | `WORLD_MAX_CATCHUP_TICKS` | Não | Máximo de dias processados por requisição. Padrão: 45. |
+| `WORLD_CACHE_MAX` | Não | Mundos guardados na memória de cada instância. Padrão: 12. |
+| `WORLD_CACHE_HEAP_MB` | Não | Memória usada a partir da qual os mundos menos usados saem da memória. Padrão: 1100. |
+
+### Publicação
+
+O site roda na Vercel, no plano Pro: US$ 20 por mês, com US$ 20 de crédito de uso incluídos. O consumo de outubro de 2026 sairia por uns US$ 4 nesse plano. O projeto `dominio-politico` usa:
+
+- **Root Directory** `apps/web`, framework Next.js, Node 24.x;
+- **Funções** em São Paulo (`gru1`, perto do banco), com tempo máximo de 60 s;
+- **Deployment Protection** só nas versões de prévia; a produção é pública;
+- **Domínios:** `dominio-politico.com.br` e `www.dominio-politico.com.br` (redireciona com 308). O DNS fica no Registro.br: dois registros **A** do domínio para a Vercel e o **CNAME** do `www`;
+- **Variáveis:** as da tabela acima, com `NEXT_PUBLIC_DONATIONS=1`. `SIM_SECRET` e `CRON_SECRET` são do tipo *Sensitive* e só existem em produção; o hash do `SIM_SECRET` está em `private.app_secrets` com o nome `vercel-pro`. Uma variável nova só vale depois de uma nova publicação;
+- **Spend Management** (Settings → Billing): use um orçamento baixo com **Pause** ligado. Assim, se o crédito acabar, o site pausa em vez de cobrar mais. O padrão da Vercel só avisa por e-mail e continua cobrando.
+
+Para trocar o segredo do motor: gere um novo, salve na Vercel, cadastre o hash em `private.app_secrets` com outro nome, publique de novo e só então apague a linha antiga.
+
+**Plano B: servidor próprio.** Em `deploy/servidor/` há um kit para rodar o jogo num servidor Ubuntu (AWS, Oracle ou qualquer outro): Node, HTTPS automático com Caddy, publicação sozinha a cada commit na `main` e tarefa diária. O passo a passo está em [`deploy/servidor/LEIAME.md`](deploy/servidor/LEIAME.md).
 
 ### Backup e CI
 
