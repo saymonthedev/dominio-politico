@@ -1,68 +1,59 @@
-# Domínio Político num servidor grátis (Oracle Cloud)
+# Domínio Político num servidor próprio (AWS)
 
-Tira o jogo da Vercel e põe num servidor próprio, grátis, em São Paulo. O banco continua no
-Supabase. Depois de instalado, todo commit na `main` do GitHub entra no ar sozinho em poucos
-minutos, como era na Vercel.
+Tira o jogo da Vercel e põe num servidor próprio na AWS. O banco continua no Supabase. Depois de
+instalado, todo commit na `main` do GitHub entra no ar sozinho em poucos minutos, como era na Vercel.
 
-## 1. Criar a conta na Oracle (~15 min)
+**Custo:** a conta no **plano gratuito** da AWS dura 6 meses (ou até acabarem os créditos de
+US$ 100 a 200) e não cobra nada. Esta máquina gasta uns US$ 18 por mês dos créditos. Antes de o plano
+acabar, é preciso passar para o plano pago (aí sim, uns US$ 18 por mês) ou mudar o jogo de lugar.
 
-1. Acesse **cloud.oracle.com** → **Start for free**.
-2. **Home region: Brazil East (São Paulo).** Não dá para trocar depois, e os recursos grátis
-   ficam na região principal.
-3. A Oracle pede cartão só para confirmar a identidade (pode aparecer uma cobrança de teste,
-   estornada). A conta "Always Free" não cobra nada enquanto você não fizer upgrade.
+## 1. Criar o servidor (~10 min)
 
-## 2. Criar o servidor (~10 min)
+1. No console da AWS, confira a região no canto de cima, à direita: **Estados Unidos (Ohio)**.
+2. **EC2 → Executar instância**. Nome: `dominio-politico`.
+3. **Imagem:** *Ubuntu Server 24.04 LTS*, arquitetura **64 bits (Arm)**.
+4. **Tipo de instância:** `t4g.small`.
+5. **Par de chaves:** *Prosseguir sem um par de chaves* (a conexão é pelo navegador).
+6. **Configurações de rede:** marque *Permitir tráfego SSH*, *Permitir tráfego HTTPS* e
+   *Permitir tráfego HTTP* da internet.
+7. **Armazenamento:** `30` GiB, `gp3`.
+8. **Executar instância.**
 
-1. Menu → **Compute → Instances → Create instance**. Nome: `dominio-politico`.
-2. **Image:** Canonical **Ubuntu 24.04**.
-3. **Shape:** *Change shape* → **Ampere** → **VM.Standard.A1.Flex**, com o máximo marcado como
-   *Always Free-eligible* (hoje 2 OCPUs e 12 GB de memória).
-4. **Networking:** deixe criar a rede nova, **com IP público**.
-5. **SSH keys:** *Generate a key pair for me* → **baixe a chave privada** e guarde bem.
-6. **Create.** Se aparecer *Out of capacity*, tente outro *Availability domain* ou mais tarde.
+## 2. IP fixo (~2 min)
 
-## 3. Abrir as portas do site (~3 min)
+Sem isso, o IP muda se a máquina for desligada e ligada, e o site sai do ar.
 
-Na página do servidor: **Primary VNIC → Subnet → Default Security List → Add Ingress Rules**.
-Crie duas regras com *Source CIDR* `0.0.0.0/0`, *IP Protocol* TCP e *Destination Port* `80` e
-depois `443`.
+1. **EC2 → IPs elásticos → Alocar endereço IP elástico → Alocar.**
+2. Com o IP novo marcado: **Ações → Associar endereço IP elástico**, escolha a instância
+   `dominio-politico` e **Associar**.
+3. Anote esse IP: é o endereço do servidor daqui em diante.
 
-## 4. Instalar o jogo (1 comando, ~10 min)
+## 3. Apontar o domínio (~2 min)
 
-1. Copie o **Public IP address** do servidor.
-2. Entre no servidor. Pelo navegador: botão **Cloud Shell** (`>_`) no topo do console da Oracle,
-   envie a chave baixada (menu do Cloud Shell → *Upload*) e rode:
-   ```
-   chmod 600 ssh-key-*.key
-   ssh -i ssh-key-*.key ubuntu@IP_DO_SERVIDOR
-   ```
-3. Já dentro do servidor, cole:
-   ```
-   curl -fsSL https://raw.githubusercontent.com/saymonthedev/dominio-politico/main/deploy/servidor/instalar.sh | sudo bash
-   ```
-4. Quando pedir a **chave da Resend** (e-mails de aviso), cole uma chave nova
-   (resend.com → *API Keys* → *Create*) ou aperte Enter para pular. Sem ela, o jogo funciona,
-   mas não avisa nem apaga mundos próprios parados.
-5. No fim aparecem o **IP** e um **código de conferência**. Mande os dois para o Claude, que
-   cadastra o código no banco (sem isso o servidor não consegue gravar o mundo).
+No **Registro.br** → seu domínio → **DNS → Editar zona**:
 
-## 5. Testar antes de virar (~5 min)
-
-No **Registro.br** → seu domínio → **DNS → Editar zona**, adicione um registro **A** com nome
-`teste` e valor = IP do servidor. Em alguns minutos, abra **https://teste.dominio-politico.com.br**
-e entre na sua conta.
-
-## 6. Virar o domínio (~2 min)
-
-Ainda na zona do Registro.br:
-
-- Apague os dois registros **A** do domínio principal que apontam para a Vercel
-  (`64.29.17.1` e `216.198.79.1`) e crie um **A** com o IP do servidor.
+- Apague os dois registros **A** do domínio principal que apontavam para a Vercel
+  (`64.29.17.1` e `216.198.79.1`) e crie um **A** com o IP do servidor. Se houver registro
+  **AAAA**, apague também.
 - Troque o **CNAME** do `www` (`c6c8c6b8be01d89a.vercel-dns-017.com`) por `dominio-politico.com.br`.
 - **Não mexa nos registros TXT** (verificação do Google).
 
-Em minutos (no máximo algumas horas) o site abre pelo servidor novo, com HTTPS automático.
+## 4. Instalar o jogo (1 comando, ~15 min)
+
+1. **EC2 → Instâncias**, marque `dominio-politico` → **Conectar** → aba **EC2 Instance Connect**
+   → **Conectar**. Abre um terminal no navegador.
+2. Cole:
+   ```
+   curl -fsSL https://raw.githubusercontent.com/saymonthedev/dominio-politico/main/deploy/servidor/instalar.sh | sudo bash
+   ```
+3. Quando pedir a **chave da Resend** (e-mails de aviso), cole uma chave nova
+   (resend.com → *API Keys* → *Create*) ou aperte Enter para pular. Sem ela, o jogo funciona,
+   mas não avisa nem apaga mundos próprios parados.
+4. No fim aparecem o **IP** e um **código de conferência**. Mande os dois para o Claude, que
+   cadastra o código no banco (sem isso o servidor não consegue gravar o mundo).
+
+O HTTPS liga sozinho quando o domínio já aponta para o servidor (o certificado é grátis e se renova
+sozinho).
 
 ## No dia a dia
 
@@ -72,4 +63,8 @@ Em minutos (no máximo algumas horas) o site abre pelo servidor novo, com HTTPS 
 | Ver erros do jogo | `journalctl -u dominio-politico -n 100` |
 | Ver a última publicação | `journalctl -u dominio-politico-atualizar -n 50` |
 | Publicar na hora | `sudo dominio-politico-atualizar` |
+| Republicar a mesma versão | `sudo dominio-politico-atualizar --forcar` |
 | Mudar a configuração | `sudo nano /etc/dominio-politico.env` e depois `sudo systemctl restart dominio-politico` |
+
+Um commit cujo build falhou não é tentado de novo sozinho: o jogo segue na versão anterior até o
+próximo commit (ou até `--forcar`).

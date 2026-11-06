@@ -1,6 +1,5 @@
-# HTTPS automático (Let's Encrypt) assim que o domínio apontar para este servidor.
-# "teste." serve para conferir tudo antes de virar o domínio principal.
-dominio-politico.com.br, teste.dominio-politico.com.br {
+# HTTPS automático (Let's Encrypt): o certificado sai sozinho assim que o domínio aponta para este servidor.
+dominio-politico.com.br {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:3000
 }

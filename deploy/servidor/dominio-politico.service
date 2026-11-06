@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 User=jogo
+# inclui NODE_OPTIONS (limite de memória do Node, calculado pelo instalador para esta máquina)
 EnvironmentFile=/etc/dominio-politico.env
-Environment=NODE_OPTIONS=--max-old-space-size=6144
 WorkingDirectory=/srv/dominio-politico/current/apps/web
 ExecStart=/usr/bin/node /srv/dominio-politico/current/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
 Restart=always
