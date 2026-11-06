@@ -1,0 +1,8 @@
+[Unit]
+Description=Domínio Político: tarefa diária (relógio dos mundos compartilhados e manutenção)
+After=dominio-politico.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/dominio-politico.env
+ExecStart=/bin/sh -c 'curl -fsS -m 120 -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:3000/api/cron/tick'

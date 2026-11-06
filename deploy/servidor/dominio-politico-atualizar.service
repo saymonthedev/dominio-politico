@@ -1,0 +1,8 @@
+[Unit]
+Description=Domínio Político: publica a versão nova do GitHub
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/dominio-politico-atualizar
+TimeoutStartSec=30min

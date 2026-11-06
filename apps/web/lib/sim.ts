@@ -467,8 +467,9 @@ const CACHE_MAX_MS = 6 * 60 * 60_000;
  * banco; com 4 vagas e dezenas de mundos próprios ativos, a memória girava e o banco recarregava
  * mundos o tempo todo. O teto de memória tira os mais antigos antes de a instância apertar.
  */
-const CACHE_WORLDS = 12;
-const CACHE_HEAP_MAX = 1_100 * 1024 * 1024;
+const CACHE_WORLDS = Number(process.env.WORLD_CACHE_MAX ?? "12");
+/** no servidor próprio (bem mais memória) os dois sobem pelo ambiente: WORLD_CACHE_MAX e WORLD_CACHE_HEAP_MB */
+const CACHE_HEAP_MAX = Number(process.env.WORLD_CACHE_HEAP_MB ?? "1100") * 1024 * 1024;
 
 function remember(worldId: string, entry: Cached): void {
   cache.delete(worldId);

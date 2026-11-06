@@ -4,7 +4,8 @@ const config: NextConfig = {
   transpilePackages: ["@dp/engine", "@dp/data"],
   // cada publicação com identidade própria: a aba aberta sabe quando ficou desatualizada
   deploymentId: process.env.VERCEL_DEPLOYMENT_ID,
-  env: { NEXT_PUBLIC_BUILD: process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev" },
+  // identidade da publicação: na Vercel, a dela; no servidor próprio, o commit (APP_BUILD, posto pelo deploy)
+  env: { NEXT_PUBLIC_BUILD: process.env.VERCEL_DEPLOYMENT_ID ?? process.env.APP_BUILD ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev" },
   experimental: {
     serverActions: { bodySizeLimit: "1mb" },
   },

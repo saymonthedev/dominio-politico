@@ -1,0 +1,9 @@
+[Unit]
+Description=Domínio Político: tarefa diária às 06:17 UTC (03:17 em Brasília)
+
+[Timer]
+OnCalendar=*-*-* 06:17:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=Domínio Político: procura versão nova a cada 2 minutos
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=2min
+
+[Install]
+WantedBy=timers.target

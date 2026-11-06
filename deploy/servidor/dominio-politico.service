@@ -1,0 +1,16 @@
+[Unit]
+Description=Domínio Político (jogo)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=jogo
+EnvironmentFile=/etc/dominio-politico.env
+Environment=NODE_OPTIONS=--max-old-space-size=6144
+WorkingDirectory=/srv/dominio-politico/current/apps/web
+ExecStart=/usr/bin/node /srv/dominio-politico/current/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

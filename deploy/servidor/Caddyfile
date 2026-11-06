@@ -1,0 +1,10 @@
+# HTTPS automático (Let's Encrypt) assim que o domínio apontar para este servidor.
+# "teste." serve para conferir tudo antes de virar o domínio principal.
+dominio-politico.com.br, teste.dominio-politico.com.br {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000
+}
+
+www.dominio-politico.com.br {
+	redir https://dominio-politico.com.br{uri} permanent
+}

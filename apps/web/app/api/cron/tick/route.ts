@@ -59,7 +59,9 @@ export async function GET(request: NextRequest) {
   }
 
   let maintenance: Omit<MaintenanceResult, "warn"> & { warned: number; mailed: number } = { news: 0, events: 0, notifications: 0, dropped: [], warned: 0, mailed: 0 };
-  try {
+  // sem e-mail configurado, nenhum mundo é avisado nem removido: a regra promete aviso antes (a poda
+  // de dados antigos é da tarefa do próprio banco e segue de qualquer jeito)
+  if (process.env.RESEND_API_KEY) try {
     const m = await runMaintenance();
     let mailed = 0;
     for (const w of m.warn) {

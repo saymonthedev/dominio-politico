@@ -49,7 +49,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <TipLayer />
         <Signature />
         <VersionWatch />
-        <Analytics />
+        {/* o Analytics da Vercel só existe lá; no servidor próprio o script nem é pedido */}
+        {process.env.VERCEL ? <Analytics /> : null}
       </body>
     </html>
   );
