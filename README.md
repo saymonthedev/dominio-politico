@@ -186,7 +186,16 @@ supabase/templates/    e-mails de autenticação no visual do jogo
 
 **Relógio preguiçoso.** O mundo não precisa de um processo rodando: ao abrir uma página ou executar uma ação, o servidor calcula quantos dias deveriam ter passado e processa a diferença. A rota `/api/cron/tick` faz o mesmo para os mundos compartilhados e roda todo dia pelo Vercel Cron (`apps/web/vercel.json`), para que o mundo ande mesmo sem ninguém abrindo o jogo. Mundos próprios têm velocidade zero: só andam quando o dono avança.
 
-**Poda do banco.** O próprio banco apaga o que já não serve, a cada 10 minutos (`pg_cron`, tarefa `poda-mundos`, que chama `private.prune_all()`), em lotes pequenos para não travar o jogo: eventos sem jogadores com mais de 30 dias de jogo, notícias com mais de um ano de jogo (menos os fatos com fonte, as notícias privadas e as que citam jogadores) e notificações lidas com mais de 180 dias de jogo. Mundos marcados para apagar saem aos pedaços pelo mesmo caminho. Com isso, o banco fica abaixo dos 500 MB do plano grátis do Supabase (cerca de 400 MB em novembro de 2026). `DELETE` não devolve espaço em disco: depois de uma poda grande, rode `vacuum (full, analyze)` nas tabelas maiores.
+**Poda do banco.** O plano grátis do Supabase trava o banco em modo só leitura acima de 500 MB, então o próprio banco apaga o que o jogo já não lê, a cada 10 minutos (`pg_cron`, tarefa `poda-mundos`, que chama `private.prune_all()`), em lotes pequenos para não travar o jogo:
+
+- eventos sem jogadores com mais de 30 dias de jogo;
+- notícias com mais de um ano de jogo (menos os fatos com fonte, as notícias privadas e as que citam jogadores);
+- notificações lidas com mais de 180 dias de jogo;
+- o estado interno (`person_states`) de quem saiu de cena e não é jogador (a pessoa continua, com nome, mandatos e perfil);
+- filiações encerradas de quem não é jogador;
+- investigações concluídas, menos as 100 mais recentes de cada mundo, as que envolvem jogadores e as contra partidos.
+
+Cada mundo só passa pela poda depois de andar 10 dias de jogo desde a última passada (`private.prune_marks`), então os mundos parados não custam nada. Mundos marcados para apagar saem aos pedaços pelo mesmo caminho. `DELETE` não devolve espaço em disco: a tarefa `compactar-banco` roda `vacuum (full, analyze)` nas tabelas maiores toda madrugada, às 4h05 de Brasília.
 
 **Mundos próprios parados.** A tarefa diária chama `sim_maintenance`. Um mundo com menos de 30 dias de jogo, parado há 7 dias, gera um aviso por e-mail ao dono e é apagado aos 10. Um mundo mais jogado recebe o aviso aos 83 dias e é apagado aos 90. Quem volta a jogar depois do aviso cancela a remoção. Os avisos saem pela API da Resend, com uma chave própria, separada da usada no SMTP do Supabase. Sem `RESEND_API_KEY`, essa parte não roda: ninguém é avisado e nada é apagado.
 
@@ -286,6 +295,7 @@ O site roda na Vercel, no plano Pro: US$ 20 por mês, com US$ 20 de crédito de 
 - **Deployment Protection** só nas versões de prévia; a produção é pública;
 - **Domínios:** `dominio-politico.com.br` e `www.dominio-politico.com.br` (redireciona com 308). O DNS fica no Registro.br: dois registros **A** do domínio para a Vercel e o **CNAME** do `www`;
 - **Variáveis:** as da tabela acima, com `NEXT_PUBLIC_DONATIONS=1`. `SIM_SECRET` e `CRON_SECRET` são do tipo *Sensitive* e só existem em produção; o hash do `SIM_SECRET` está em `private.app_secrets` com o nome `vercel-pro`. Uma variável nova só vale depois de uma nova publicação;
+- **Ignored Build Step:** só publica quando o commit muda `apps/web`, `packages`, `data` ou os `package*.json` da raiz. Commits só de banco (`supabase/`), documentação ou `deploy/` não geram publicação: cada publicação nova obriga os servidores a reler os mundos inteiros do banco. Para publicar de novo o mesmo commit (por exemplo, depois de mudar uma variável), use **Redeploy** e desmarque **Use project's Ignore Build Step**;
 - **Spend Management** (Settings → Billing): use um orçamento baixo com **Pause** ligado. Assim, se o crédito acabar, o site pausa em vez de cobrar mais. O padrão da Vercel só avisa por e-mail e continua cobrando.
 
 Para trocar o segredo do motor: gere um novo, salve na Vercel, cadastre o hash em `private.app_secrets` com outro nome, publique de novo e só então apague a linha antiga.
