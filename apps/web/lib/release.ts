@@ -3,15 +3,14 @@
  * Para anunciar uma nova versão, troque o `id` (e os itens): quem já viu a anterior vê de novo.
  */
 export const RELEASE = {
-  id: "2026-11-07",
+  id: "2026-11-07-tarde",
   date: "7 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "Correções pedidas por vocês e um banco de dados mais leve para o jogo seguir rápido.",
+  lede: "Corrigimos a lentidão de hoje: as telas voltaram a abrir rápido e o login não cai mais sozinho.",
   items: [
-    { icon: "check", text: "Quem encerrou a carreira num mundo só seu e começou outro personagem no compartilhado agora entra no personagem novo, sem voltar para o balanço antigo." },
-    { icon: "calendar", text: "Ao criar personagem, a tela mostra em que data cada mundo compartilhado já está. Para começar do início do ano escolhido, use um mundo só seu." },
-    { icon: "info", text: "Quem já tem um mundo só seu vê o motivo certo quando não dá para criar outro, com o caminho para apagar o atual em Minha conta." },
-    { icon: "database", text: "O histórico antigo de personagens fictícios que já saíram de cena é apagado sozinho, e o banco é compactado toda madrugada." },
+    { icon: "bolt", text: "As telas do jogo voltaram a abrir rápido. Uma consulta lenta da atualização da madrugada sobrecarregava o banco nos horários de pico e algumas telas davam erro de tempo esgotado." },
+    { icon: "lock", text: "Quem joga com várias abas, ou volta depois de um tempo parado, não é mais mandado para a tela de entrar quando o login se renova." },
+    { icon: "check", text: "Continua valendo a correção de hoje cedo: personagem novo no mundo compartilhado entra direto no mundo novo, sem voltar para o balanço da carreira antiga." },
     { icon: "heart", text: "Gosta do jogo? O botão Apoiar no topo continua lá, para contribuir com Pix se quiser. O jogo segue 100% grátis.", donation: true },
   ],
 } as const;

@@ -195,7 +195,7 @@ supabase/templates/    e-mails de autenticação no visual do jogo
 - filiações encerradas de quem não é jogador;
 - investigações concluídas, menos as 100 mais recentes de cada mundo, as que envolvem jogadores e as contra partidos.
 
-Cada mundo só passa pela poda depois de andar 10 dias de jogo desde a última passada (`private.prune_marks`), então os mundos parados não custam nada. Mundos marcados para apagar saem aos pedaços pelo mesmo caminho. `DELETE` não devolve espaço em disco: a tarefa `compactar-banco` roda `vacuum (full, analyze)` nas tabelas maiores toda madrugada, às 4h05 de Brasília.
+Cada mundo só passa pela poda depois de andar 10 dias de jogo desde a última passada (`private.prune_marks`), então os mundos parados não custam nada. A rodada não começa, e para no meio, quando o banco está ocupado com o jogo (`private.db_busy()`: 4 ou mais consultas rodando ao mesmo tempo, ou alguma há mais de 3 s), apaga no máximo 1000 linhas por tabela e por mundo e dura no máximo 25 s; o resto fica para os horários calmos. Mundos marcados para apagar saem aos pedaços pelo mesmo caminho. `DELETE` não devolve espaço em disco: a tarefa `compactar-banco` roda `vacuum (full, analyze)` nas tabelas maiores toda madrugada, às 4h05 de Brasília.
 
 **Mundos próprios parados.** A tarefa diária chama `sim_maintenance`. Um mundo com menos de 30 dias de jogo, parado há 7 dias, gera um aviso por e-mail ao dono e é apagado aos 10. Um mundo mais jogado recebe o aviso aos 83 dias e é apagado aos 90. Quem volta a jogar depois do aviso cancela a remoção. Os avisos saem pela API da Resend, com uma chave própria, separada da usada no SMTP do Supabase. Sem `RESEND_API_KEY`, essa parte não roda: ninguém é avisado e nada é apagado.
 

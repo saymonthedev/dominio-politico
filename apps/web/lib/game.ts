@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { PartyRow, PersonRow, PersonStateRow, WorldRow, WorldState } from "@dp/engine";
-import { sessionUser, supabaseServer } from "./supabase/server";
+import { currentUser } from "./supabase/server";
 import { asPlayer, cachedState, isStartYear, modeOfWorld, worldIdFor, yearOfWorld, type WorldMode } from "./sim";
 
 export type PublicWorld = Omit<WorldRow, "seed">;
@@ -10,10 +10,7 @@ export type PublicWorld = Omit<WorldRow, "seed">;
  * Sessão da requisição. O token é conferido aqui mesmo (assinatura ES256 do projeto, chaves em
  * cache), sem uma ida ao servidor de login a cada tela; a renovação do token continua automática.
  */
-export const getSession = cache(async () => {
-  const sb = await supabaseServer();
-  return { sb, user: await sessionUser(sb) };
-});
+export const getSession = cache(currentUser);
 
 export const myCharacters = cache(async (): Promise<Array<{ world_id: string; person_id: string }>> => {
   const { sb, user } = await getSession();
@@ -27,7 +24,13 @@ export const myCharacterStatus = cache(async (): Promise<Array<{ world_id: strin
   const chars = await myCharacters();
   if (!chars.length) return [];
   const { sb } = await getSession();
-  const { data } = await sb.from("persons").select("id, world_id, status").in("id", chars.map((c) => c.person_id));
+  // mundo e id juntos: a busca vai direto pela chave da tabela. Só pelo id, o banco passava pelas
+  // ~150 mil pessoas de todos os mundos a cada tela (e conferia o acesso de cada uma)
+  const { data } = await sb
+    .from("persons")
+    .select("id, world_id, status")
+    .in("world_id", [...new Set(chars.map((c) => c.world_id))])
+    .in("id", chars.map((c) => c.person_id));
   const rows = (data ?? []) as Array<{ id: string; world_id: string; status: string }>;
   return chars.map((c) => ({ ...c, status: rows.find((r) => r.id === c.person_id && r.world_id === c.world_id)?.status ?? "ACTIVE" }));
 });
