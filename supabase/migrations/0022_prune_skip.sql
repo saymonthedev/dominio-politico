@@ -97,3 +97,12 @@ begin
     commit;
   end loop;
 end $$;
+
+-- Compactação toda madrugada (4h05 em Brasília, o horário com menos jogadores): devolve ao disco o
+-- espaço que o banco guarda depois de atualizar e apagar linhas. Não apaga dado nenhum; trava cada
+-- tabela por alguns segundos enquanto a reescreve. O plano grátis trava o banco acima de 500 MB.
+select cron.schedule(
+  'compactar-banco',
+  '5 7 * * *',
+  $$vacuum (full, analyze) public.person_states, public.persons, public.mandates, public.investigations, public.news_articles, public.illicit_acts, public.memberships, public.world_events, public.races, public.candidacies, public.polls, public.finance_transactions, public.notifications, private.world_changes$$
+);
