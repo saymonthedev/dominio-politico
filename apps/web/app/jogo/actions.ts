@@ -278,8 +278,10 @@ export async function answerEvent(year: number, eventId: string, choiceId: strin
 export async function careerEndSummary(year: number, personId?: string): Promise<CareerEndView | null> {
   const { sb, user } = await getSession();
   if (!user || !isStartYear(year)) return null;
-  const worldId = await myWorldId(year);
-  const mine = (await myCharacters()).filter((c) => c.world_id === worldId).map((c) => c.person_id);
+  const chars = await myCharacters();
+  // pelo histórico (personagem indicado), o balanço é do mundo daquele personagem, mesmo que hoje o jogador esteja em outro
+  const worldId = (personId && chars.find((c) => c.person_id === personId && yearOfWorld(c.world_id) === year)?.world_id) || (await myWorldId(year));
+  const mine = chars.filter((c) => c.world_id === worldId).map((c) => c.person_id);
   const { data } = await sb.from("person_states").select("id, story").eq("world_id", worldId).eq("user_id", user.id);
   const ended = ((data ?? []) as Array<{ id: string; story: { ended?: { on: string } | null } | null }>)
     .filter((r) => r.story?.ended && mine.includes(r.id) && (!personId || r.id === personId))

@@ -31,12 +31,15 @@ export function CharacterForm({
   origins,
   axes,
   privateOpen,
+  privateBlocked = null,
   start,
   sharedDate,
 }: {
   year: number;
   /** ainda há vagas para mundos próprios */
   privateOpen: boolean;
+  /** por que não dá para criar mundo próprio: já tem um em outro ano, ou acabaram as vagas */
+  privateBlocked?: "own" | "full" | null;
   /** data em que os mundos novos começam (ponto de partida real) */
   start: string;
   /** data de hoje no mundo compartilhado deste ano (null se ele ainda não existe) */
@@ -99,7 +102,12 @@ export function CharacterForm({
           </p>
         )}
         {privateOpen && <p className="muted small">Mundos próprios parados são apagados para liberar vaga, sempre com aviso por e-mail antes: os quase sem uso (menos de 30 dias de jogo) depois de 10 dias parados; os outros, depois de 90.</p>}
-        {!privateOpen && <p className="muted small">As vagas para mundos próprios estão esgotadas no momento. Tente de novo mais tarde.</p>}
+        {!privateOpen && privateBlocked === "own" && (
+          <p className="muted small">
+            Você já tem um mundo só seu em outro ponto de partida, e cada conta pode ter um. Para criar outro, apague o atual em <a href="/conta">Minha conta</a>.
+          </p>
+        )}
+        {!privateOpen && privateBlocked !== "own" && <p className="muted small">As vagas para mundos próprios estão esgotadas no momento. Tente de novo mais tarde.</p>}
       </Block>
       <Block n={2} title="Identidade" text="Um nome fictício. Nomes de políticos reais são recusados.">
         <div className="cf-row">

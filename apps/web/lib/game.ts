@@ -36,12 +36,14 @@ export const myCharacterStatus = cache(async (): Promise<Array<{ world_id: strin
 export const myActiveCharacters = cache(async () => (await myCharacterStatus()).filter((c) => c.status === "ACTIVE"));
 
 /**
- * O mundo do jogador neste ponto de partida: o próprio (só dele ou fictício),
- * se tiver personagem em um; senão, o compartilhado.
+ * O mundo do jogador neste ponto de partida. Vale primeiro o personagem em atividade: quem encerrou
+ * a carreira num mundo só seu e começou outra no compartilhado joga no novo (o antigo fica no
+ * histórico). Entre mundos na mesma situação, o próprio (só dele ou fictício) vem antes do compartilhado.
  */
 export const myWorldId = cache(async (year: number): Promise<string> => {
-  const mine = (await myCharacters()).filter((c) => yearOfWorld(c.world_id) === year);
-  return (mine.find((c) => modeOfWorld(c.world_id) !== "SHARED") ?? mine[0])?.world_id ?? worldIdFor(year);
+  const mine = (await myCharacterStatus()).filter((c) => yearOfWorld(c.world_id) === year);
+  const pick = (list: typeof mine) => list.find((c) => modeOfWorld(c.world_id) !== "SHARED") ?? list[0];
+  return (pick(mine.filter((c) => c.status === "ACTIVE")) ?? pick(mine))?.world_id ?? worldIdFor(year);
 });
 
 export const myWorldMode = async (year: number): Promise<WorldMode> => modeOfWorld(await myWorldId(year));

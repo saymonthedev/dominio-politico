@@ -28,7 +28,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
   const chars = await myCharacters();
   // quem já tem personagem ativo neste ano vai para o jogo; quem encerrou a carreira pode recomeçar
   if ((await myActiveCharacters()).some((c) => yearOfWorld(c.world_id) === year)) redirect(`/jogo/${year}`);
-  const privateOpen = !chars.some((c) => modeOfWorld(c.world_id) !== "SHARED") && (await countPrivateWorlds().catch(() => MAX_PRIVATE_WORLDS)) < MAX_PRIVATE_WORLDS;
+  // cada conta tem um mundo próprio: o deste ano recebe o personagem novo; um de outro ano bloqueia
+  const own = chars.find((c) => modeOfWorld(c.world_id) !== "SHARED");
+  const ownElsewhere = !!own && yearOfWorld(own.world_id) !== year;
+  const slotsFull = !own && (await countPrivateWorlds().catch(() => MAX_PRIVATE_WORLDS)) >= MAX_PRIVATE_WORLDS;
+  const privateOpen = !ownElsewhere && !slotsFull;
+  const privateBlocked = ownElsewhere ? ("own" as const) : slotsFull ? ("full" as const) : null;
   const sp = START_POINTS.find((s) => s.year === year)!;
   // o compartilhado anda com todos os jogadores: mostra em que data ele está hoje
   const { sb } = await getSession();
@@ -50,6 +55,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
             professions={PROFESSIONS.map((p) => ({ value: p.id, label: cap(p.label), hint: `${brl(p.income)}/mês`, icon: PROF_ICON[p.id] }))}
             origins={ORIGINS.map((o) => ({ value: o.id, label: cap(o.label), hint: `Economias: ${brl(o.savings)}`, icon: ORIGIN_ICON[o.id] }))}
             privateOpen={privateOpen}
+            privateBlocked={privateBlocked}
             start={sp.date}
             sharedDate={sharedDate}
             axes={AXES.map((a) => ({ key: a, label: AXIS_INFO[a].label, neg: AXIS_INFO[a].neg, pos: AXIS_INFO[a].pos }))}
