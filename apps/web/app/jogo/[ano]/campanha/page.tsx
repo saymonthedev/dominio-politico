@@ -9,6 +9,8 @@ import { daysBetween } from "@/lib/game-view";
 import { getSession, playerState, requireMe } from "@/lib/game";
 import { citiesFor } from "@/lib/sim";
 import { Term } from "@/components/Term";
+import { PersonAvatar } from "@/components/PersonAvatar";
+import { avatarOf } from "@/lib/avatar";
 
 const STATUS: Record<string, { label: string; tone: "neutral" | "ok" | "bad" | "warn" | "gold" | "sim" }> = {
   PRE: { label: "pré-candidatura · aguardando convenção", tone: "warn" },
@@ -51,6 +53,8 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const preCampaign = current?.status === "PRE" ? allCampaign.filter((a) => a.id.startsWith("pre_")) : [];
   const pre = actionsFor(state, me.person.id, ["PARTIDO"]).filter((a) => a.id === "pre_candidatura");
   const c = current?.campaign;
+  // mural: jogadores que doaram para esta campanha (a candidatura viva está na memória do motor)
+  const supporters = [...((current && state.t.candidacies.get(current.id)?.campaign.supporters) ?? c?.supporters ?? [])].sort((a, b) => b.amount - a.amount);
   const st = current ? STATUS[current.status] : undefined;
   const latest = polls[0];
   const myPct = latest?.results.find((r) => r.id === current?.id)?.pct;
@@ -187,6 +191,24 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               </p>
             )}
           </Panel>
+
+          {supporters.length > 0 && (
+            <Panel title="Mural de apoiadores" icon="heart">
+              <ul className="mural">
+                {supporters.map((x) => (
+                  <li key={x.id}>
+                    <PersonAvatar name={x.name} avatar={avatarOf(state, state.t.persons.get(x.id))} size={34} />
+                    <span className="mural__who">
+                      <b>{x.name}</b>
+                      <small>última doação em {fmtDate(x.on)}</small>
+                    </span>
+                    <b className="mono">{fmtMoney(x.amount)}</b>
+                  </li>
+                ))}
+              </ul>
+              <p className="muted small">Jogadores que doaram para a sua campanha. Cada doação entra no caixa da campanha e na prestação de contas.</p>
+            </Panel>
+          )}
 
           {debates.length > 0 && (
             <Panel title="Debates" icon="users">

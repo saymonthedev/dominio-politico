@@ -3,7 +3,7 @@ import { LIFE_ACTIONS } from "./actions-life";
 import { bumpApproval } from "./approval";
 import { addOtherAssets } from "./housing";
 import { newProposal } from "./gabinete";
-import { scheduleStory } from "./story/state";
+import { scheduleStory, storyOf } from "./story/state";
 import { addFatigue, injuryBlocks } from "./wellbeing";
 import { affiliationCooldown, infidelityRisk, joinParty, leaveParty, loseMandateForInfidelity, relKey, requestAffiliation } from "./affiliation";
 import { addDays, formatDatePt } from "./calendar";
@@ -95,7 +95,8 @@ export interface ActionParam {
     | "party_member"
     | "party_member_or_me"
     | "party_plain"
-    | "party_officer";
+    | "party_officer"
+    | "player_campaign";
   options?: Array<{ value: string; label: string }>;
   /** valores de referência (R$ de 2026) para type "amount"; a tela corrige pela época */
   amounts?: number[];
@@ -1780,7 +1781,76 @@ export const ACTIONS: ActionDef[] = [
     },
   },
   ...LIFE_ACTIONS,
+  donateToCampaign(),
 ];
+
+/** Campanhas de outros jogadores que recebem doações agora (candidatura viva, eleição em curso). */
+export function playerCampaigns(ctx: Ctx, exceptId: string): CandidacyRow[] {
+  return [...ctx.t.candidacies.values()].filter((c) => {
+    if (c.person_id === exceptId || !["PRE", "HOMOLOGADA", "SEGUNDO_TURNO"].includes(c.status)) return false;
+    const e = ctx.t.elections.get(c.election_id);
+    const who = ctx.t.persons.get(c.person_id);
+    return !!e && e.status !== "ENCERRADA" && who?.kind === "PLAYER" && who.status === "ACTIVE";
+  });
+}
+
+/** Limite de doação de pessoa física: 10% da renda bruta do ano (Lei 9.504/97, art. 23). */
+export function donationRoom(ctx: Ctx, p: PersonRow, st: PersonStateRow): number {
+  const given = Number(storyOf(st, p, ctx.date).flags[`doacoes:${ctx.date.slice(0, 4)}`] ?? 0);
+  return Math.max(0, Math.floor(st.income_last_year * 0.1) - given);
+}
+
+/** Doação de um jogador para a campanha de outro: dinheiro declarado, mural de apoiadores e proximidade. */
+function donateToCampaign(): ActionDef {
+  // dentro da função: ela é chamada na montagem da lista de ações, antes das constantes do fim do arquivo
+  const DONATION_AMOUNTS = [500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000];
+  return {
+    id: "doar_campanha",
+    label: "Doar para a campanha de outro jogador",
+    description: "Apoie um aliado com dinheiro seu, declarado à Justiça Eleitoral. Pessoa física pode doar até 10% da renda bruta do ano (Lei 9.504/97, art. 23). Seu nome entra no mural de apoiadores da campanha.",
+    category: "BASE",
+    energy: 5,
+    params: [
+      { name: "candidatura", label: "Para a campanha de", type: "player_campaign" },
+      { name: "valor", label: "Valor", type: "amount", amounts: DONATION_AMOUNTS },
+    ],
+    available: (ctx, p, st) => {
+      if (!playerCampaigns(ctx, p.id).length) return "Nenhum outro jogador está em campanha agora.";
+      const min = scaledAmount(ctx, DONATION_AMOUNTS[0]);
+      if (donationRoom(ctx, p, st) < min) return "Pela lei eleitoral, você só pode doar até 10% da sua renda bruta do ano, e já chegou a esse limite (ou ainda não teve renda este ano).";
+      return st.money < min ? "Saldo insuficiente." : null;
+    },
+    run: ({ ctx, p, st, params }) => {
+      const c = playerCampaigns(ctx, p.id).find((x) => x.id === params.candidatura);
+      if (!c) return { ok: false, message: "Essa campanha não está recebendo doações agora." };
+      const amount = pickAmount(ctx, params.valor, DONATION_AMOUNTS);
+      if (!amount) return { ok: false, message: "Escolha um dos valores da lista." };
+      const room = donationRoom(ctx, p, st);
+      if (amount > room) return { ok: false, message: `Pela lei, você ainda pode doar ${fmtMoney(room)} este ano (10% da sua renda bruta).` };
+      if (amount > st.money) return { ok: false, message: "Saldo insuficiente." };
+      const to = ctx.t.persons.get(c.person_id)!;
+      st.money -= amount;
+      const flags = storyOf(st, p, ctx.date).flags;
+      const key = `doacoes:${ctx.date.slice(0, 4)}`;
+      flags[key] = Number(flags[key] ?? 0) + amount;
+      c.campaign.donations += amount;
+      c.campaign.budget += amount;
+      const list = (c.campaign.supporters ??= []);
+      const mine = list.find((x) => x.id === p.id);
+      if (mine) {
+        mine.amount += amount;
+        mine.on = ctx.date;
+        mine.name = p.name;
+      } else list.push({ id: p.id, name: p.name, amount, on: ctx.date });
+      ctx.save("candidacies", c);
+      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id, "doacao"), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "DOACAO_FEITA", amount: -amount, declared: true, game_date: ctx.date, description: `Doação para a campanha de ${to.name}` });
+      ctx.insert("finance_transactions", { id: ctx.id("fin", to.id, "doacao"), world_id: ctx.world.id, person_id: to.id, candidacy_id: c.id, kind: "DOACAO", amount, declared: true, game_date: ctx.date, description: `Doação de ${p.name} (jogador)` });
+      bumpRelationship(ctx, p.id, to.id, 6);
+      ctx.notify(to.id, `${p.name} doou para a sua campanha`, `${fmtMoney(amount)} entraram no caixa da campanha. O nome está no mural de apoiadores.`, "/jogo/campanha");
+      return { ok: true, message: `Você doou ${fmtMoney(amount)} para a campanha de ${to.name}. Seu nome está no mural de apoiadores.` };
+    },
+  };
+}
 
 /** Ações de esquema padrão: oportunidade pelo catálogo, ganho em dinheiro não declarado. */
 function schemeAction(o: { id: string; kind: IllicitKind; label: string; description: string; energy: number; after?: (a: RunArgs) => void }): ActionDef {

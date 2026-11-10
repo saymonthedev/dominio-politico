@@ -1,4 +1,5 @@
 import { addMonths, monthKey } from "./calendar";
+import { familyCosts } from "./family";
 import { ensureHousing, housingCosts, housingMonthEnd } from "./housing";
 import { profession } from "./names";
 import { OFFICES, type OfficeCode } from "./ruleset";
@@ -196,6 +197,7 @@ export function monthlyStatement(ctx: Ctx, p: PersonRow, st: PersonStateRow, dat
   }
   items.push({ kind: "CUSTO_VIDA", label: "Custo de vida (comida, contas, saúde, deslocamento)", amount: -livingCost(ctx, p, subsidy, date) });
   if (p.kind === "PLAYER") items.push(...housingCosts(ctx, p, st, work + subsidy));
+  if (p.kind === "PLAYER") items.push(...familyCosts(ctx, p, st, priceLevelAt(ctx, date)));
   const party = p.party_id ? ctx.t.parties.get(p.party_id) : undefined;
   if (party && subsidy > 0) {
     const rate = partyContributionRate(party);

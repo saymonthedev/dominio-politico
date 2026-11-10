@@ -22,6 +22,7 @@ const GROUPS: Array<{ id: string; title: string; items: Item[] }> = [
       ["/carreira", "Carreira", "user"],
       ["/financas", "Finanças", "coins"],
       ["/bens", "Bens", "home"],
+      ["/familia", "Família", "heart"],
       ["/campanha", "Campanha", "megaphone"],
       ["/governo", "Mandato", "landmark"],
       ["/meu-partido", "Meu partido", "star"],

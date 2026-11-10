@@ -4,6 +4,7 @@ import { PersonAvatar } from "@/components/PersonAvatar";
 import { avatarOf } from "@/lib/avatar";
 import { STAGE_LABEL } from "@/components/ui";
 import { playerState, requireMe } from "@/lib/game";
+import { fmtMoney } from "@/lib/format";
 
 /** Ranking dos jogadores do mundo: conquistas, cargo atual e reputação. */
 export default async function Page({ params }: { params: Promise<{ ano: string }> }) {
@@ -19,6 +20,17 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
     })
     .sort((a, b) => b.score - a.score || b.p.reputation - a.p.reputation);
   const mine = rows.findIndex((r) => r.p.id === me.person.id);
+  // mural de apoiadores: quem mais doou para campanhas de outros jogadores nas eleições em curso
+  const backers = new Map<string, { id: string; name: string; total: number; to: Set<string> }>();
+  for (const c of state.t.candidacies.values()) {
+    for (const s of c.campaign.supporters ?? []) {
+      const b = backers.get(s.id) ?? { id: s.id, name: s.name, total: 0, to: new Set<string>() };
+      b.total += s.amount;
+      b.to.add(c.person_id);
+      backers.set(s.id, b);
+    }
+  }
+  const mural = [...backers.values()].sort((a, b) => b.total - a.total).slice(0, 10);
 
   return (
     <>
@@ -48,6 +60,29 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           </ol>
         ) : (
           <Empty icon="users" title="Nenhum jogador ainda" />
+        )}
+      </Panel>
+      <Panel title="Mural de apoiadores" icon="heart" className="mt">
+        {mural.length ? (
+          <ul className="mural">
+            {mural.map((b) => (
+              <li key={b.id}>
+                <PersonAvatar name={b.name} avatar={avatarOf(state, state.t.persons.get(b.id))} size={34} />
+                <span className="mural__who">
+                  <b>{b.name}</b>
+                  <small>
+                    apoiou {b.to.size === 1 ? "1 campanha" : `${b.to.size} campanhas`}:{" "}
+                    {[...b.to].map((id) => state.t.persons.get(id)?.name ?? "jogador").join(", ")}
+                  </small>
+                </span>
+                <b className="mono">{fmtMoney(b.total)}</b>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted small" style={{ margin: 0 }}>
+            Ninguém doou para a campanha de outro jogador nesta eleição. Em período eleitoral, a ação &ldquo;Doar para a campanha de outro jogador&rdquo; aparece em Carreira.
+          </p>
         )}
       </Panel>
     </>

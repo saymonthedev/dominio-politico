@@ -2884,3 +2884,25 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .avedit__opt:focus-visible { outline: 2px solid var(--simulacao); outline-offset: 2px; }
 .avedit__err { color: var(--urgente); font-size: .84rem; display: flex; gap: 6px; align-items: center; }
 @media (max-width: 520px) { .avedit__head { align-items: flex-start; } .avedit__preview { width: 84px; height: 84px; } }
+
+/* Família (app/jogo/[ano]/familia) */
+.fam { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fam__card { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--rebaixada); }
+.fam__face { width: 52px; height: 52px; flex: none; border-radius: 14px; overflow: hidden; }
+.fam__face svg { width: 100%; height: 100%; display: block; }
+.fam__who { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.fam__who b { font-size: .92rem; }
+.fam__who > span { font-size: .78rem; color: var(--apagado); }
+.fam__bond { display: flex; align-items: center; gap: 8px; }
+.fam__bond i { flex: 1; height: 6px; border-radius: 99px; background: var(--linha); overflow: hidden; max-width: 220px; }
+.fam__bond em { display: block; height: 100%; border-radius: 99px; background: var(--mata); }
+.fam__bond.is-warn em { background: var(--alerta); }
+.fam__bond.is-bad em { background: var(--urgente); }
+.fam__bond small { font-size: .72rem; color: var(--apagado); white-space: nowrap; }
+
+/* Mural de apoiadores (campanha e ranking) */
+.mural { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.mural li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--rebaixada); }
+.mural__who { display: grid; gap: 1px; flex: 1; min-width: 0; }
+.mural__who b { font-size: .88rem; }
+.mural__who small { font-size: .74rem; color: var(--apagado); overflow: hidden; text-overflow: ellipsis; }

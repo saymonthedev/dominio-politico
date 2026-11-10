@@ -1,3 +1,4 @@
+import { monthlyFamily } from "./family";
 import { partyInvitations, processAffiliationRequests } from "./affiliation";
 import { addDays, day, diffDays, month, weekday } from "./calendar";
 import { dailyCrime, monthlyCrime } from "./crime";
@@ -162,6 +163,7 @@ export function advanceDay(ctx: Ctx): void {
   });
   if (day(d) === 1) {
     step("finanças do mês", d, () => monthlyFinances(ctx));
+    step("família do mês", d, () => monthlyFamily(ctx));
     step("aprovação do mês", d, () => monthlyApproval(ctx));
   }
 

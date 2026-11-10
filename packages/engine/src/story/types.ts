@@ -156,6 +156,8 @@ export interface StoryState {
   proposals?: Proposal[];
   /** visual escolhido pelo jogador (código do avatar; só aparência, não mexe em nada do jogo) */
   avatar?: string;
+  /** o que o jogador mudou na família (proximidade, casamento, filhos, separação) */
+  family?: import("../family").FamilyState;
 }
 
 export interface ApprovalEntry {

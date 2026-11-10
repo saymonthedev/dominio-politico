@@ -14,6 +14,7 @@ import {
   OFFICES,
   officesForElection,
   partyLedBy,
+  playerCampaigns,
   pendingIndications,
   POLICY_CATALOG,
   scaledAmount,
@@ -125,6 +126,11 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
 
   const optionsFor = (actionId: string, type: string, def?: ActionOption[]): ActionOption[] | undefined => {
     switch (type) {
+      case "player_campaign":
+        return playerCampaigns(ctx, personId).map((c) => {
+          const who = state.t.persons.get(c.person_id);
+          return { value: c.id, label: `${who?.name ?? "Jogador"} — ${OFFICES[c.office_code]?.name ?? c.office_code} · ${partyLabel(c.party_id)} · ${c.geo.length === 2 ? c.geo : who?.uf ?? ""}` };
+        });
       case "party":
         return [...state.t.parties.values()]
           .filter((p) => p.status === "ATIVO")

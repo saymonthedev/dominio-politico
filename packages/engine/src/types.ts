@@ -371,6 +371,8 @@ export interface CampaignState {
   last_poll?: { on: string; pct: number; rank: number; leader: string; leader_pct: number } | null;
   /** gastos por categoria (prestação de contas) */
   costs?: Record<string, number>;
+  /** jogadores que doaram para a campanha (mural de apoiadores) */
+  supporters?: Array<{ id: string; name: string; amount: number; on: string }>;
   /** cabos eleitorais contratados (legais) */
   canvassers?: number;
   /** personalidade da campanha (NPCs): agressiva, populista, técnica, veterana */
@@ -622,6 +624,8 @@ export interface NotificationRow {
 
 export type FinanceKind =
   | "DOACAO"
+  | "DOACAO_FEITA"
+  | "FAMILIA"
   | "FEFC"
   | "RECURSO_PROPRIO"
   | "DESPESA"
