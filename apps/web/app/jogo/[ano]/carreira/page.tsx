@@ -8,6 +8,8 @@ import { QuickAction } from "@/components/game/QuickAction";
 import { StoryHistory } from "@/components/game/StoryHistory";
 import { Icon } from "@/components/Icon";
 import { PersonAvatar } from "@/components/PersonAvatar";
+import { AvatarEditor } from "@/components/game/AvatarEditor";
+import { defaultAvatar, isAvatarCode } from "@/lib/avatar-code";
 import { PartyChip, STAGE_LABEL } from "@/components/ui";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney } from "@/lib/format";
@@ -78,6 +80,8 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         return { date: e?.first_round ?? "", won: c.status === "ELEITO", title: `Eleição de ${e?.year ?? "?"}: ${OFFICES[c.office_code].name}`, detail: `${label}${c.votes ? ` · ${c.votes.toLocaleString("pt-BR")} votos` : ""}` };
       }),
   ].sort((a, b) => b.date.localeCompare(a.date));
+  const chosenAvatar = me.state.story?.avatar;
+  const myAvatar = isAvatarCode(chosenAvatar) ? chosenAvatar : defaultAvatar(me.person.id);
   const city = canonicalGeo(me.person.municipality);
   const place = /^\d{7}$/.test(city) ? geoName(city, { cities }) : me.person.uf;
 
@@ -87,7 +91,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
       <Panel className="mb">
         <div className="profile">
-          <PersonAvatar name={me.person.name} color={me.party?.color} size={76} />
+          <PersonAvatar name={me.person.name} color={me.party?.color} avatar={myAvatar} size={76} />
           <div className="profile__who">
             <h2>{me.person.name}</h2>
             <p>
@@ -97,6 +101,9 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               <Pill tone="gold">{STAGE_LABEL[me.person.stage]}</Pill>
               {me.party ? <PartyChip party={me.party} href={`/jogo/${year}/partidos/${me.party.id}`} /> : <Pill>Sem partido</Pill>}
               {post && <Pill tone="sim">{post.label}</Pill>}
+            </div>
+            <div className="profile__edit">
+              <AvatarEditor year={year} code={myAvatar} />
             </div>
           </div>
           <div className="kpis profile__kpis">

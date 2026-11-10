@@ -20,6 +20,7 @@ import { QuickAction } from "@/components/game/QuickAction";
 import { Icon } from "@/components/Icon";
 import { PartyMark } from "@/components/PartyMark";
 import { PersonAvatar } from "@/components/PersonAvatar";
+import { avatarOf } from "@/lib/avatar";
 import { actionsFor } from "@/lib/actions-view";
 import { fmtDate, fmtMoney, fmtNum } from "@/lib/format";
 import { daysBetween } from "@/lib/game-view";
@@ -226,7 +227,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                   return (
                     <div key={r.id} className="pend">
                       <div className="pend__text rel__who">
-                        <PersonAvatar name={who.name} color={from?.color} photo={photoOf(who)} size={38} />
+                        <PersonAvatar name={who.name} color={from?.color} photo={photoOf(who)} avatar={avatarOf(state, who)} size={38} />
                         <div>
                           <b>
                             <a href={`/jogo/${year}/pessoa/${who.id}`}>{who.name}</a>
@@ -267,7 +268,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               <div className="sugs">
                 {members.slice(0, 24).map((m) => (
                   <a key={m.id} className="sug rel__who" href={`/jogo/${year}/pessoa/${m.id}`}>
-                    <PersonAvatar name={m.name} color={party.color} photo={photoOf(m)} size={34} />
+                    <PersonAvatar name={m.name} color={party.color} photo={photoOf(m)} avatar={avatarOf(state, m)} size={34} />
                     <div>
                       <b>{m.name}</b>
                       <span>

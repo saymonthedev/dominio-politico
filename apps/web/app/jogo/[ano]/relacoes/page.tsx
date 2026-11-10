@@ -2,6 +2,7 @@ import { OFFICES, type PersonRow, type RelationshipRow } from "@dp/engine";
 import { Empty, GameHeader, Kpi, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
 import { PersonAvatar } from "@/components/PersonAvatar";
+import { avatarOf } from "@/lib/avatar";
 import { PartyChip } from "@/components/ui";
 import { getParties, getSession, partyMap, playerState, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
@@ -72,7 +73,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                 return (
                   <div key={r.id} className="rel">
                     <a href={`/jogo/${year}/pessoa/${p.id}`} className="rel__who">
-                      <PersonAvatar name={p.name} color={party?.color} photo={photoOf(p)} size={40} />
+                      <PersonAvatar name={p.name} color={party?.color} photo={photoOf(p)} avatar={avatarOf(state, p)} size={40} />
                       <div>
                         <b>{p.name}</b>
                         <span>
@@ -113,7 +114,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                 return (
                   <div key={p.id} className="sug">
                     <a href={`/jogo/${year}/pessoa/${p.id}`} className="rel__who">
-                      <PersonAvatar name={p.name} color={party?.color} photo={photoOf(p)} size={36} />
+                      <PersonAvatar name={p.name} color={party?.color} photo={photoOf(p)} avatar={avatarOf(state, p)} size={36} />
                       <div>
                         <b>{p.name}</b>
                         <span>

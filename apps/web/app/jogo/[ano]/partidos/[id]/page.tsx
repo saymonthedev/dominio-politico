@@ -6,6 +6,7 @@ import { actionsFor } from "@/lib/actions-view";
 import { Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
 import { PersonAvatar } from "@/components/PersonAvatar";
+import { avatarOf } from "@/lib/avatar";
 import { fmtMoney, fmtNum } from "@/lib/format";
 import { partyFits } from "@/lib/game-view";
 import { getParties, getSession, playerState, requireMe } from "@/lib/game";
@@ -89,7 +90,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
             <div className="people">
               {people.map((p) => (
                 <a key={p.id} className="person" href={`/jogo/${year}/pessoa/${p.id}`}>
-                  <PersonAvatar name={p.name} color={party.color} photo={photoOf(p)} size={40} />
+                  <PersonAvatar name={p.name} color={party.color} photo={photoOf(p)} avatar={avatarOf(state, p)} size={40} />
                   <div>
                     <b>{p.name}</b>
                     <span>

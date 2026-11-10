@@ -15,6 +15,7 @@ import { SupportTopButton } from "@/components/Support";
 import { DONATIONS } from "@/lib/donations";
 import { STAGE_LABEL } from "@/components/ui";
 import { initials } from "@/lib/format";
+import { defaultAvatar, isAvatarCode } from "@/lib/avatar-code";
 import { getSession, getWorld, requireMe } from "@/lib/game";
 import { asPlayer, backgroundAdvance, citiesFor, ensureWorld } from "@/lib/sim";
 
@@ -57,6 +58,8 @@ export default async function GameLayout({ children, params }: { children: React
 
   // os mesmos números que o relógio e as decisões devolvem (a barra muda na hora da escolha)
   const vitals = sideVitals(me.person, me.state, !!me.party);
+  const chosen = me.state.story?.avatar;
+  const avatar = isAvatarCode(chosen) ? chosen : defaultAvatar(me.person.id);
 
   return (
     <Toaster>
@@ -95,7 +98,7 @@ export default async function GameLayout({ children, params }: { children: React
             openInvites={invites}
             items={((recentQ.data ?? []) as NotificationRow[]).map((n) => ({ id: n.id, title: n.title, body: n.body, date: n.game_date, link: n.link, unread: !n.read_at }))}
           />
-          <UserMenu initials={initials(me.person.name)} />
+          <UserMenu initials={initials(me.person.name)} avatar={avatar} />
         </div>
         <MobileStatus year={year} energy={vitals.energy} money={vitals.money} reputation={vitals.reputation} stage={vitals.stage} approval={vitals.approval} fatigue={vitals.fatigue} />
       </header>
@@ -110,6 +113,7 @@ export default async function GameLayout({ children, params }: { children: React
             place,
             party: me.party ? { acronym: me.party.acronym, color: me.party.color } : null,
             photo: null,
+            avatar,
             initials: initials(me.person.name),
             energy: vitals.energy,
             money: vitals.money,

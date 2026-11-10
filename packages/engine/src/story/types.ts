@@ -154,6 +154,8 @@ export interface StoryState {
   approval_log?: ApprovalEntry[];
   /** propostas do gabinete (em andamento e as últimas resolvidas) */
   proposals?: Proposal[];
+  /** visual escolhido pelo jogador (código do avatar; só aparência, não mexe em nada do jogo) */
+  avatar?: string;
 }
 
 export interface ApprovalEntry {

@@ -31,7 +31,34 @@ export interface ActionOption {
   /** cargo, partido e UF de pessoas, para os filtros da lista */
   meta?: { o: string; p: string; u: string };
 }
-export interface ActionParamView { name: string; label: string; type: string; optional?: boolean; options?: ActionOption[] }
+export interface ActionParamView {
+  name: string;
+  label: string;
+  type: string;
+  optional?: boolean;
+  options?: ActionOption[];
+  /** as opções mudam conforme outro campo (o lado depende do tema escolhido) */
+  dependsOn?: { param: string; options: Record<string, ActionOption[]>; hint: string };
+}
+
+/** Os dois lados de cada tema em palavras do dia a dia (o motor guarda -1 e +1). */
+const SIDES: Record<string, [string, string]> = {
+  economy: ["Mais Estado na economia", "Mais mercado e menos Estado"],
+  social: ["Progressista nos costumes", "Conservador nos costumes"],
+  security: ["Direitos e prevenção (garantista)", "Penas mais duras (punitivista)"],
+  institutions: ["Mais participação popular e descentralização", "Governo forte e centralizado"],
+  environment: ["Desenvolvimento econômico primeiro", "Proteção do meio ambiente"],
+  federalism: ["Mais poder para o governo federal", "Mais autonomia para estados e municípios"],
+};
+const sidesByAxis = Object.fromEntries(
+  Object.entries(SIDES).map(([axis, [neg, pos]]) => [
+    axis,
+    [
+      { value: "-1", label: neg },
+      { value: "1", label: pos },
+    ],
+  ]),
+);
 export interface ActionView {
   id: string;
   label: string;
@@ -192,6 +219,10 @@ export function actionsFor(state: WorldState, personId: string, categories?: Act
         type: p.type,
         optional: p.optional,
         options: p.type === "amount" ? amountOptions(p.amounts) : optionsFor(def.id, p.type, p.options),
+        // o lado (ou a direção) de um tema: as opções dizem o que cada lado defende
+        ...(p.name === "side" && def.params?.some((q) => q.type === "axis")
+          ? { dependsOn: { param: "axis", options: sidesByAxis, hint: "Escolha o tema primeiro: aqui aparecem as duas posições sobre ele." } }
+          : {}),
       })),
     }));
 }

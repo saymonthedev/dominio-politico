@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { NO_FILL } from "../forms";
 import { Icon } from "../Icon";
+import { HomeArt } from "./BensArt";
 import { QuickAction } from "./QuickAction";
 
 export interface MarketQuote {
@@ -95,6 +96,7 @@ export function HomeMarket({
                     const buyCash = t.price * 1.03;
                     return (
                       <div key={t.tier} className="hm__tier">
+                        <HomeArt tier={t.tier} className="hm__art" />
                         <div className="hm__tierinfo">
                           <b>{t.label.charAt(0).toUpperCase() + t.label.slice(1)}</b>
                           <small>{t.size} m²</small>

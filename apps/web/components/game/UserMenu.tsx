@@ -1,11 +1,12 @@
 "use client";
 import { useId, useRef, useState } from "react";
 import { usePopover } from "../a11y";
+import { AvatarSvg } from "../Avatar";
 import { Icon } from "../Icon";
 import { DONATIONS } from "@/lib/donations";
 import { openSupport } from "../Support";
 
-export function UserMenu({ initials }: { initials: string }) {
+export function UserMenu({ initials, avatar }: { initials: string; avatar?: string | null }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -29,7 +30,7 @@ export function UserMenu({ initials }: { initials: string }) {
           }
         }}
       >
-        {initials}
+        {avatar ? <AvatarSvg code={avatar} /> : initials}
       </button>
       {open && (
         <div className="umenu__pop" id={id} role="menu" aria-label="Conta">

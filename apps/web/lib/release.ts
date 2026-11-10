@@ -3,15 +3,15 @@
  * Para anunciar uma nova versão, troque o `id` (e os itens): quem já viu a anterior vê de novo.
  */
 export const RELEASE = {
-  id: "2026-11-10",
+  id: "2026-11-10-visual",
   date: "10 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "O jogo ficou bem mais estável: chega de telas que travavam até dar erro 504.",
+  lede: "Sugestões de vocês: seu personagem com cara própria, bens com imagem e opções mais claras. E o jogo está bem mais estável.",
   items: [
-    { icon: "bolt", text: "Os mundos abrem rápido mesmo quando um servidor acabou de ligar. Ele lê uma cópia guardada do mundo em vez de montar tudo no banco de dados, que era o que travava o jogo nos horários de pico." },
-    { icon: "shield", text: "Se a cópia falhar, o jogo volta a ler do banco como antes. Nada do seu personagem muda." },
-    { icon: "check", text: "Quem teve a criação do mundo próprio interrompida pela lentidão consegue terminá-la: a vaga já é sua, mesmo com as vagas esgotadas." },
-    { icon: "lock", text: "Continua valendo: o login não cai mais sozinho quando a sessão se renova." },
+    { icon: "user", text: "Monte o visual do seu personagem em Carreira, no botão Editar visual: pele, cabelo, barba, óculos, roupa e fundo. Ele aparece no menu, no ranking e no seu perfil para os outros jogadores." },
+    { icon: "home", text: "Casas, carros e motos ganharam ilustração na tela de Bens, da quitinete à mansão e da moto ao SUV de luxo." },
+    { icon: "check", text: "Voluntariado, artigos, propostas e projetos de lei agora mostram o que cada lado defende (por exemplo, \"Proteção do meio ambiente\"), no lugar de \"primeiro extremo\" e \"segundo extremo\"." },
+    { icon: "bolt", text: "Chega de telas que travavam até dar erro 504: os servidores novos leem uma cópia do mundo em vez de montar tudo no banco de dados." },
     { icon: "heart", text: "Gosta do jogo? O botão Apoiar no topo continua lá, para contribuir com Pix se quiser. O jogo segue 100% grátis.", donation: true },
   ],
 } as const;

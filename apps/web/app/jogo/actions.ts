@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createCharacter, performAction, type ActionResult, type WorldState } from "@dp/engine";
 import { activePersonId, getSession, myActiveCharacters, myCharacters, myWorldId } from "@/lib/game";
 import { supabaseServer } from "@/lib/supabase/server";
+import { isAvatarCode } from "@/lib/avatar-code";
 import { bumpWorldRev,
   advanceStep,
   asPlayer,
@@ -184,6 +185,33 @@ export async function doAction(_: ActionState, form: FormData): Promise<ActionSt
   } catch (e) {
     await logError("action", `${actionId} ${worldId}`, e);
     return { ok: false, message: e instanceof Error ? e.message : "Erro ao executar a ação.", at: Date.now() };
+  }
+}
+
+/** Visual do personagem (só aparência): fica com a vida do personagem, sem gastar tempo nem energia. */
+export async function saveAvatar(year: number, code: string): Promise<{ ok: boolean; message: string }> {
+  const { sb, user } = await getSession();
+  if (!user) return { ok: false, message: "Sessão expirada. Entre novamente." };
+  if (!isStartYear(year) || !isAvatarCode(code)) return { ok: false, message: "Visual inválido." };
+  const worldId = await myWorldId(year);
+  const pid = await activePersonId(worldId);
+  if (!pid) return { ok: false, message: "Você não tem personagem ativo neste mundo." };
+  try {
+    const { result } = await asPlayer(await tokenOf(sb), () =>
+      withWorld(worldId, (state, mk) => {
+        const st = state.t.person_states.get(pid);
+        if (state.t.persons.get(pid)?.user_id !== user.id || !st?.story) return false;
+        st.story.avatar = code;
+        mk(pid).save("person_states", st);
+        return true;
+      }),
+    );
+    if (!result) return { ok: false, message: "Não foi possível salvar o visual agora." };
+    revalidatePath(`/jogo/${year}`, "layout");
+    return { ok: true, message: "Visual salvo." };
+  } catch (e) {
+    await logError("action", `avatar ${worldId}`, e);
+    return { ok: false, message: e instanceof Error ? e.message : "Não foi possível salvar o visual agora." };
   }
 }
 

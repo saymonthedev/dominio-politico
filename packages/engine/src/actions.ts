@@ -370,12 +370,12 @@ export const ACTIONS: ActionDef[] = [
   {
     id: "voluntariado",
     label: "Voluntariado em uma causa",
-    description: "Engaje-se em um movimento. Aumenta ativismo e aproxima você de quem pensa parecido.",
+    description: "Engaje-se em um movimento: escolha a causa e o que você defende nela. Aumenta ativismo e aproxima você de quem pensa parecido.",
     category: "BASE",
     energy: 20,
     params: [
-      { name: "axis", label: "Tema", type: "axis", options: axisOptions() },
-      { name: "side", label: "Lado", type: "choice", options: sideOptions() },
+      { name: "axis", label: "Causa", type: "axis", options: axisOptions() },
+      { name: "side", label: "O que você defende", type: "choice", options: sideOptions() },
     ],
     available: () => null,
     run: ({ p, st, params, dr }) => {
@@ -398,7 +398,7 @@ export const ACTIONS: ActionDef[] = [
     energy: 10,
     params: [
       { name: "axis", label: "Tema", type: "axis", options: axisOptions() },
-      { name: "side", label: "Posição", type: "choice", options: sideOptions() },
+      { name: "side", label: "O que o artigo defende", type: "choice", options: sideOptions() },
     ],
     available: () => null,
     run: ({ ctx, p, st, params, rng, dr }) => {
@@ -858,7 +858,7 @@ export const ACTIONS: ActionDef[] = [
     return aligned ? `"${title}" agradou a maior parte do eleitorado.` : `"${title}" mobiliza sua base, mas afasta parte do eleitorado.`;
   }, [
     { name: "axis", label: "Tema", type: "axis", options: axisOptions() },
-    { name: "side", label: "Direção", type: "choice", options: sideOptions() },
+    { name: "side", label: "O que a proposta defende", type: "choice", options: sideOptions() },
     { name: "title", label: "Título (opcional)", type: "text", optional: true },
   ]),
   campaignAction("captar_recursos", "Captar doações de pessoas físicas", "Vaquinha e jantares de adesão, com limite legal por doador.", 15, 0, ({ ctx, p, st, rng, dr }, c) => {
@@ -997,7 +997,7 @@ export const ACTIONS: ActionDef[] = [
     energy: 15,
     params: [
       { name: "axis", label: "Tema", type: "axis", options: axisOptions() },
-      { name: "side", label: "Direção", type: "choice", options: sideOptions() },
+      { name: "side", label: "O que o projeto defende", type: "choice", options: sideOptions() },
     ],
     available: (_c, p) => (p.office_code && OFFICES[p.office_code].system === "PROPORCIONAL" || p.office_code === "SENADOR" ? null : "Disponível para parlamentares."),
     run: ({ ctx, p, st, params, dr }) => {

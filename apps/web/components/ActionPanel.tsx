@@ -77,6 +77,8 @@ function ConfirmDialog({ title, text, onCancel, onConfirm, pending }: { title: s
 function ActionCard({ year, a }: { year: number; a: ActionView }) {
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState<Record<string, string> | null>(null);
+  /** o que já foi escolhido nos campos de que outros dependem (o tema, para mostrar os lados dele) */
+  const [picked, setPicked] = useState<Record<string, string>>({});
   const { run: exec, pending, locked: waiting, phrase, result, clear } = useGameAction(year, a.category);
   const locked = !!a.reason;
   const needsForm = a.params.length > 0;
@@ -162,8 +164,26 @@ function ActionCard({ year, a }: { year: number; a: ActionView }) {
           }}
         >
           {a.params.map((p) =>
-            p.options ? (
-              <Select key={p.name} name={`f_${p.name}`} label={p.label} options={p.options} optional={p.optional} />
+            p.dependsOn ? (
+              <Select
+                key={p.name}
+                name={`f_${p.name}`}
+                label={p.label}
+                options={p.dependsOn.options[picked[p.dependsOn.param] ?? ""] ?? []}
+                optional={p.optional}
+                placeholder={picked[p.dependsOn.param] ? "Escolha…" : "Escolha o tema primeiro"}
+                emptyText="Escolha o tema primeiro"
+                hint={picked[p.dependsOn.param] ? undefined : p.dependsOn.hint}
+              />
+            ) : p.options ? (
+              <Select
+                key={p.name}
+                name={`f_${p.name}`}
+                label={p.label}
+                options={p.options}
+                optional={p.optional}
+                onChange={(v) => setPicked((cur) => ({ ...cur, [p.name]: v }))}
+              />
             ) : (
               <TextField key={p.name} name={`f_${p.name}`} label={p.label} optional={p.optional} inputMode={p.type === "number" ? "numeric" : undefined} maxLength={90} />
             ),

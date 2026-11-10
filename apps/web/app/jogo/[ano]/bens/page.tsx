@@ -19,6 +19,7 @@ import {
 } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { GameHeader, Kpi, Panel, Pill } from "@/components/game/Page";
+import { HomeArt, VehicleArt } from "@/components/game/BensArt";
 import { HomeMarket } from "@/components/game/HomeMarket";
 import { QuickAction } from "@/components/game/QuickAction";
 import { Icon } from "@/components/Icon";
@@ -88,6 +89,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
         <div className="gstack">
           <Panel title="Onde você mora" icon="home" aside={<Pill tone={KIND[home.kind].tone}>{KIND[home.kind].label}</Pill>}>
             <div className="bhome">
+              <HomeArt tier={home.tier} kind={home.kind} className="bhome__art" />
               <div className="bhome__main">
                 <b>{home.kind === "RUA" ? "Sem endereço" : `${home.bairro}, ${cityName}`}</b>
                 <span>
@@ -152,6 +154,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
         <div className="gstack">
           <Panel title="Seu carro" icon="briefcase" aside={car ? <Pill tone="ok">{CARS[car.model].label}</Pill> : <Pill>sem carro</Pill>}>
+            {car && <VehicleArt model={car.model} className="bhome__art mb" />}
             {car ? (
               <dl className="bhome__facts">
                 <div>
@@ -181,7 +184,8 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                 const price = carPrice(state, m);
                 return (
                   <li key={m} className={car?.model === m ? "is-mine" : ""}>
-                    <div>
+                    <VehicleArt model={m} className="bcars__art" />
+                    <div className="bcars__info">
                       <b>{CARS[m].label.replace(/^./, (x) => x.toUpperCase())}</b>
                       <small className="mono">{fmtMoney(price)}</small>
                     </div>

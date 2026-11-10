@@ -5,9 +5,10 @@ import { Empty, Kpi, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
 import { Icon } from "@/components/Icon";
 import { PersonAvatar, PhotoCredit } from "@/components/PersonAvatar";
+import { avatarOf } from "@/lib/avatar";
 import { STAGE_LABEL } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
-import { getParties, getSession, partyMap, requireMe } from "@/lib/game";
+import { getParties, getSession, partyMap, requireMe, playerState } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
 import { citiesFor } from "@/lib/sim";
 
@@ -38,6 +39,8 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
   const news = (nQ.data ?? []) as NewsRow[];
   const real = person.kind === "REAL_ACTIVE_AT_SNAPSHOT" || person.kind === "REAL_HISTORICAL";
   const photo = photoOf(person);
+  // jogador: o avatar desenhado sai do mundo em memória (a vida de cada jogador só o dono lê no banco)
+  const avatar = person.kind === "PLAYER" ? avatarOf(await playerState(year), person) : null;
   const isMe = person.id === me.person.id;
   const rel = relQ.data as { score: number; interactions: number } | null;
   const age = Number((await sb.from("worlds").select("game_date").eq("id", me.worldId).maybeSingle()).data?.game_date?.slice(0, 4) ?? year) - person.birth_year;
@@ -46,7 +49,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
     <>
       <div className="phero" style={{ ["--c" as string]: party?.color ?? "var(--planalto-2)" }}>
         <div>
-          <PersonAvatar name={person.name} color={party?.color} photo={photo} size={photo ? 96 : 76} />
+          <PersonAvatar name={person.name} color={party?.color} photo={photo} avatar={avatar} size={photo ? 96 : 76} />
           {photo && <PhotoCredit photo={photo} />}
         </div>
         <div className="phero__text">

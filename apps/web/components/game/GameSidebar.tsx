@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AUTHOR, authorSite } from "@/lib/author";
 import { usePopover } from "../a11y";
+import { AvatarSvg } from "../Avatar";
 import { Icon } from "../Icon";
 import { DONATIONS } from "@/lib/donations";
 import { SupportCard } from "../Support";
@@ -43,6 +44,8 @@ export interface SideProfile {
   place: string;
   party: { acronym: string; color: string } | null;
   photo: string | null;
+  /** avatar desenhado do jogador */
+  avatar?: string | null;
   initials: string;
   energy: number;
   money: number;
@@ -133,6 +136,8 @@ export function GameSidebar({ year, profile: initial, badges }: { year: number; 
             {profile.photo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={profile.photo} alt="" />
+            ) : profile.avatar ? (
+              <AvatarSvg code={profile.avatar} />
             ) : (
               profile.initials
             )}

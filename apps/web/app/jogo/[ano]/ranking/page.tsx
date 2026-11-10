@@ -1,6 +1,7 @@
 import { ACHIEVEMENTS, careerScore, OFFICES } from "@dp/engine";
 import { Empty, GameHeader, Panel, Pill } from "@/components/game/Page";
 import { PersonAvatar } from "@/components/PersonAvatar";
+import { avatarOf } from "@/lib/avatar";
 import { STAGE_LABEL } from "@/components/ui";
 import { playerState, requireMe } from "@/lib/game";
 
@@ -33,7 +34,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             {rows.map((r, i) => (
               <li key={r.p.id} className={r.p.id === me.person.id ? "is-me" : ""}>
                 <span className="rank__pos mono">{i + 1}</span>
-                <PersonAvatar name={r.p.name} color={r.party?.color} size={38} />
+                <PersonAvatar name={r.p.name} color={r.party?.color} avatar={avatarOf(state, r.p)} size={38} />
                 <div className="rank__who">
                   <b>{r.p.name}</b>
                   <span>

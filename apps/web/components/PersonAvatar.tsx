@@ -1,9 +1,17 @@
 import { initials } from "@/lib/format";
+import { AvatarSvg } from "./Avatar";
 import type { Photo } from "@/lib/photos";
 
-/** Foto real (TSE) quando houver; senão, iniciais na cor do partido. */
-export function PersonAvatar({ name, color, photo, size = 40 }: { name: string; color?: string | null; photo?: Photo | null; size?: number }) {
+/** Foto real (TSE) quando houver; o avatar desenhado dos jogadores; senão, iniciais na cor do partido. */
+export function PersonAvatar({ name, color, photo, avatar, size = 40 }: { name: string; color?: string | null; photo?: Photo | null; avatar?: string | null; size?: number }) {
   const style = { width: size, height: size * (photo ? 1.25 : 1), ["--c" as string]: color ?? "var(--planalto-2)", fontSize: size * 0.36 };
+  if (!photo && avatar) {
+    return (
+      <span className="pavatar has-avatar" style={style} aria-hidden="true">
+        <AvatarSvg code={avatar} />
+      </span>
+    );
+  }
   return photo ? (
     <span className="pavatar has-photo" style={style}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
