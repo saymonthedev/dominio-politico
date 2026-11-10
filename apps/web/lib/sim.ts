@@ -465,8 +465,6 @@ interface Cached {
   rev: number | null;
   /** este servidor está gravando o mundo agora (com o lease): a memória está à frente do banco */
   writing: boolean;
-  /** montado no banco (sem cópia que servisse): a cópia nova sai logo */
-  fromDb?: boolean;
 }
 const cache = new Map<string, Cached>();
 const loading = new Map<string, Promise<Cached>>();
@@ -511,17 +509,23 @@ function snapshotData(state: WorldState): LoadedJson {
  */
 async function fromSnapshot(worldId: string, rev: number): Promise<{ state: WorldState; rev: number } | null> {
   const snap = await readSnapshot<LoadedJson>(worldId);
-  if (!snap || snap.rev > rev) return null;
+  if (!snap) return null;
+  const skip = (why: string) => {
+    console.log(`[copia] ${worldId}: cópia ignorada (${why}), montando no banco`);
+    return null;
+  };
+  if (snap.rev > rev) return skip(`revisão ${snap.rev} à frente do banco ${rev}`);
   const d = await fetchDelta(worldId, snap.rev);
-  if (!d || d.full || !d.world) return null;
+  if (!d || d.full || !d.world) return skip(`o banco já não tem as mudanças desde a revisão ${snap.rev}`);
   const was = snap.data.world;
   const now = d.world;
   if (was.seed !== now.seed || was.start_game_date !== now.start_game_date || (was.stats?.born_at ?? 0) !== (now.stats?.born_at ?? 0) || was.tick > now.tick) {
-    return null;
+    return skip("é de outro mundo com o mesmo id");
   }
   const state = await stateFrom(worldId, snap.data);
   applyDelta(state, d);
   if (state.world.stats?.dropping) throw new Error("Este mundo foi apagado.");
+  console.log(`[copia] ${worldId}: mundo montado da cópia (rev ${snap.rev} → ${d.rev})`);
   return { state, rev: d.rev };
 }
 
@@ -540,31 +544,40 @@ function inBackground(job: () => Promise<unknown>): void {
   }
 }
 
+const copyable = (state: WorldState, rev: number | null): rev is number =>
+  SNAPSHOTS && rev !== null && !state.world.stats?.building && !state.world.stats?.dropping;
+
 /**
- * Renova a cópia do mundo com a memória deste servidor, que está exatamente na revisão do banco
- * (nunca durante uma gravação). Uma vez a cada 30 min por mundo, e só se nenhum outro servidor
- * acabou de renovar; logo depois de montar o mundo no banco, em até 2 min.
+ * O mundo acabou de ser montado no banco, na revisão `rev`: grava a cópia agora mesmo, na própria
+ * requisição (depois da resposta o servidor pode ser congelado e a gravação se perder). O texto do
+ * mundo é montado na hora; a requisição espera no máximo 4 s pelo envio, que continua sozinho.
+ */
+async function saveSnapshotNow(worldId: string, state: WorldState, rev: number | null): Promise<void> {
+  if (!copyable(state, rev)) return;
+  if (Date.now() - (snapSaved.get(worldId) ?? 0) < 2 * 60_000) return;
+  snapSaved.set(worldId, Date.now());
+  const job = writeSnapshot(worldId, { rev, at: Date.now(), data: snapshotData(state) });
+  const ok = await Promise.race([job, new Promise<null>((r) => setTimeout(() => r(null), 4_000))]);
+  if (ok === false) snapSaved.delete(worldId);
+}
+
+/**
+ * Renova a cópia com a memória deste servidor depois de uma gravação (a memória está exatamente na
+ * revisão do banco). Uma vez a cada 30 min por mundo, e só se nenhum outro servidor acabou de renovar.
  */
 function saveSnapshot(worldId: string, entry: Cached): void {
-  if (!SNAPSHOTS || entry.rev === null || entry.writing) return;
-  if (entry.state.world.stats?.building || entry.state.world.stats?.dropping) return;
-  const every = entry.fromDb ? 2 * 60_000 : SNAP_EVERY_MS;
-  if (Date.now() - (snapSaved.get(worldId) ?? 0) < every) return;
+  if (!copyable(entry.state, entry.rev) || entry.writing) return;
+  if (Date.now() - (snapSaved.get(worldId) ?? 0) < SNAP_EVERY_MS) return;
   snapSaved.set(worldId, Date.now());
   inBackground(async () => {
-    if (await snapshotNewerThan(worldId, every)) {
-      entry.fromDb = false;
-      return;
-    }
+    if (await snapshotNewerThan(worldId, SNAP_EVERY_MS)) return;
     // a memória pode ter mudado enquanto esperava: vale o que ela tem agora, se não estiver gravando
     const rev = entry.rev;
     if (entry.writing || rev === null) {
       snapSaved.delete(worldId);
       return;
     }
-    const ok = await writeSnapshot(worldId, { rev, at: Date.now(), data: snapshotData(entry.state) });
-    if (ok) entry.fromDb = false;
-    else snapSaved.delete(worldId);
+    if (!(await writeSnapshot(worldId, { rev, at: Date.now(), data: snapshotData(entry.state) }))) snapSaved.delete(worldId);
   });
 }
 
@@ -632,10 +645,10 @@ function load(worldId: string): Promise<Cached> {
       const copy = rev !== null ? await fromSnapshot(worldId, rev).catch(() => null) : null;
       const entry: Cached = copy
         ? { state: copy.state, born: Date.now(), rev: copy.rev, writing: false }
-        : { state: await loadState(worldId), born: Date.now(), rev, writing: false, fromDb: true };
+        : { state: await loadState(worldId), born: Date.now(), rev, writing: false };
       // uma gravação começou aqui mesmo durante a leitura: a memória dela está mais adiante
       if (!cache.get(worldId)?.writing) remember(worldId, entry);
-      if (entry.fromDb) saveSnapshot(worldId, entry);
+      if (!copy) await saveSnapshotNow(worldId, entry.state, rev);
       return entry;
     })().finally(() => loading.delete(worldId));
     loading.set(worldId, p);
@@ -731,7 +744,9 @@ async function openWorld(worldId: string, opts: { wait?: boolean } = {}): Promis
       const copy = await fromSnapshot(worldId, rev).catch(() => null);
       entry = copy
         ? { state: copy.state, born: Date.now(), rev: copy.rev, writing: true }
-        : { state: await loadState(worldId), born: Date.now(), rev, writing: true, fromDb: true };
+        : { state: await loadState(worldId), born: Date.now(), rev, writing: true };
+      // com o lease na mão, a memória recém-montada está exatamente na revisão do banco
+      if (!copy) await saveSnapshotNow(worldId, entry.state, rev);
     }
     if (entry.state.world.stats?.building) {
       // mundo criado pela metade (criação interrompida): completa antes de mexer nele
