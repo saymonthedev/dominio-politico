@@ -151,6 +151,7 @@ apps/web/              site Next.js (App Router, Server Actions)
   components/          kit de formulário, mapa, cabeçalho e rodapé, blocos legais
   components/game/     casca do jogo: barra lateral, sino, passar o tempo, ações rápidas
   lib/sim.ts           ponte motor ↔ banco: carrega, avança o relógio, aplica ações e grava
+  lib/snapshot.ts      cópia de cada mundo fora do banco (Vercel Blob privado, compactada e criptografada)
   app/admin/           painel de saúde (restrito às contas em ADMIN_USER_IDS): contas, banco, mundos e erros recentes
   app/partida/[ano]/   página e imagem de compartilhamento de cada ponto de partida
   e2e/                 testes das telas (Playwright) contra o projeto Supabase de testes
@@ -202,6 +203,8 @@ Cada mundo só passa pela poda depois de andar 10 dias de jogo desde a última p
 **Erros e métricas.** Erros de páginas, ações e da tarefa diária ficam guardados por 14 dias (fora da API pública) e aparecem no painel `/admin`. As visitas são contadas pelo Vercel Web Analytics (aba Analytics do projeto), sem cookies.
 
 **Mundos próprios.** O id diz o tipo: `br2026` (compartilhado), `br2026p…` (só meu) e `br2026f…` (fictício), com o começo do id da conta. No fictício, a troca de nomes é determinística (semente do mundo + nome real), então os dados estáticos dos municípios são convertidos de novo a cada carga, sem guardar uma tabela de nomes; o mundo guarda só o número de cada sigla real, para achar o partido correspondente. A função `sim_drop_world` apaga um mundo próprio inteiro e recusa os compartilhados.
+
+**Cópia do mundo fora do banco.** Cada servidor guarda os mundos na memória, mas a Vercel liga e desliga servidores o tempo todo, e cada servidor novo precisava montar o mundo inteiro no banco: de 5 a 10 s de processamento por mundo, até 18 MB de dados, umas 500 vezes por dia. No plano grátis, quando vários servidores faziam isso ao mesmo tempo, o banco travava e as telas estouravam o limite de 60 s (o erro 504). Agora o servidor novo lê uma cópia do mundo guardada no Vercel Blob (loja privada `dominio-politico-mundos`, em São Paulo), de 1 a 3 MB, e pede ao banco só o que mudou depois dela (`sim_world_delta`). A cópia é renovada a cada 30 min enquanto o mundo tem atividade, sempre a partir de uma memória que está exatamente na revisão do banco, e só vale se o banco ainda tiver o registro de tudo o que mudou depois dela (3 h). Cópia velha demais, ilegível ou de outro mundo com o mesmo id (cada mundo novo leva `born_at` em `stats`) é ignorada, e o mundo é montado no banco como antes. A cópia é compactada (brotli) e criptografada (AES-256-GCM, chave derivada de `SIM_SECRET`).
 
 **Leitura e gravação.** O estado é lido em partes paralelas e gravado em lotes paralelos; um lote que estoura o tempo do banco é dividido ao meio e tentado de novo (a gravação é idempotente). Com o jogador logado, as chamadas usam o papel autenticado, que tem mais tempo por comando. As telas usam um cache curto, descartado na hora quando o dia de jogo mudou ou o jogador agiu.
 
@@ -285,6 +288,8 @@ Em `apps/web/.env.local` (fora do Git):
 | `WORLD_MAX_CATCHUP_TICKS` | Não | Máximo de dias processados por requisição. Padrão: 45. |
 | `WORLD_CACHE_MAX` | Não | Mundos guardados na memória de cada instância. Padrão: 12. |
 | `WORLD_CACHE_HEAP_MB` | Não | Memória usada a partir da qual os mundos menos usados saem da memória. Padrão: 1100. |
+| `BLOB_READ_WRITE_TOKEN` | Não | Criada pela Vercel ao conectar a loja Blob `dominio-politico-mundos`. Com ela, os servidores novos leem a cópia do mundo em vez de montá-lo no banco. |
+| `WORLD_SNAPSHOTS` | Não | `0` desliga a cópia do mundo sem publicar código. |
 
 ### Publicação
 

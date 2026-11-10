@@ -49,7 +49,9 @@ import {
   type WorldRow,
   type WorldState,
 } from "@dp/engine";
+import { after } from "next/server";
 import { simSecret, SUPABASE_KEY, SUPABASE_URL } from "./env";
+import { dropSnapshot, readSnapshot, SNAPSHOTS, snapshotNewerThan, writeSnapshot } from "./snapshot";
 import { reportError } from "./report-error";
 
 export const WORLD_VERSION = "v1";
@@ -152,6 +154,7 @@ export async function dropWorld(worldId: string): Promise<void> {
   }
   // a revisão salta: um mundo recriado com o mesmo id nunca reaproveita uma memória antiga
   await bumpWorldRev(worldId, 1_000_000).catch(() => undefined);
+  await dropSnapshot(worldId);
   fictionCities.delete(worldId);
 }
 
@@ -309,8 +312,12 @@ export async function ensureWorld(year: number, worldId = worldIdFor(year)): Pro
   if (mode === "FICTIONAL") fictionalizeWorld(state, changes);
   changes.rows.delete("worlds");
   if (building === null) {
-    // linha do mundo primeiro (com start_year e a marca de construção) para as próximas leituras
-    const worldRow = { ...state.world, start_year: year, stats: { ...state.world.stats, building: Math.floor(Date.now() / 1000) } };
+    // um mundo próprio apagado e criado de novo com o mesmo id não pode herdar a cópia do antigo
+    await dropSnapshot(worldId);
+    // linha do mundo primeiro (com start_year e a marca de construção) para as próximas leituras;
+    // born_at fica para sempre e distingue este mundo de um anterior com o mesmo id
+    const now = Math.floor(Date.now() / 1000);
+    const worldRow = { ...state.world, start_year: year, stats: { ...state.world.stats, building: now, born_at: now } };
     await rpc("sim_apply", { p_world: worldId, p_changes: { worlds: [worldRow] }, p_expected_tick: null });
     await writeBatches(worldId, batchesOf(changes.toJSON()), "sim_apply");
   } else {
@@ -358,6 +365,11 @@ async function fetchWorld(worldId: string): Promise<LoadedJson | null> {
 export async function loadState(worldId: string): Promise<WorldState> {
   const data = await fetchWorld(worldId);
   if (!data) throw new Error("Mundo não encontrado");
+  return stateFrom(worldId, data);
+}
+
+/** Monta o estado a partir das linhas do mundo (lidas do banco ou da cópia guardada). */
+async function stateFrom(worldId: string, data: LoadedJson): Promise<WorldState> {
   if (data.world.stats?.dropping) throw new Error("Este mundo foi apagado.");
   const t = emptyTables();
   for (const name of STATEFUL_TABLES) {
@@ -453,6 +465,8 @@ interface Cached {
   rev: number | null;
   /** este servidor está gravando o mundo agora (com o lease): a memória está à frente do banco */
   writing: boolean;
+  /** montado no banco (sem cópia que servisse): a cópia nova sai logo */
+  fromDb?: boolean;
 }
 const cache = new Map<string, Cached>();
 const loading = new Map<string, Promise<Cached>>();
@@ -480,6 +494,78 @@ function remember(worldId: string, entry: Cached): void {
     if (cache.size <= 2 || process.memoryUsage().heapUsed < CACHE_HEAP_MAX) break;
     if (id !== worldId && !e.writing) cache.delete(id);
   }
+}
+
+/* ---------- cópia do mundo fora do banco (lib/snapshot.ts) ---------- */
+
+/** As linhas do mundo, no mesmo formato da carga completa do banco. */
+function snapshotData(state: WorldState): LoadedJson {
+  const out: Record<string, unknown> = { world: state.world, economy: state.economy };
+  for (const name of STATEFUL_TABLES) out[name] = [...(state.t[name] as Map<string, unknown>).values()];
+  return out as LoadedJson;
+}
+
+/**
+ * O mundo a partir da cópia guardada e do que mudou no banco depois dela. null quando não há cópia
+ * que sirva: velha demais para o registro de mudanças, de outro mundo com o mesmo id, ou ilegível.
+ */
+async function fromSnapshot(worldId: string, rev: number): Promise<{ state: WorldState; rev: number } | null> {
+  const snap = await readSnapshot<LoadedJson>(worldId);
+  if (!snap || snap.rev > rev) return null;
+  const d = await fetchDelta(worldId, snap.rev);
+  if (!d || d.full || !d.world) return null;
+  const was = snap.data.world;
+  const now = d.world;
+  if (was.seed !== now.seed || was.start_game_date !== now.start_game_date || (was.stats?.born_at ?? 0) !== (now.stats?.born_at ?? 0) || was.tick > now.tick) {
+    return null;
+  }
+  const state = await stateFrom(worldId, snap.data);
+  applyDelta(state, d);
+  if (state.world.stats?.dropping) throw new Error("Este mundo foi apagado.");
+  return { state, rev: d.rev };
+}
+
+/** Quando este servidor gravou (ou viu gravada) a cópia de cada mundo pela última vez. */
+const snapSaved = new Map<string, number>();
+/** Mundo com atividade tem a cópia renovada a cada 30 min (o registro de mudanças do banco cobre 3 h). */
+const SNAP_EVERY_MS = 30 * 60_000;
+
+/** Depois da resposta: o trabalho não atrasa a tela (fora de uma requisição, roda solto). */
+function inBackground(job: () => Promise<unknown>): void {
+  const run = () => job().catch(() => undefined);
+  try {
+    after(run);
+  } catch {
+    void run();
+  }
+}
+
+/**
+ * Renova a cópia do mundo com a memória deste servidor, que está exatamente na revisão do banco
+ * (nunca durante uma gravação). Uma vez a cada 30 min por mundo, e só se nenhum outro servidor
+ * acabou de renovar; logo depois de montar o mundo no banco, em até 2 min.
+ */
+function saveSnapshot(worldId: string, entry: Cached): void {
+  if (!SNAPSHOTS || entry.rev === null || entry.writing) return;
+  if (entry.state.world.stats?.building || entry.state.world.stats?.dropping) return;
+  const every = entry.fromDb ? 2 * 60_000 : SNAP_EVERY_MS;
+  if (Date.now() - (snapSaved.get(worldId) ?? 0) < every) return;
+  snapSaved.set(worldId, Date.now());
+  inBackground(async () => {
+    if (await snapshotNewerThan(worldId, every)) {
+      entry.fromDb = false;
+      return;
+    }
+    // a memória pode ter mudado enquanto esperava: vale o que ela tem agora, se não estiver gravando
+    const rev = entry.rev;
+    if (entry.writing || rev === null) {
+      snapSaved.delete(worldId);
+      return;
+    }
+    const ok = await writeSnapshot(worldId, { rev, at: Date.now(), data: snapshotData(entry.state) });
+    if (ok) entry.fromDb = false;
+    else snapSaved.delete(worldId);
+  });
 }
 
 /** Leituras pesadas ao mesmo tempo nesta instância (cada carga completa são 7 consultas grandes). */
@@ -542,10 +628,14 @@ function load(worldId: string): Promise<Cached> {
     p = (async () => {
       // a revisão é lida antes: se alguém gravar no meio da leitura, a próxima conferência busca o que faltou
       const rev = await worldRev(worldId);
-      const state = await loadState(worldId);
-      const entry: Cached = { state, born: Date.now(), rev, writing: false };
+      // primeiro a cópia guardada fora do banco (e só o que mudou depois dela); sem cópia que sirva, o banco
+      const copy = rev !== null ? await fromSnapshot(worldId, rev).catch(() => null) : null;
+      const entry: Cached = copy
+        ? { state: copy.state, born: Date.now(), rev: copy.rev, writing: false }
+        : { state: await loadState(worldId), born: Date.now(), rev, writing: false, fromDb: true };
       // uma gravação começou aqui mesmo durante a leitura: a memória dela está mais adiante
       if (!cache.get(worldId)?.writing) remember(worldId, entry);
+      if (entry.fromDb) saveSnapshot(worldId, entry);
       return entry;
     })().finally(() => loading.delete(worldId));
     loading.set(worldId, p);
@@ -637,7 +727,12 @@ async function openWorld(worldId: string, opts: { wait?: boolean } = {}): Promis
         }
       }
     }
-    if (!entry) entry = { state: await loadState(worldId), born: Date.now(), rev, writing: true };
+    if (!entry) {
+      const copy = await fromSnapshot(worldId, rev).catch(() => null);
+      entry = copy
+        ? { state: copy.state, born: Date.now(), rev: copy.rev, writing: true }
+        : { state: await loadState(worldId), born: Date.now(), rev, writing: true, fromDb: true };
+    }
     if (entry.state.world.stats?.building) {
       // mundo criado pela metade (criação interrompida): completa antes de mexer nele
       entry.writing = false;
@@ -666,6 +761,7 @@ async function closeWorld(worldId: string, w: Opened, dirty: boolean, ok: boolea
     w.entry.rev = rev;
     trimToLoad(w.entry.state);
     remember(worldId, w.entry);
+    saveSnapshot(worldId, w.entry);
   } else if (cache.get(worldId) === w.entry) {
     cache.delete(worldId);
   }
