@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { sideVitals } from "@/lib/vitals";
-import { canonicalGeo, geoName, type NotificationRow } from "@dp/engine";
+import { canonicalGeo, clockTarget, geoName, type NotificationRow } from "@dp/engine";
 import { Announce } from "@/components/Announce";
 import { GameSidebar } from "@/components/game/GameSidebar";
 import { HashScroll } from "@/components/game/HashScroll";
@@ -9,6 +9,7 @@ import { MobileStatus } from "@/components/game/MobileStatus";
 import { NotificationBell } from "@/components/game/NotificationBell";
 import { StoryBell } from "@/components/game/StoryCenter";
 import { Toaster } from "@/components/game/Toaster";
+import { SharedWorldProvider } from "@/components/game/world-mode";
 import { UserMenu } from "@/components/game/UserMenu";
 import { LogoMark } from "@/components/Logo";
 import { SupportTopButton } from "@/components/Support";
@@ -17,7 +18,7 @@ import { STAGE_LABEL } from "@/components/ui";
 import { initials } from "@/lib/format";
 import { defaultAvatar, isAvatarCode } from "@/lib/avatar-code";
 import { getSession, getWorld, requireMe } from "@/lib/game";
-import { asPlayer, backgroundAdvance, citiesFor, ensureWorld } from "@/lib/sim";
+import { asPlayer, backgroundAdvance, citiesFor, ensureWorld, modeOfWorld } from "@/lib/sim";
 
 export const dynamic = "force-dynamic";
 /** avançar 30 dias pode levar alguns segundos */
@@ -45,13 +46,10 @@ export default async function GameLayout({ children, params }: { children: React
   const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
   const invites = (invitesQ.data ?? []).map((r) => r.id as string);
 
-  // O mundo segue andando: se o relógio está atrasado, avança em segundo plano (com trava: uma tentativa
+  // O mundo segue andando: passou a hora do salto, avança em segundo plano (com trava: uma tentativa
   // por mundo a cada 90 s nesta instância, sem fila de servidores esperando o mesmo lease)
-  if (world) {
-    const hours = (Date.now() - Date.parse(world.anchor_real_at)) / 3_600_000;
-    const behind = world.anchor_tick + Math.floor(hours * world.game_days_per_real_hour) - world.tick;
-    if (behind > 0) after(() => asPlayer(token, () => backgroundAdvance(year)));
-  }
+  if (world && clockTarget(world, Date.now()) > world.tick) after(() => asPlayer(token, () => backgroundAdvance(year)));
+  const shared = modeOfWorld(me.worldId) === "SHARED";
   const d = world ? new Date(`${world.game_date}T12:00:00Z`) : null;
   const city = canonicalGeo(me.person.municipality);
   const place = /^\d{7}$/.test(city) ? geoName(city, { cities }) : me.person.uf;
@@ -62,6 +60,7 @@ export default async function GameLayout({ children, params }: { children: React
   const avatar = isAvatarCode(chosen) ? chosen : defaultAvatar(me.person.id);
 
   return (
+    <SharedWorldProvider shared={shared}>
     <Toaster>
       <a className="skip" href="#conteudo">
         Pular para o conteúdo
@@ -77,7 +76,7 @@ export default async function GameLayout({ children, params }: { children: React
               <small>Brasil pós-{year}{world?.stats?.fictional ? " · fictício" : world?.stats?.private ? " · só seu" : ""}</small>
             </span>
           </a>
-          <a className="gtop__date" href={`/jogo/${year}#tempo`} title="Passar o tempo no painel">
+          <a className="gtop__date" href={`/jogo/${year}#tempo`} title={shared ? "O tempo anda sozinho: veja no Painel o próximo avanço" : "Passar o tempo no Painel"}>
             {d ? (
               <>
                 <small>{WEEKDAY[d.getUTCDay()]}</small>
@@ -129,5 +128,6 @@ export default async function GameLayout({ children, params }: { children: React
         </main>
       </div>
     </Toaster>
+    </SharedWorldProvider>
   );
 }

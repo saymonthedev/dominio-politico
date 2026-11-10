@@ -172,7 +172,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                 </ul>
               ) : (
                 <Empty icon="inbox" title="Nenhuma proposta ainda">
-                  Passe o tempo no Painel: moradores, entidades e colegas trazem pedidos ao gabinete. Você também pode apresentar um projeto nas ações abaixo.
+                  Com o passar do tempo, moradores, entidades e colegas trazem pedidos ao gabinete. Você também pode apresentar um projeto nas ações abaixo.
                 </Empty>
               )}
             </Panel>

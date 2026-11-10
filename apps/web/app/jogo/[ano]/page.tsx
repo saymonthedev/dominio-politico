@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { addDays, electionNight, planAdvance, SHARED_DAYS_PER_HOUR, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
+import { addDays, clockTarget, electionNight, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
@@ -7,7 +7,8 @@ import { QuickAction } from "@/components/game/QuickAction";
 import { Onboarding, type OnboardingStep } from "@/components/game/Onboarding";
 import { actionsFor } from "@/lib/actions-view";
 import { ApuracaoReplay } from "@/components/game/ApuracaoReplay";
-import { TimeMachine, type SharedClock } from "@/components/game/TimeMachine";
+import { TimeMachine } from "@/components/game/TimeMachine";
+import { WorldClock, type SharedClock } from "@/components/game/WorldClock";
 import { StoryInbox } from "@/components/game/StoryCenter";
 import { Icon } from "@/components/Icon";
 import { PersonAvatar } from "@/components/PersonAvatar";
@@ -16,7 +17,7 @@ import { fmtDate, fmtDec, fmtMoney, fmtPct } from "@/lib/format";
 import { agenda, careerSteps, pending, type Step } from "@/lib/game-view";
 import { getSession, playerState, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
-import { clockStatus } from "@/lib/sim";
+import { worldClock } from "@/lib/sim";
 import { Term } from "@/components/Term";
 
 function delta(now: number, prev: number | undefined, digits = 2, invert = false) {
@@ -35,7 +36,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const { sb } = await getSession();
   const [state, clockNow, newsQ, ecoQ] = await Promise.all([
     playerState(year),
-    clockStatus(me.worldId, me.person.id),
+    worldClock(me.worldId, me.person.id),
     sb.from("news_articles").select("*").eq("world_id", me.worldId).neq("outlet", "Rede social").order("tick", { ascending: false }).order("importance", { ascending: false }).limit(14),
     sb.from("economy_snapshots").select("*").eq("world_id", me.worldId).order("month", { ascending: false }).limit(2),
   ]);
@@ -55,19 +56,15 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const firstName = me.person.name.split(" ")[0];
   const pendCount = todo.invites.length + todo.offers.length + todo.investigations + todo.partyRequests.length;
   const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
-  // relógio compartilhado: só aparece quando há outros jogadores ativos no mundo
+  // mundo compartilhado: o tempo anda sozinho, em saltos fixos (sem botões de avançar)
   const clock: SharedClock | null = clockNow.shared
     ? {
-        others: clockNow.others.length,
-        remaining: clockNow.remaining,
-        perHour: SHARED_DAYS_PER_HOUR,
-        recent: clockNow.recent.map((r) => ({ name: r.name, days: r.days, at: r.at, mine: r.person_id === me.person.id })),
-        plans: Object.fromEntries(
-          [1, 7, 15, 30].map((d) => {
-            const p = planAdvance(state, clockNow, state.world.game_date, d);
-            return [d, { ok: p.ok, days: p.days, stop: p.stop?.label, message: p.message }];
-          }),
-        ),
+        others: clockNow.others,
+        nextAt: clockNow.nextAt!,
+        nextLabel: clockNow.nextLabel!,
+        catchingUp: clockTarget(state.world, Date.now()) > state.world.tick,
+        stepDays: clockNow.stepDays,
+        stepHours: clockNow.stepHours,
       }
     : null;
 
@@ -86,10 +83,10 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
     },
     {
       id: "tempo",
-      title: "Passe o tempo",
-      text: state.world.stats?.private
-        ? "Neste mundo só seu, o tempo para enquanto você não joga. Avance dias aqui no Painel e veja o que aconteceu no Brasil."
-        : "O mundo anda sozinho, mas você pode avançar dias aqui no Painel e ver o que aconteceu no Brasil.",
+      title: clock ? "Acompanhe o relógio" : "Passe o tempo",
+      text: clock
+        ? `Neste mundo o tempo anda sozinho: ${clock.stepDays} dias de jogo a cada ${clock.stepHours} horas, nas horas pares de Brasília. Aja na carreira e volte depois do próximo avanço para ver o que mudou no Brasil.`
+        : "Neste mundo só seu, o tempo para enquanto você não joga. Avance dias aqui no Painel e veja o que aconteceu no Brasil.",
       href: `${base}#tempo`,
       cta: "Ir para o relógio",
       done: state.world.tick - me.person.created_tick >= 7,
@@ -98,9 +95,9 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
       id: "acontecimento",
       title: "Responda a um acontecimento",
       term: "Acontecimento",
-      text: "Passando o tempo, a vida acontece: convites, crises, propostas. Eles aparecem num pop-up e no ícone de raio do topo. Escolha como reagir; cada escolha tem consequências.",
+      text: "Com o passar do tempo, a vida acontece: convites, crises, propostas. Eles aparecem no ícone de raio do topo e no relógio do Painel. Escolha como reagir; cada escolha tem consequências.",
       href: `${base}#tempo`,
-      cta: "Passar o tempo",
+      cta: "Ir para o relógio",
       done: (me.state.story?.log ?? []).some((e) => !e.auto && e.kind !== "INFO"),
     },
     {
@@ -138,6 +135,12 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
     .sort((a, b) => b.d.localeCompare(a.d))[0];
   const replay = lastVote ? electionNight(state, me.person.id, addDays(lastVote.d, -1), lastVote.d) : [];
 
+  // o que cai hoje já começou: o próximo marco é o seguinte
+  const nextMark = (() => {
+    const n = cal.find((x) => x.days >= 1);
+    return n ? { label: n.title, date: n.date } : null;
+  })();
+  const todayMarks = cal.filter((x) => x.days === 0).map((x) => x.title);
   // época de eleição: ações que dá para agendar nos dias que vão passar
   const schedulable = actionsFor(state, me.person.id, ["PARTIDO", "CAMPANHA"]).filter(
     (a) => !a.reason && (a.id === "pre_candidatura" || a.category === "CAMPANHA") && a.params.every((p) => p.optional || (p.options?.length ?? 0) > 0),
@@ -145,7 +148,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
 
   return (
     <>
-      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""}, ${Number(state.world.game_date.slice(0, 4)) - me.person.birth_year} anos. Veja o que fazer agora, passe o tempo e acompanhe o país.`}>
+      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""}, ${Number(state.world.game_date.slice(0, 4)) - me.person.birth_year} anos. Veja o que fazer agora${clock ? "" : ", passe o tempo"} e acompanhe o país.`}>
         <a className="ui-btn ui-btn--gold" href={`/jogo/${year}/carreira`}>
           <Icon name="play" size={16} /> <span>Agir na carreira</span>
         </a>
@@ -156,20 +159,11 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
       {replay.length > 0 && lastVote && <ApuracaoReplay list={replay} year={lastVote.e.year} />}
 
       <div id="tempo" className="mb">
-        <TimeMachine
-          year={year}
-          date={state.world.game_date}
-          energy={me.state.energy}
-          next={(() => {
-            // o que cai hoje já começou: o próximo marco é o seguinte
-            const n = cal.find((x) => x.days >= 1);
-            return n ? { label: n.title, date: n.date } : null;
-          })()}
-          today={cal.filter((x) => x.days === 0).map((x) => x.title)}
-          clock={clock}
-          pending={storyPending}
-          agenda={schedulable}
-        />
+        {clock ? (
+          <WorldClock year={year} date={state.world.game_date} energy={me.state.energy} clock={clock} next={nextMark} today={todayMarks} pending={storyPending} />
+        ) : (
+          <TimeMachine year={year} date={state.world.game_date} energy={me.state.energy} next={nextMark} today={todayMarks} pending={storyPending} agenda={schedulable} />
+        )}
       </div>
 
       <div className="ggrid ggrid--main">

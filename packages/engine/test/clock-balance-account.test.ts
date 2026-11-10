@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   acceptanceProbability,
-  addDays,
   clearPlayerData,
+  clockTarget,
   computeAffiliation,
   createCharacter,
   Ctx,
+  nextClockStep,
   performAction,
-  planAdvance,
   runTicks,
+  SHARED_SPEED,
+  targetTick,
   worldPriceLevel,
-  type ClockStatus,
 } from "../src";
 import { freshWorld } from "./helpers";
 
@@ -71,31 +72,53 @@ describe("exclusão de conta", () => {
   });
 });
 
-describe("relógio compartilhado", () => {
-  const solo: ClockStatus = { others: [], shared: false, remaining: null, freesAt: null, recent: [], now: "2026-10-28T12:00:00.000Z" };
-  const shared = (over: Partial<ClockStatus> = {}): ClockStatus => ({ ...solo, others: ["outro"], shared: true, remaining: 60, ...over });
+describe("relógio dos mundos compartilhados", () => {
+  // 16h30 de Brasília (19h30 UTC)
+  const anchor = { anchor_real_at: "2026-11-10T19:30:00.000Z", anchor_tick: 100, game_days_per_real_hour: SHARED_SPEED };
+  const at = (iso: string) => Date.parse(iso);
 
-  it("sozinho, avança sem limite", () => {
-    const { state } = freshWorld("relogio-solo");
-    expect(planAdvance(state, solo, state.world.game_date, 30)).toEqual({ ok: true, days: 30 });
+  it("anda 7 dias a cada hora par de Brasília, nunca no meio", () => {
+    expect(clockTarget(anchor, at("2026-11-10T19:30:00.000Z"))).toBe(100);
+    expect(clockTarget(anchor, at("2026-11-10T20:59:59.000Z"))).toBe(100);
+    // 18h de Brasília
+    expect(clockTarget(anchor, at("2026-11-10T21:00:00.000Z"))).toBe(107);
+    expect(clockTarget(anchor, at("2026-11-10T22:59:00.000Z"))).toBe(107);
+    // 20h e, um dia depois, 12 saltos a mais
+    expect(clockTarget(anchor, at("2026-11-10T23:00:00.000Z"))).toBe(114);
+    expect(clockTarget(anchor, at("2026-11-11T23:00:00.000Z"))).toBe(114 + 12 * 7);
+    // antes da âncora não volta
+    expect(clockTarget(anchor, at("2026-11-10T10:00:00.000Z"))).toBe(100);
   });
 
-  it("com outros jogadores, respeita a cota de dias por hora", () => {
-    const { state } = freshWorld("relogio-cota");
-    const from = "2027-03-10";
-    expect(planAdvance(state, shared({ remaining: 12 }), from, 30)).toMatchObject({ ok: true, days: 12 });
-    expect(planAdvance(state, shared({ remaining: 0, freesAt: "2026-10-28T12:20:00.000Z" }), from, 7)).toMatchObject({ ok: false, days: 0 });
+  it("o próximo salto é na próxima hora par de Brasília", () => {
+    expect(new Date(nextClockStep(at("2026-11-10T19:30:00.000Z"))).toISOString()).toBe("2026-11-10T21:00:00.000Z");
+    expect(new Date(nextClockStep(at("2026-11-10T21:00:00.000Z"))).toISOString()).toBe("2026-11-10T23:00:00.000Z");
+    expect(new Date(nextClockStep(at("2026-11-11T02:10:00.000Z"))).toISOString()).toBe("2026-11-11T03:00:00.000Z");
   });
 
-  it("para na véspera de um marco e só o cruza 30 minutos depois do último avanço", () => {
-    const { state } = freshWorld("relogio-marco");
-    const election = [...state.t.elections.values()].filter((e) => e.status !== "ENCERRADA").sort((a, b) => a.year - b.year)[0];
-    const eve = addDays(election.first_round, -1);
-    const stop = planAdvance(state, shared(), addDays(election.first_round, -10), 30);
-    expect(stop).toMatchObject({ ok: true, days: 9 });
-    expect(stop.stop?.label).toContain("1º turno");
-    const recent = (minutesAgo: number) => [{ person_id: "outro", name: "Outro", days: 9, from: null, to: eve, at: new Date(Date.parse(solo.now) - minutesAgo * 60_000).toISOString() }];
-    expect(planAdvance(state, shared({ recent: recent(5) }), eve, 7).ok).toBe(false);
-    expect(planAdvance(state, shared({ recent: recent(40) }), eve, 7)).toMatchObject({ ok: true, days: 7 });
+  it("mundo só do jogador não anda sozinho", () => {
+    const { state } = freshWorld("relogio-proprio");
+    state.world.game_days_per_real_hour = 0;
+    expect(targetTick(state, "2027-01-01T00:00:00.000Z")).toBe(state.world.anchor_tick);
+  });
+
+  it("nos saltos, só quem jogou nos últimos dias recebe acontecimentos sorteados", () => {
+    const { state } = freshWorld("relogio-vivendo");
+    const make = (id: string, name: string) => {
+      const r = createCharacter(new Ctx(state, `action:setup-${id}`), { userId: id, name, uf: "SP", age: 30, profession: "professor", origin: "classe_media", interests: [], ideology: {} });
+      expect(r.ok).toBe(true);
+      return r.person!;
+    };
+    const ativo = make("00000000-0000-0000-0000-0000000000a1", "Clara Ativa");
+    const ausente = make("00000000-0000-0000-0000-0000000000a2", "Bruno Ausente");
+    state.living = new Set([ativo.id]);
+    runTicks(state, { target: state.world.tick + 42, maxTicks: 42 });
+    state.living = undefined;
+    const fired = (id: string) => Object.values(state.t.person_states.get(id)!.story?.seen ?? {}).reduce((n, x) => n + x.n, 0);
+    expect(fired(ativo.id)).toBeGreaterThan(0);
+    expect(fired(ausente.id)).toBeLessThan(fired(ativo.id));
+    // decisão sem resposta não vence sozinha nos saltos: espera a volta do jogador
+    const story = state.t.person_states.get(ativo.id)!.story!;
+    expect(story.log.filter((e) => e.auto && e.kind !== "INFO")).toHaveLength(0);
   });
 });

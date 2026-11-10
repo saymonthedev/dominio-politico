@@ -10,7 +10,6 @@ import { inviteIdOf, resolveLink } from "@/lib/links";
 import type { CareerEndView, CountrySnapshot, DecideResult, FastForwardResult, StepAdvanceResult } from "@/lib/sim";
 import { useModal } from "../a11y";
 import { Button } from "../forms";
-import { Term } from "../Term";
 import { Icon } from "../Icon";
 import { DeltaChips } from "./ActionFx";
 import { Apuracao } from "./Apuracao";
@@ -48,33 +47,12 @@ const longIso = (iso?: string) => {
 const brl = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
 const num = (v: number, d = 1) => v.toFixed(d).replace(".", ",");
 
-/** Plano de um botão de avanço segundo o relógio compartilhado. */
-export interface OptionPlan {
-  ok: boolean;
-  days: number;
-  /** marco em cuja véspera o avanço para */
-  stop?: string;
-  message?: string;
-}
-
-export interface SharedClock {
-  /** outros jogadores ativos nas últimas 72 h */
-  others: number;
-  /** dias ainda disponíveis nesta hora */
-  remaining: number | null;
-  perHour: number;
-  recent: Array<{ name: string | null; days: number; at: string; mine: boolean }>;
-  plans: Record<number, OptionPlan>;
-}
-
 export interface TimeMachineProps {
   year: number;
   date: string;
   energy: number;
   /** próximo compromisso da agenda, para orientar o salto */
   next?: { label: string; date: string } | null;
-  /** presente quando há outros jogadores ativos no mundo */
-  clock?: SharedClock | null;
   /** acontecimentos esperando resposta */
   pending?: StoryEvent[];
   /** marcos do calendário que caem hoje (já começaram) */
@@ -92,14 +70,6 @@ interface Decided {
 }
 
 type Phase = "idle" | "loading" | "playing" | "counting" | "deciding" | "paused" | "summary" | "ended";
-
-const ago = (iso: string) => {
-  const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
-  if (m < 1) return "agora";
-  if (m < 60) return `há ${m} min`;
-  const h = Math.round(m / 60);
-  return h < 24 ? `há ${h} h` : `há ${Math.round(h / 24)} d`;
-};
 
 /** Junta os pedaços do avanço (entre uma decisão e outra) num resumo só. */
 function mergeChunks(chunks: StepAdvanceResult[]): FastForwardResult | null {
@@ -123,11 +93,11 @@ function mergeChunks(chunks: StepAdvanceResult[]): FastForwardResult | null {
   };
 }
 
-/** O lugar único para passar o tempo: os dias passam um a um, com pausa nas decisões. */
+/** Passar o tempo nos mundos do próprio jogador: os dias passam um a um, com pausa nas decisões. */
 const isoPlus = (iso: string, n: number) => addDays(iso, n).toISOString().slice(0, 10);
 const daysFrom = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / DAY);
 
-export function TimeMachine({ year, date, energy, next, clock, pending = [], agenda = [], today: todayMarks = [] }: TimeMachineProps) {
+export function TimeMachine({ year, date, energy, next, pending = [], agenda = [], today: todayMarks = [] }: TimeMachineProps) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [diary, setDiary] = useState<DayDigest[]>([]);
   const [shown, setShown] = useState(0);
@@ -143,7 +113,6 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
   // fim do período pedido e ações agendadas para dias dele
   const endRef = useRef(date);
   const planRef = useRef<PlannedAction[]>([]);
-  const askedRef = useRef(0);
   const [planning, setPlanning] = useState<number | null>(null);
   // apuração do dia de votação: abre quando o diário chega nesse dia
   const [apu, setApu] = useState<ApuracaoData[] | null>(null);
@@ -176,7 +145,6 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
   };
 
   const fetchChunk = async (n: number) => {
-    askedRef.current = n;
     setPhase("loading");
     const r = await advanceDays(year, n);
     if (!r.ok) {
@@ -225,10 +193,7 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
     const cur = at();
     await runDue(cur);
     const left = daysFrom(cur, endRef.current);
-    const r = last.current;
-    // relógio compartilhado segurou o avanço (marco com outros jogadores): encerra aqui
-    const held = !!r && !!r.note && (r.remaining ?? 0) === 0 && (r.diary?.length ?? 0) < askedRef.current;
-    if (left <= 0 || held) return finish();
+    if (left <= 0) return finish();
     if (paused.current) return setPhase("paused");
     const nextPlan = planRef.current.map((a) => a.date).filter((d) => d > cur).sort()[0];
     void fetchChunk(Math.min(left, nextPlan ? daysFrom(cur, nextPlan) : left, 31));
@@ -371,39 +336,20 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
         </div>
       ) : !live ? (
         <div className="tm__opts" role="group" aria-label="Escolha quanto tempo passar">
-          {OPTIONS.map((o) => {
-            const plan = clock?.plans[o.days];
-            const blocked = plan ? !plan.ok : false;
-            const days = plan?.ok ? plan.days : o.days;
-            return (
-              <button
-                key={o.days}
-                type="button"
-                className={`tm__opt${o.days === 7 ? " tm__opt--main" : ""}${blocked ? " is-blocked" : ""}`}
-                onClick={() => start(plan?.ok ? plan.days : o.days)}
-                disabled={blocked}
-                title={blocked ? plan?.message : undefined}
-                aria-describedby={clock ? "tm-shared" : undefined}
-              >
-                <b>{o.label}</b>
-                <span>{blocked ? "indisponível agora" : `até ${short(addDays(date, days))}`}</span>
-                <small>{plan?.ok && plan.stop ? `para na véspera do ${plan.stop}` : plan?.ok && plan.days < o.days ? `só ${plan.days} dia${plan.days > 1 ? "s" : ""} nesta hora` : o.hint}</small>
-              </button>
-            );
-          })}
-          {next && toNext !== null && toNext >= 1 && (() => {
-            // relógio compartilhado: o marco respeita o mesmo limite do botão de 1 mês
-            const cap = clock?.plans[30];
-            const blocked = !!cap && !cap.ok;
-            const days = cap?.ok ? Math.min(toNext, cap.days) : toNext;
-            return (
-              <button type="button" className={`tm__opt tm__opt--marco${blocked ? " is-blocked" : ""}`} onClick={() => start(days)} disabled={blocked} title={blocked ? cap?.message : undefined}>
-                <b>Próximo marco</b>
-                <span>{blocked ? "indisponível agora" : `até ${short(addDays(date, days))}`}</span>
-                <small>{days < toNext ? `${days} de ${toNext} dias nesta hora` : next.label}</small>
-              </button>
-            );
-          })()}
+          {OPTIONS.map((o) => (
+            <button key={o.days} type="button" className={`tm__opt${o.days === 7 ? " tm__opt--main" : ""}`} onClick={() => start(o.days)}>
+              <b>{o.label}</b>
+              <span>até {short(addDays(date, o.days))}</span>
+              <small>{o.hint}</small>
+            </button>
+          ))}
+          {next && toNext !== null && toNext >= 1 && (
+            <button type="button" className="tm__opt tm__opt--marco" onClick={() => start(toNext)}>
+              <b>Próximo marco</b>
+              <span>até {short(addDays(date, toNext))}</span>
+              <small>{next.label}</small>
+            </button>
+          )}
         </div>
       ) : (
         <div className="tm__live">
@@ -441,32 +387,6 @@ export function TimeMachine({ year, date, energy, next, clock, pending = [], age
               </>
             ) : null}
           </div>
-        </div>
-      )}
-
-      {clock && !live && (
-        <div className="tm__shared" id="tm-shared">
-          <p>
-            <Icon name="users" size={15} />
-            <span>
-              <b>
-                <Term k="Relógio compartilhado" />
-              </b>{" "}
-              com {clock.others === 1 ? "outro jogador ativo" : `${clock.others} outros jogadores ativos`}: até {clock.perHour} dias por hora, somando
-              todos, e o avanço para na véspera de prazos e eleições.{" "}
-              {clock.remaining !== null && (clock.remaining > 0 ? `Restam ${clock.remaining} dias nesta hora.` : "A cota desta hora acabou.")}
-            </span>
-          </p>
-          {Object.values(clock.plans).find((p) => !p.ok)?.message && <p className="tm__block">{Object.values(clock.plans).find((p) => !p.ok)?.message}</p>}
-          {clock.recent.length > 0 && (
-            <ul className="tm__log" aria-label="Últimos avanços do relógio">
-              {clock.recent.slice(0, 3).map((r, i) => (
-                <li key={i}>
-                  <b>{r.mine ? "Você" : r.name ?? "Um jogador"}</b> avançou {r.days === 1 ? "1 dia" : `${r.days} dias`} <span className="muted">· {ago(r.at)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
       )}
 

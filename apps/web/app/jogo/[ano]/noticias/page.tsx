@@ -32,7 +32,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <NewsList news={news} lead={page === 0} />
         ) : (
           <Empty icon="newspaper" title="Nenhuma notícia nesta editoria">
-            Passe o tempo no Painel para o mundo produzir mais acontecimentos.
+            Com o passar do tempo, o mundo produz mais acontecimentos.
           </Empty>
         )}
       </Panel>

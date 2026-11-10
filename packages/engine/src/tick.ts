@@ -1,3 +1,4 @@
+import { clockTarget } from "./clock";
 import { monthlyFamily } from "./family";
 import { partyInvitations, processAffiliationRequests } from "./affiliation";
 import { addDays, day, diffDays, month, weekday } from "./calendar";
@@ -202,11 +203,9 @@ export function advanceDay(ctx: Ctx): void {
   ctx.saveWorld();
 }
 
-/** Tick alvo segundo o relógio real do mundo. */
+/** Tick alvo segundo o relógio real do mundo (saltos fixos nos compartilhados; parado nos do jogador). */
 export function targetTick(state: WorldState, nowIso: string): number {
-  const w = state.world;
-  const hours = (Date.parse(nowIso) - Date.parse(w.anchor_real_at)) / 3_600_000;
-  return w.anchor_tick + Math.max(0, Math.floor(hours * w.game_days_per_real_hour));
+  return clockTarget(state.world, Date.parse(nowIso));
 }
 
 /** Avança até `maxTicks` dias (ou até o alvo) e devolve as mudanças acumuladas. */

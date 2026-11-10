@@ -8,19 +8,21 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadBairros, loadCities, loadSnapshot } from "@dp/data";
 import { liveVitals, type LiveVitals } from "./vitals";
 import {
-  addDays,
   careerSummary,
   electionNight,
   Changes,
   clearPlayerData,
   createInitialWorld,
-  MILESTONE_HOLD_MIN,
+  brasiliaHour,
+  clockTarget,
+  nextClockStep,
   pendingFor,
-  planAdvance,
   PRIVATE_FLAG,
   resolveStory,
   stepDays,
-  SHARED_DAYS_PER_HOUR,
+  SHARED_SPEED,
+  SHARED_STEP_DAYS,
+  SHARED_STEP_HOURS,
   Ctx,
   DEFAULT_RULESET,
   housingFromFile,
@@ -29,7 +31,6 @@ import {
   FICTIONAL_FLAG,
   fictionalizeCities,
   fictionalizeWorld,
-  formatDatePt,
   hydrateState,
   runTicks,
   STATEFUL_TABLES,
@@ -38,8 +39,6 @@ import {
   type Apuracao,
   type CityBase,
   type CareerSummary,
-  type ClockAdvance,
-  type ClockStatus,
   type DayDigest,
   type EconomyRow,
   type StoryDelta,
@@ -70,8 +69,6 @@ export const modeOfWorld = (id: string): WorldMode => (id[6] === "f" ? "FICTIONA
 export const MAX_PRIVATE_WORLDS = Number(process.env.MAX_PRIVATE_WORLDS ?? "30");
 export const isStartYear = (y: number): boolean => (START_YEARS as readonly number[]).includes(y);
 
-/** Velocidade padrão: 2 dias de jogo por hora real (ajustável por ambiente). */
-const SPEED = Number(process.env.WORLD_GAME_DAYS_PER_HOUR ?? "2");
 const MAX_CATCHUP = Number(process.env.WORLD_MAX_CATCHUP_TICKS ?? "45");
 const CHUNK_ROWS = 500;
 /** lotes gravados ao mesmo tempo (as tabelas do mundo não têm chaves estrangeiras entre si) */
@@ -305,7 +302,7 @@ export async function ensureWorld(year: number, worldId = worldIdFor(year)): Pro
     worldId,
     seed: mode === "SHARED" ? base : `${base}|${worldId}`,
     startRealAt: new Date().toISOString(),
-    gameDaysPerRealHour: mode === "SHARED" ? SPEED : 0,
+    gameDaysPerRealHour: mode === "SHARED" ? SHARED_SPEED : 0,
     name: mode === "SHARED" ? `Brasil pós-${year}` : `Brasil pós-${year} · só seu`,
   });
   if (mode !== "SHARED") state.world.stats[PRIVATE_FLAG] = 1;
@@ -798,8 +795,19 @@ export async function withWorld<T>(
   try {
     const state = w.state;
     const expected = state.world.tick;
-    const target = targetTick(state, new Date().toISOString());
-    const { ctx, ticks } = runTicks(state, { target, maxTicks: opts.maxTicks ?? MAX_CATCHUP, budgetMs: opts.budgetMs ?? 12_000, now: () => Date.now(), tolerant: true });
+    const now = new Date().toISOString();
+    const aligned = alignClock(worldId, state, now);
+    const target = targetTick(state, now);
+    // salto do mundo compartilhado: quem jogou nos últimos dias vive a semana (recebe acontecimentos)
+    if (target > state.world.tick && modeOfWorld(worldId) === "SHARED") state.living = new Set(await activePlayers(worldId));
+    let run: ReturnType<typeof runTicks>;
+    try {
+      run = runTicks(state, { target, maxTicks: opts.maxTicks ?? MAX_CATCHUP, budgetMs: opts.budgetMs ?? 12_000, now: () => Date.now(), tolerant: true });
+    } finally {
+      state.living = undefined;
+    }
+    const { ctx, ticks } = run;
+    if (aligned) ctx.saveWorld();
     const actionChanges: Changes[] = [];
     const makeCtx = (personId: string) => {
       // fase única por personagem e sequência de ações: ids e sorteios reprodutíveis
@@ -813,7 +821,7 @@ export async function withWorld<T>(
     const changes = new Changes();
     changes.merge(ctx.changes);
     for (const c of actionChanges) changes.merge(c);
-    if (changes.count() > 0 || ticks > 0) {
+    if (changes.count() > 0 || ticks > 0 || aligned) {
       dirty = true;
       await persist(worldId, changes, expected, state);
     }
@@ -929,36 +937,73 @@ function snapshotOf(state: WorldState, userId: string): PersonSnapshot | null {
   return { stage: p.stage, energy: Math.round(st.energy), money: Math.round(st.money), reputation: Math.round(p.reputation), party: p.party_id ? state.t.parties.get(p.party_id)?.acronym ?? null : null };
 }
 
-/* ---------- relógio compartilhado (regras no motor: planAdvance) ---------- */
+/* ---------- relógio dos mundos compartilhados (regras no motor: clock.ts) ---------- */
 
-/** Quem está jogando neste mundo e quanto o tempo foi avançado na última hora. Sem a função no banco, vale o modo solo. */
-export async function clockStatus(worldId: string, personId: string | null): Promise<ClockStatus> {
-  // mundo só seu: ninguém mais joga nele, não há o que consultar
-  if (modeOfWorld(worldId) !== "SHARED") return { others: [], shared: false, remaining: null, freesAt: null, recent: [], now: new Date().toISOString() };
-  type Raw = { active: string[]; advances: ClockAdvance[]; hour: { days: number; oldest: string | null }; now: string };
-  const { data } = await db(playerToken.getStore()).rpc("clock_activity", { p_world: worldId });
-  const raw = (data ?? null) as Raw | null;
-  const now = raw?.now ?? new Date().toISOString();
-  const others = (raw?.active ?? []).filter((id) => id !== personId);
-  const shared = others.length > 0;
-  const remaining = shared ? Math.max(0, SHARED_DAYS_PER_HOUR - (raw?.hour.days ?? 0)) : null;
-  const oldest = raw?.hour.oldest;
+/**
+ * Mundo compartilhado ainda no relógio antigo (ou com outra velocidade): passa para os saltos
+ * fixos a partir de agora, sem pular dias. Mundo só do jogador: relógio parado.
+ */
+function alignClock(worldId: string, state: WorldState, nowIso: string): boolean {
+  const speed = modeOfWorld(worldId) === "SHARED" ? SHARED_SPEED : 0;
+  const w = state.world;
+  if (w.game_days_per_real_hour === speed) return false;
+  w.anchor_tick = w.tick;
+  w.anchor_real_at = nowIso;
+  w.game_days_per_real_hour = speed;
+  return true;
+}
+
+/** Jogadores que agiram no mundo nas últimas 72 h (ação, personagem novo). */
+async function activePlayers(worldId: string): Promise<string[]> {
+  try {
+    const { data } = await db(playerToken.getStore()).rpc("clock_activity", { p_world: worldId });
+    return ((data ?? null) as { active?: string[] } | null)?.active ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Próximo salto do relógio compartilhado, como o jogador lê ("18h"). */
+export function nextStepLabel(ms = Date.now()): string {
+  return `${brasiliaHour(nextClockStep(ms))}h`;
+}
+
+const SHARED_ONLY_AUTO = () =>
+  `Neste mundo compartilhado o tempo anda sozinho: ${SHARED_STEP_DAYS} dias de jogo a cada ${SHARED_STEP_HOURS} horas, nas horas pares de Brasília. O próximo avanço é às ${nextStepLabel()}.`;
+
+export interface WorldClock {
+  /** mundo compartilhado: o tempo anda sozinho, em saltos fixos */
+  shared: boolean;
+  /** outros jogadores que jogaram nas últimas 72 h */
+  others: number;
+  /** próximo salto (hora real, ISO) e a hora de Brasília dele */
+  nextAt: string | null;
+  nextLabel: string | null;
+  stepDays: number;
+  stepHours: number;
+}
+
+/** O relógio do mundo para o Painel. */
+export async function worldClock(worldId: string, personId: string | null): Promise<WorldClock> {
+  const base = { stepDays: SHARED_STEP_DAYS, stepHours: SHARED_STEP_HOURS };
+  if (modeOfWorld(worldId) !== "SHARED") return { ...base, shared: false, others: 0, nextAt: null, nextLabel: null };
+  const now = Date.now();
+  const active = await activePlayers(worldId);
   return {
-    others,
-    shared,
-    remaining,
-    freesAt: shared && oldest && (remaining ?? 0) < 30 ? new Date(Date.parse(oldest) + 3_600_000).toISOString() : null,
-    recent: raw?.advances ?? [],
-    now,
+    ...base,
+    shared: true,
+    others: active.filter((id) => id !== personId).length,
+    nextAt: new Date(nextClockStep(now)).toISOString(),
+    nextLabel: nextStepLabel(now),
   };
 }
 
 /**
- * "Avançar o tempo": processa N dias imediatamente e reancora o relógio real
- * no novo dia (o relógio automático continua dali). Vale para todo o mundo:
- * sozinho, sem limite; com outros jogadores ativos, segue o planAdvance.
+ * "Avançar o tempo": processa N dias imediatamente. Só nos mundos do próprio
+ * jogador; nos compartilhados o tempo anda sozinho, em saltos fixos.
  */
 export async function fastForward(worldId: string, days: number, userId: string): Promise<FastForwardResult> {
+  if (modeOfWorld(worldId) === "SHARED") return { ok: false, message: SHARED_ONLY_AUTO(), days: 0 };
   if (!ALLOWED_DAYS.has(days)) return { ok: false, message: "Escolha 1, 7, 15 ou 30 dias.", days };
   const w = await openWorld(worldId);
   if (!w) return { ok: false, message: "O mundo está processando outro avanço. Tente em instantes.", days };
@@ -967,29 +1012,20 @@ export async function fastForward(worldId: string, days: number, userId: string)
   try {
     const state = w.state;
     const me = [...state.t.persons.values()].find((x) => x.user_id === userId && x.status === "ACTIVE") ?? null;
-    const clock = await clockStatus(worldId, me?.id ?? null);
     const before = snapshotOf(state, userId);
     const countryBefore = countryOf(state);
     const expected = state.world.tick;
     const now = new Date().toISOString();
-    // o relógio automático alcança o presente primeiro; o avanço manual conta a partir daí
-    const caughtUp = Math.max(targetTick(state, now), state.world.tick);
-    const manualFrom = addDays(state.world.game_date, caughtUp - state.world.tick);
-    const plan = planAdvance(state, clock, manualFrom, days);
-    if (!plan.ok) return (ok = true), { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
+    alignClock(worldId, state, now);
     const from = state.world.game_date;
-    const { ctx, ticks } = runTicks(state, { target: caughtUp + plan.days, maxTicks: MAX_CATCHUP + plan.days, budgetMs: 25_000, now: () => Date.now(), tolerant: true });
-    const manual = Math.max(0, state.world.tick - caughtUp);
+    const start = state.world.tick;
+    const { ctx, ticks } = runTicks(state, { target: start + days, maxTicks: days, budgetMs: 25_000, now: () => Date.now(), tolerant: true });
+    const manual = Math.max(0, state.world.tick - start);
     state.world.anchor_tick = state.world.tick;
     state.world.anchor_real_at = now;
     ctx.saveWorld();
-    // registro público do avanço (cota por hora) e aviso a quem também está jogando
-    ctx.emit("TIME_ADVANCED", { actors: me ? [me.id] : [], geography: "BR", payload: { days: manual, from: manualFrom, to: state.world.game_date } });
-    if (me && manual > 0) {
-      for (const id of clock.others) {
-        ctx.notify(id, "Outro jogador passou o tempo", `${me.name} avançou o relógio do mundo em ${manual === 1 ? "1 dia" : `${manual} dias`}: agora é ${formatDatePt(state.world.game_date)}. Veja no Painel o que mudou.`, "/jogo/");
-      }
-    }
+    // registro do avanço (atividade do mundo próprio)
+    ctx.emit("TIME_ADVANCED", { actors: me ? [me.id] : [], geography: "BR", payload: { days: manual, from, to: state.world.game_date } });
     dirty = true;
     await persist(worldId, ctx.changes, expected, state);
     ok = true;
@@ -1003,7 +1039,6 @@ export async function fastForward(worldId: string, days: number, userId: string)
       .get("notifications")
       .filter((n) => n.user_id === userId)
       .map((n) => ({ title: n.title, body: n.body, link: n.link }));
-    const note = plan.stop && manual === plan.days ? `O relógio parou na véspera do ${plan.stop.label}: com outros jogadores no mundo, os marcos esperam ${MILESTONE_HOLD_MIN} min antes de serem cruzados.` : undefined;
     return {
       ok: true,
       message: `${ticks} dia(s) processado(s).`,
@@ -1016,7 +1051,6 @@ export async function fastForward(worldId: string, days: number, userId: string)
       before,
       after: snapshotOf(state, userId),
       country: { before: countryBefore, after: countryOf(state) },
-      note,
     };
   } finally {
     await closeWorld(worldId, w, dirty, ok);
@@ -1054,6 +1088,7 @@ function activePlayer(state: WorldState, userId: string) {
  * o diário e, depois da resposta, pede o resto dos dias.
  */
 export async function advanceStep(worldId: string, days: number, userId: string): Promise<StepAdvanceResult> {
+  if (modeOfWorld(worldId) === "SHARED") return { ok: false, message: SHARED_ONLY_AUTO(), days: 0 };
   if (!Number.isInteger(days) || days < 1 || days > 31) return { ok: false, message: "Escolha entre 1 e 31 dias.", days: 0 };
   const w = await openWorld(worldId);
   if (!w) return { ok: false, message: "O mundo está processando outro avanço. Tente em instantes.", days: 0 };
@@ -1064,37 +1099,25 @@ export async function advanceStep(worldId: string, days: number, userId: string)
     const me = activePlayer(state, userId);
     // saídas antes de mexer no mundo: o estado lido continua valendo na memória
     if (!me) return (ok = true), { ok: false, message: "Você não tem personagem ativo neste mundo.", days: 0, stop: "fim" };
-    const clock = await clockStatus(worldId, me.id);
     const before = snapshotOf(state, userId);
     const countryBefore = countryOf(state);
     const expected = state.world.tick;
     const now = new Date().toISOString();
-    const caughtUp = Math.max(targetTick(state, now), state.world.tick);
-    const manualFrom = addDays(state.world.game_date, caughtUp - state.world.tick);
-    const plan = planAdvance(state, clock, manualFrom, days);
-    if (!plan.ok) return (ok = true), { ok: false, message: plan.message ?? "O relógio compartilhado não permite avançar agora.", days: 0 };
+    alignClock(worldId, state, now);
     const from = state.world.game_date;
-    // 1) o relógio automático alcança o presente
-    const auto = runTicks(state, { target: caughtUp, maxTicks: MAX_CATCHUP, budgetMs: 8_000, now: () => Date.now(), tolerant: true });
-    // 2) os dias vividos pelo jogador, um a um
-    const step = stepDays(state, me.id, { days: plan.days, budgetMs: 20_000, now: () => Date.now(), tolerant: true });
+    // os dias vividos pelo jogador, um a um (o relógio deste mundo só anda assim)
+    const step = stepDays(state, me.id, { days, budgetMs: 20_000, now: () => Date.now(), tolerant: true });
     const manual = step.ticks;
     state.world.anchor_tick = state.world.tick;
     state.world.anchor_real_at = now;
     step.ctx.saveWorld();
-    if (manual > 0) {
-      step.ctx.emit("TIME_ADVANCED", { actors: [me.id], geography: "BR", payload: { days: manual, from: manualFrom, to: state.world.game_date } });
-      for (const id of clock.others) {
-        step.ctx.notify(id, "Outro jogador passou o tempo", `${me.name} avançou o relógio do mundo em ${manual === 1 ? "1 dia" : `${manual} dias`}: agora é ${formatDatePt(state.world.game_date)}. Veja no Painel o que mudou.`, "/jogo/");
-      }
-    }
+    if (manual > 0) step.ctx.emit("TIME_ADVANCED", { actors: [me.id], geography: "BR", payload: { days: manual, from, to: state.world.game_date } });
     const changes = new Changes();
-    changes.merge(auto.ctx.changes);
     changes.merge(step.ctx.changes);
     dirty = true;
     await persist(worldId, changes, expected, state);
     ok = true;
-    await logFaults(worldId, [...auto.ctx.faults, ...step.ctx.faults]);
+    await logFaults(worldId, step.ctx.faults);
     const news = changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
     const headlines = news
       .sort((a, b) => b.importance - a.importance || b.tick - a.tick)
@@ -1104,11 +1127,10 @@ export async function advanceStep(worldId: string, days: number, userId: string)
       .get("notifications")
       .filter((n) => n.user_id === userId)
       .map((n) => ({ title: n.title, body: n.body, link: n.link }));
-    const held = plan.stop && manual === plan.days && plan.days < days;
     return {
       ok: true,
       message: `${manual} dia(s) vivido(s).`,
-      days: auto.ticks + manual,
+      days: manual,
       from,
       to: state.world.game_date,
       headlines,
@@ -1117,14 +1139,13 @@ export async function advanceStep(worldId: string, days: number, userId: string)
       before,
       after: snapshotOf(state, userId),
       country: { before: countryBefore, after: countryOf(state) },
-      note: held ? `O relógio parou na véspera do ${plan.stop!.label}: com outros jogadores no mundo, os marcos esperam ${MILESTONE_HOLD_MIN} min antes de serem cruzados.` : undefined,
       diary: step.days,
       stop: step.stop,
       stopOn: step.stopOn,
-      apuracoes: manual > 0 ? electionNight(state, me.id, manualFrom, state.world.game_date) : undefined,
+      apuracoes: manual > 0 ? electionNight(state, me.id, from, state.world.game_date) : undefined,
       pending: pendingFor(state, me.id),
       requested: days,
-      remaining: held ? 0 : Math.max(0, plan.days - manual),
+      remaining: Math.max(0, days - manual),
       vitals: liveVitals(state, me.id),
     };
   } finally {
@@ -1267,8 +1288,7 @@ export function adminOverview(): Promise<AdminOverview> {
 /** Dias que o relógio de um mundo compartilhado está atrasado (os próprios só andam quando o dono avança). */
 export function lagDaysOf(w: Pick<AdminWorldRow, "tick" | "anchor_real_at" | "anchor_tick" | "speed">, now = Date.now()): number {
   if (!w.speed || w.anchor_tick == null) return 0;
-  const target = w.anchor_tick + Math.floor(((now - Date.parse(w.anchor_real_at)) / 3_600_000) * w.speed);
-  return Math.max(0, target - w.tick);
+  return Math.max(0, clockTarget({ anchor_real_at: w.anchor_real_at, anchor_tick: w.anchor_tick, game_days_per_real_hour: w.speed }, now) - w.tick);
 }
 
 export { reportError as logError } from "./report-error";

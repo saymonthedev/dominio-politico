@@ -31,8 +31,9 @@ function warnMail(w: MaintenanceResult["warn"][number]) {
 }
 
 /**
- * Tarefa diária (Vercel Cron, vercel.json): avança os mundos compartilhados,
- * poda dados antigos e cuida dos mundos próprios parados (aviso e remoção).
+ * Vercel Cron (vercel.json). A cada 2 horas, logo depois de cada hora par de Brasília, dá o
+ * salto dos mundos compartilhados (o relógio anda 7 dias). Uma vez por dia (6h17 UTC) também
+ * cuida dos mundos próprios parados (aviso e remoção).
  */
 export async function GET(request: NextRequest) {
   const auth = request.headers.get("authorization") ?? "";
@@ -54,14 +55,17 @@ export async function GET(request: NextRequest) {
       ticks[y] = total;
     } catch (e) {
       ticks[y] = e instanceof Error ? e.message : "erro";
-      await logError("cron", `/api/cron/tick#${y}`, e);
+      // um jogador já está dando o salto deste mundo agora: nada a fazer, não é erro
+      if (!/ocupado/i.test(String(ticks[y]))) await logError("cron", `/api/cron/tick#${y}`, e);
     }
   }
 
   let maintenance: Omit<MaintenanceResult, "warn"> & { warned: number; mailed: number } = { news: 0, events: 0, notifications: 0, dropped: [], warned: 0, mailed: 0 };
-  // sem e-mail configurado, nenhum mundo é avisado nem removido: a regra promete aviso antes (a poda
-  // de dados antigos é da tarefa do próprio banco e segue de qualquer jeito)
-  if (process.env.RESEND_API_KEY) try {
+  // a manutenção é só na rodada diária (6h UTC); as outras rodadas só dão o salto dos mundos.
+  // Sem e-mail configurado, nenhum mundo é avisado nem removido: a regra promete aviso antes (a
+  // poda de dados antigos é da tarefa do próprio banco e segue de qualquer jeito)
+  const daily = new Date().getUTCHours() === 6;
+  if (daily && process.env.RESEND_API_KEY) try {
     const m = await runMaintenance();
     let mailed = 0;
     for (const w of m.warn) {

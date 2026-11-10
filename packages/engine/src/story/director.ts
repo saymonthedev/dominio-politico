@@ -14,9 +14,10 @@ import type { Binding, StoryDelta, StoryEvent, StoryLogEntry } from "./types";
  * Diretor de eventos. Todo dia, para cada jogador:
  *  1) vence os prazos (aplica a escolha padrão de quem não respondeu);
  *  2) dispara as continuações marcadas para hoje (histórias encadeadas);
- *  3) se o jogador está vivendo os dias (avançando o tempo), talvez dispara um
- *     acontecimento do contexto — com ritmo: dias tranquilos, sem empilhar
- *     decisões, sem repetir o mesmo tipo em sequência.
+ *  3) se o jogador está vivendo os dias (avançando o tempo, ou jogando num mundo
+ *     compartilhado enquanto o relógio salta), talvez dispara um acontecimento do
+ *     contexto — com ritmo: dias tranquilos, sem empilhar decisões, sem repetir o
+ *     mesmo tipo em sequência.
  */
 
 /** Chance base de um acontecimento num dia, por momento da carreira. */
@@ -282,7 +283,7 @@ export function dailyStory(ctx: Ctx): void {
     }
     sweepPending(c);
     runQueue(c);
-    if (isPresent(ctx, p.id) && !isJailed(c.st, ctx.date)) contextual(c);
+    if ((isPresent(ctx, p.id) || ctx.s.living?.has(p.id)) && !isJailed(c.st, ctx.date)) contextual(c);
     if (promote(p, c.st)) ctx.save("persons", p);
     ctx.save("person_states", c.st);
   }

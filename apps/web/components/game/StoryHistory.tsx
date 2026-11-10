@@ -37,7 +37,7 @@ export function StoryHistory({ log }: { log: StoryLogEntry[] }) {
   }, [items, limit]);
 
   if (!log.length) {
-    return <p className="muted small" style={{ margin: 0 }}>Sua história ainda não começou. Passe o tempo no Painel: convites, crises, oportunidades e decisões vão aparecer.</p>;
+    return <p className="muted small" style={{ margin: 0 }}>Sua história ainda não começou. Com o passar do tempo, convites, crises, oportunidades e decisões vão aparecer.</p>;
   }
   return (
     <div className="sh">

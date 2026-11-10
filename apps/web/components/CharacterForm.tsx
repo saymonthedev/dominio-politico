@@ -80,8 +80,8 @@ export function CharacterForm({
               value: "SHARED",
               label: "Compartilhado",
               hint: sharedAhead
-                ? `Com outros jogadores. O relógio anda para todos: hoje este mundo está em ${fmtMonthYear(sharedDate!)}.`
-                : "Com outros jogadores. O relógio anda sozinho e todos veem o mesmo país.",
+                ? `Com outros jogadores. O tempo anda sozinho, 7 dias a cada 2 horas: hoje este mundo está em ${fmtMonthYear(sharedDate!)}.`
+                : "Com outros jogadores. O tempo anda sozinho, 7 dias a cada 2 horas, e todos veem o mesmo país.",
               icon: "users",
             },
             ...(privateOpen
@@ -96,7 +96,7 @@ export function CharacterForm({
           <p className="cf-note">
             <Icon name="info" size={15} />
             <span>
-              No compartilhado você entra em <b>{fmtMonthYear(sharedDate!)}</b>, não em {year}: os jogadores de lá já passaram o tempo.
+              No compartilhado você entra em <b>{fmtMonthYear(sharedDate!)}</b>, não em {year}: o tempo de lá já andou.
               {privateOpen ? " Para começar do início, escolha um mundo só seu." : " Para começar do início, crie um mundo só seu quando abrir vaga."}
             </span>
           </p>

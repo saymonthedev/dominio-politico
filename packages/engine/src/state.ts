@@ -59,6 +59,12 @@ export interface WorldState {
    * mundo segue e só as continuações marcadas e os fatos do motor chegam.
    */
   focus?: Set<string>;
+  /**
+   * Jogadores que vivem os saltos automáticos do mundo compartilhado (jogaram nos
+   * últimos dias): recebem acontecimentos sorteados como quem vive os dias, mas os
+   * prazos das decisões não correm sem eles (respondem quando voltarem).
+   */
+  living?: Set<string>;
 }
 
 export function emptyTables(): Tables {

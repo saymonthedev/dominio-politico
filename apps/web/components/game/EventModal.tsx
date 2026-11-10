@@ -9,6 +9,7 @@ import { Button } from "../forms";
 import { Icon } from "../Icon";
 import { DeltaChips } from "./ActionFx";
 import { deadline, dayShort, initialsOf, KIND, markSeen, STORY_INTRO, TAG, TONE_LABEL } from "./story-ui";
+import { useSharedWorld } from "./world-mode";
 
 const INTRO_KEY = "dp:intro-acontecimentos";
 
@@ -34,6 +35,7 @@ export interface EventModalProps {
  * Depois da escolha, mostra o que aconteceu e o que mudou no personagem.
  */
 export function EventModal({ year, event, today, onResolved: resolved, onLater, queue, celebrate = true }: EventModalProps) {
+  const shared = useSharedWorld();
   const onResolved = (r: DecideResult) => {
     if (celebrate && r.stage) window.dispatchEvent(new CustomEvent("dp:milestone", { detail: { stage: r.stage } }));
     resolved(r);
@@ -91,7 +93,8 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
     publishVitals(r.vitals);
   };
 
-  const due = deadline(today, event.expires);
+  // mundo compartilhado: nada vence, a escolha espera o jogador
+  const due = shared ? null : deadline(today, event.expires);
   const choices = event.choices.length ? event.choices : [{ id: "ok", label: "Continuar" }];
 
   return (
@@ -100,7 +103,7 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
         <header className="ev__head">
           <span className="ev__kind">
             <Icon name={kind.icon} size={14} /> {kind.label}
-            {event.blocking && !result && <em>o tempo espera sua resposta</em>}
+            {event.blocking && !result && <em>{shared ? "espera sua resposta" : "o tempo espera sua resposta"}</em>}
           </span>
           <span className="ev__meta mono">
             {dayShort(event.on)}
@@ -123,11 +126,18 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
               </summary>
               <div>
                 <p>{STORY_INTRO} Leia a situação, escolha uma opção e veja o que muda. Não existe resposta sempre certa.</p>
-                <ul>
-                  <li><b>Decisão:</b> o tempo para até você escolher.</li>
-                  <li><b>Oportunidade:</b> pode esperar, até o prazo.</li>
-                  <li>Sem resposta no prazo, vale a opção mais passiva.</li>
-                </ul>
+                {shared ? (
+                  <ul>
+                    <li><b>Decisão</b> e <b>oportunidade</b> esperam a sua resposta: o mundo segue andando, mas elas não vencem.</li>
+                    <li>Feche e responda depois pelo ícone de raio do topo.</li>
+                  </ul>
+                ) : (
+                  <ul>
+                    <li><b>Decisão:</b> o tempo para até você escolher.</li>
+                    <li><b>Oportunidade:</b> pode esperar, até o prazo.</li>
+                    <li>Sem resposta no prazo, vale a opção mais passiva.</li>
+                  </ul>
+                )}
                 <button type="button" className="ev__introok" onClick={closeIntro}>
                   Entendi, não mostrar mais
                 </button>
