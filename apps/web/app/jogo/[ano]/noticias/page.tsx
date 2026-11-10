@@ -12,7 +12,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const page = Math.max(0, Number(p) || 0);
   const me = await requireMe(year);
   const { sb } = await getSession();
-  let q = sb.from("news_articles").select("*").eq("world_id", me.worldId).order("tick", { ascending: false }).order("importance", { ascending: false }).range(page * PAGE, page * PAGE + PAGE - 1);
+  let q = sb.from("news_articles").select("*").eq("world_id", me.worldId).neq("outlet", "Rede social").order("tick", { ascending: false }).order("importance", { ascending: false }).range(page * PAGE, page * PAGE + PAGE - 1);
   if (cat) q = q.eq("category", cat);
   const { data } = await q;
   const news = (data ?? []) as NewsRow[];

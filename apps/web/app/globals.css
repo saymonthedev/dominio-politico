@@ -2906,3 +2906,107 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .mural__who { display: grid; gap: 1px; flex: 1; min-width: 0; }
 .mural__who b { font-size: .88rem; }
 .mural__who small { font-size: .74rem; color: var(--apagado); overflow: hidden; text-overflow: ellipsis; }
+
+/* Celular do jogo (components/game/Phone.tsx): mensagens, rede social, notícias e galeria */
+.phone { --ph-frame: #0b0f15; max-width: 400px; margin: 0 auto; padding: 10px; border-radius: 46px; background: var(--ph-frame); box-shadow: 0 18px 50px rgba(11, 31, 58, 0.28), inset 0 0 0 2px #2a3342; }
+.phone__screen { display: flex; flex-direction: column; height: min(760px, calc(100dvh - 200px)); min-height: 540px; border-radius: 36px; overflow: hidden; background: var(--cartao); color: var(--tinta); }
+.phone__status { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 24px 6px; font-family: var(--f-mono); font-size: .7rem; font-weight: 600; }
+.phone__notch { width: 84px; height: 22px; border-radius: 99px; background: var(--ph-frame); }
+.phone__screen.is-home { background: linear-gradient(165deg, var(--planalto) 0%, var(--planalto-2) 58%, #2c4c7d 100%); color: #fff; }
+.phone__home { flex: 1; display: flex; flex-direction: column; gap: 34px; padding: 30px 18px; }
+.phone__wall { display: grid; justify-items: center; gap: 10px; text-align: center; padding-top: 14px; }
+.phone__wall b { font-size: 1.05rem; }
+.phone__wall .ph-face { box-shadow: 0 0 0 3px var(--faixa); font-size: 1.2rem; }
+.phone__apps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 6px; }
+.phone__icon { display: grid; justify-items: center; gap: 6px; border: 0; background: none; padding: 0; color: #fff; font: inherit; cursor: pointer; }
+.phone__icon span { width: 58px; height: 58px; border-radius: 17px; display: grid; place-items: center; color: #fff; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28); transition: transform .12s; }
+.phone__icon:hover span { transform: translateY(-2px); }
+.phone__icon:focus-visible { outline: none; }
+.phone__icon:focus-visible span { outline: 2px solid var(--faixa); outline-offset: 3px; }
+.phone__icon small { font-size: .7rem; line-height: 1.25; color: #e6ebf3; text-align: center; }
+.phone__app { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.phone__bar { display: flex; align-items: center; gap: 4px; padding: 2px 12px 8px; border-bottom: 1px solid var(--linha); }
+.phone__bar b { font-size: .95rem; }
+.phone__back { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--tinta); cursor: pointer; }
+.phone__back svg { transform: rotate(90deg); }
+.phone__back:hover { background: var(--rebaixada); }
+.phone__empty { margin: 0; padding: 26px 18px; text-align: center; font-size: .84rem; line-height: 1.5; color: var(--apagado); }
+.phone button:focus-visible, .phone a:focus-visible, .phone textarea:focus-visible { outline: 2px solid var(--simulacao); outline-offset: 2px; }
+
+.ph-face { width: 34px; height: 34px; flex: none; display: inline-grid; place-items: center; border-radius: 50%; overflow: hidden; background: var(--planalto-2); color: #fff; font-size: .72rem; font-weight: 700; }
+.ph-face svg { width: 100%; height: 100%; display: block; }
+.ph-face.is-group { background: #4453a6; }
+.ph-face.is-group svg { width: 18px; height: 18px; }
+.ph-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; padding: 10px; }
+.ph-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px; padding: 8px 10px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ph-row:hover { background: var(--rebaixada); }
+.ph-row > span:not(.ph-face) { display: grid; gap: 1px; min-width: 0; }
+.ph-row b { font-size: .88rem; }
+.ph-row small { font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-link { align-self: flex-start; border: 0; background: none; padding: 6px 2px; color: var(--faixa-texto); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
+.ph-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.ph-sep { margin: 10px 6px 2px; font-size: .66rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--apagado); }
+.ph-new { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; margin-top: 6px; padding: 0 14px; border: 1.5px dashed var(--linha); border-radius: 12px; background: none; color: var(--tinta); font: inherit; font-size: .84rem; font-weight: 600; text-decoration: none; cursor: pointer; }
+.ph-new:hover { border-color: var(--faixa); }
+.ph-note { margin: 6px 4px 0; font-size: .74rem; line-height: 1.45; color: var(--apagado); }
+.ph-error { margin: 0; padding: 4px 14px; font-size: .78rem; color: var(--urgente); }
+
+.ph-chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ph-chat__head { display: flex; align-items: center; gap: 10px; padding: 4px 12px; border-bottom: 1px solid var(--linha); }
+.ph-chat__head b { font-size: .86rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-chat__msgs { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; padding: 12px 10px; background: var(--papel); }
+.ph-msg { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; }
+.ph-msg.is-mine { justify-content: flex-end; }
+.ph-msg__bubble { max-width: 78%; padding: 7px 11px 5px; border-radius: 16px 16px 16px 4px; background: var(--cartao); box-shadow: 0 1px 2px rgba(18, 22, 29, 0.08); }
+.ph-msg.is-mine .ph-msg__bubble { border-radius: 16px 16px 4px 16px; background: color-mix(in srgb, var(--mata) 20%, var(--cartao)); }
+.ph-msg__bubble b { display: block; font-size: .72rem; color: var(--faixa-texto); }
+.ph-msg__bubble p { margin: 0; font-size: .86rem; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
+.ph-msg__bubble small { display: block; text-align: right; font-size: .64rem; font-family: var(--f-mono); }
+.ph-msg__more { width: 28px; height: 28px; flex: none; border: 0; border-radius: 50%; background: none; color: var(--apagado); font-size: 1rem; line-height: 1; cursor: pointer; }
+.ph-msg__more:hover { background: var(--rebaixada); color: var(--tinta); }
+.ph-msg__menu { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; padding-left: 34px; }
+.ph-msg__menu button { min-height: 36px; padding: 0 14px; border: 1px solid var(--linha); border-radius: 99px; background: var(--cartao); color: var(--tinta); font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; }
+.ph-msg__menu button:hover { border-color: var(--faixa); }
+.ph-msg__menu button.is-danger { color: var(--urgente); }
+.ph-unmute { align-self: center; }
+.ph-chat__form { display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px 10px; border-top: 1px solid var(--linha); }
+.ph-chat__form textarea { flex: 1; min-width: 0; min-height: 42px; max-height: 120px; padding: 10px 14px; border: 1px solid var(--linha); border-radius: 20px; background: var(--rebaixada); color: var(--tinta); font: inherit; font-size: 16px; line-height: 1.3; resize: none; }
+.ph-chat__form button { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--faixa); color: var(--planalto); cursor: pointer; }
+.ph-chat__form button:disabled, .ph-compose__foot button:disabled { opacity: .45; cursor: default; }
+
+.ph-compose { display: grid; gap: 8px; padding: 10px; border-radius: 14px; background: var(--rebaixada); }
+.ph-compose:focus-within { box-shadow: 0 0 0 2px color-mix(in srgb, var(--faixa) 55%, transparent); }
+.ph-compose__who { display: flex; align-items: flex-start; gap: 8px; }
+.ph-compose__who textarea { flex: 1; min-width: 0; min-height: 66px; padding: 4px 2px; border: 0; background: none; color: var(--tinta); font: inherit; font-size: 16px; line-height: 1.4; resize: none; }
+.ph-compose__who textarea:focus-visible { outline: none; }
+.ph-compose__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ph-compose__foot small { font-size: .7rem; }
+.ph-compose__foot button { min-height: 36px; padding: 0 18px; border: 0; border-radius: 99px; background: var(--faixa); color: var(--planalto); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.ph-post { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--linha); border-radius: 14px; background: var(--cartao); }
+.ph-post.is-mine { border-color: color-mix(in srgb, var(--faixa) 50%, var(--linha)); }
+.ph-post > div { flex: 1; min-width: 0; }
+.ph-post header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ph-post header b { font-size: .84rem; }
+.ph-post header small { font-size: .68rem; font-family: var(--f-mono); white-space: nowrap; }
+.ph-post p { margin: 3px 0 0; font-size: .86rem; line-height: 1.5; overflow-wrap: anywhere; }
+.ph-news { display: grid; gap: 3px; padding: 10px 12px; border-radius: 12px; background: var(--rebaixada); color: inherit; text-decoration: none; }
+.ph-news:hover { background: color-mix(in srgb, var(--faixa) 12%, var(--rebaixada)); }
+.ph-news small { font-size: .68rem; }
+.ph-news b { font-size: .86rem; line-height: 1.35; }
+.ph-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.ph-gallery figure { margin: 0; display: grid; gap: 5px; padding: 6px; border-radius: 12px; background: var(--rebaixada); text-align: center; }
+.ph-gallery figure > span { aspect-ratio: 1; display: grid; place-items: center; border-radius: 9px; background: linear-gradient(140deg, var(--planalto), var(--planalto-2)); color: var(--faixa); }
+.ph-gallery figcaption { display: grid; gap: 1px; }
+.ph-gallery figcaption b { font-size: .7rem; line-height: 1.25; }
+.ph-gallery figcaption small { font-size: .62rem; font-family: var(--f-mono); }
+@media (prefers-color-scheme: dark) {
+  .ph-link, .ph-msg__bubble b { color: var(--faixa-suave); }
+  .ph-msg__bubble { box-shadow: none; }
+}
+/* celular de verdade: sem a moldura, a tela ocupa a largura toda */
+@media (max-width: 560px) {
+  .phone { max-width: none; padding: 0; border-radius: 22px; background: none; box-shadow: none; }
+  .phone__screen { height: calc(100dvh - 160px - env(safe-area-inset-bottom)); min-height: 440px; border-radius: 22px; border: 1px solid var(--linha); }
+  .phone__status { padding: 8px 16px 4px; }
+  .phone__notch { visibility: hidden; }
+}

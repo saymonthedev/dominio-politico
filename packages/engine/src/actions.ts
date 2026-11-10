@@ -1782,7 +1782,51 @@ export const ACTIONS: ActionDef[] = [
   },
   ...LIFE_ACTIONS,
   donateToCampaign(),
+  socialPost(),
 ];
+
+/** Rede social do jogo: um post curto por dia de jogo, visto por todos os jogadores do mundo no celular. */
+export const SOCIAL_OUTLET = "Rede social";
+
+function socialPost(): ActionDef {
+  return {
+    id: "publicar_post",
+    label: "Publicar nas redes sociais",
+    description: "Um post curto no seu perfil público: o que você fez, o que defende, um recado para os eleitores. Os jogadores do mundo veem no celular. Um por dia.",
+    category: "BASE",
+    energy: 3,
+    params: [{ name: "texto", label: "Seu post (até 280 caracteres)", type: "text" }],
+    available: (ctx, p, st) => (st.story?.flags.ultimo_post === ctx.date ? "Você já publicou hoje. Amanhã (no calendário do jogo) dá de novo." : null),
+    run: ({ ctx, p, st, params, dr }) => {
+      const text = String(params.texto ?? "").replace(/\s+/g, " ").trim();
+      const mod = moderateText(text, { maxLength: 280, minLength: 3 });
+      if (!mod.ok) return { ok: false, message: mod.reason ?? "Texto não permitido." };
+      const flags = storyOf(st, p, ctx.date).flags;
+      if (flags.ultimo_post === ctx.date) return { ok: false, message: "Você já publicou hoje. Amanhã (no calendário do jogo) dá de novo." };
+      flags.ultimo_post = ctx.date;
+      p.visibility = clamp(p.visibility + 0.3 * dr("publicar_post"));
+      ctx.insert("news_articles", {
+        id: ctx.id("post", p.id),
+        world_id: ctx.world.id,
+        event_id: null,
+        tick: ctx.tick,
+        game_date: ctx.date,
+        outlet: SOCIAL_OUTLET,
+        category: "POST",
+        headline: text,
+        body: "",
+        geography: p.uf,
+        person_ids: [p.id],
+        importance: 1,
+        visibility: "PUBLIC",
+        user_id: null,
+        factual: false,
+        source_id: null,
+      });
+      return { ok: true, message: "Post publicado. Os jogadores do mundo veem no celular." };
+    },
+  };
+}
 
 /** Campanhas de outros jogadores que recebem doações agora (candidatura viva, eleição em curso). */
 export function playerCampaigns(ctx: Ctx, exceptId: string): CandidacyRow[] {

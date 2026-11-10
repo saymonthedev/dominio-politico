@@ -36,7 +36,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const [state, clockNow, newsQ, ecoQ] = await Promise.all([
     playerState(year),
     clockStatus(me.worldId, me.person.id),
-    sb.from("news_articles").select("*").eq("world_id", me.worldId).order("tick", { ascending: false }).order("importance", { ascending: false }).limit(14),
+    sb.from("news_articles").select("*").eq("world_id", me.worldId).neq("outlet", "Rede social").order("tick", { ascending: false }).order("importance", { ascending: false }).limit(14),
     sb.from("economy_snapshots").select("*").eq("world_id", me.worldId).order("month", { ascending: false }).limit(2),
   ]);
   // o estado em cache pode estar alguns segundos atrás: o personagem vem do banco
