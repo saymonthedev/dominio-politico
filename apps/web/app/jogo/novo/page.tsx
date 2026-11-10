@@ -6,7 +6,7 @@ import { Icon } from "@/components/Icon";
 import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
 import { fmtMonthYear } from "@/lib/format";
 import { getSession, myActiveCharacters, myCharacters } from "@/lib/game";
-import { countPrivateWorlds, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, worldIdFor, yearOfWorld } from "@/lib/sim";
+import { countPrivateWorlds, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, worldExists, worldIdFor, yearOfWorld } from "@/lib/sim";
 import { START_POINTS } from "@/lib/startpoints";
 
 export const metadata: Metadata = { title: "Novo personagem" };
@@ -31,12 +31,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
   // cada conta tem um mundo próprio: o deste ano recebe o personagem novo; um de outro ano bloqueia
   const own = chars.find((c) => modeOfWorld(c.world_id) !== "SHARED");
   const ownElsewhere = !!own && yearOfWorld(own.world_id) !== year;
-  const slotsFull = !own && (await countPrivateWorlds().catch(() => MAX_PRIVATE_WORLDS)) >= MAX_PRIVATE_WORLDS;
+  // a criação do mundo próprio deste ano parou no meio (antes de o personagem nascer): a vaga já é
+  // desta conta e a criação continua de onde parou, mesmo com as vagas esgotadas
+  const { sb, user } = await getSession();
+  const halfBuilt =
+    !own && !!user && (await Promise.all((["PRIVATE", "FICTIONAL"] as const).map((m) => worldExists(worldIdFor(year, m, user.id)).catch(() => false)))).some(Boolean);
+  const slotsFull = !own && !halfBuilt && (await countPrivateWorlds().catch(() => MAX_PRIVATE_WORLDS)) >= MAX_PRIVATE_WORLDS;
   const privateOpen = !ownElsewhere && !slotsFull;
   const privateBlocked = ownElsewhere ? ("own" as const) : slotsFull ? ("full" as const) : null;
   const sp = START_POINTS.find((s) => s.year === year)!;
   // o compartilhado anda com todos os jogadores: mostra em que data ele está hoje
-  const { sb } = await getSession();
   const { data: shared } = await sb.from("worlds").select("game_date").eq("id", worldIdFor(year)).maybeSingle();
   const sharedDate = (shared?.game_date as string | undefined) ?? null;
   const sharedAhead = !!sharedDate && sharedDate.slice(0, 7) > sp.date.slice(0, 7);

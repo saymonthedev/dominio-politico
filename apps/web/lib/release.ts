@@ -10,6 +10,7 @@ export const RELEASE = {
   items: [
     { icon: "bolt", text: "Os mundos abrem rápido mesmo quando um servidor acabou de ligar. Ele lê uma cópia guardada do mundo em vez de montar tudo no banco de dados, que era o que travava o jogo nos horários de pico." },
     { icon: "shield", text: "Se a cópia falhar, o jogo volta a ler do banco como antes. Nada do seu personagem muda." },
+    { icon: "check", text: "Quem teve a criação do mundo próprio interrompida pela lentidão consegue terminá-la: a vaga já é sua, mesmo com as vagas esgotadas." },
     { icon: "lock", text: "Continua valendo: o login não cai mais sozinho quando a sessão se renova." },
     { icon: "heart", text: "Gosta do jogo? O botão Apoiar no topo continua lá, para contribuir com Pix se quiser. O jogo segue 100% grátis.", donation: true },
   ],

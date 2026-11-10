@@ -5,6 +5,8 @@
 --    rodando ao mesmo tempo, ou alguma rodando há mais de 3 s;
 --  * lotes menores (1000 linhas por tabela e por mundo) e no máximo 25 s de poda por rodada.
 -- O que não for apagado agora fica para as próximas rodadas, nos horários calmos.
+-- E um mundo próprio cuja criação parou no meio (banco travado) e ficou sem dono por mais de um dia
+-- também sai: antes ele ficava "em construção" para sempre, ocupando uma das vagas.
 
 create or replace function private.db_busy()
 returns boolean language sql volatile security definer set search_path = '' as $$
@@ -37,7 +39,8 @@ begin
      where x.id ~ '^br[0-9]{4}[pf][0-9a-f]{10}$'
        and (coalesce(x.stats ? 'dropping', false)
             or (x.created_at < now() - interval '1 day'
-                and not coalesce(x.stats ? 'building', false)
+                and (not coalesce(x.stats ? 'building', false)
+                     or (x.stats->>'building')::bigint < extract(epoch from now() - interval '1 day'))
                 and not exists (select 1 from private.person_owners o where o.world_id = x.id)))
   loop
     exit when clock_timestamp() - started > interval '15 seconds' or private.db_busy();
