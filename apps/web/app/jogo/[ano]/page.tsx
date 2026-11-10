@@ -56,15 +56,16 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const firstName = me.person.name.split(" ")[0];
   const pendCount = todo.invites.length + todo.offers.length + todo.investigations + todo.partyRequests.length;
   const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
-  // mundo compartilhado: o tempo anda sozinho, em saltos fixos (sem botões de avançar)
+  // mundo compartilhado: o tempo anda sozinho, igual para todos (sem botões de avançar)
   const clock: SharedClock | null = clockNow.shared
     ? {
         others: clockNow.others,
-        nextAt: clockNow.nextAt!,
-        nextLabel: clockNow.nextLabel!,
-        catchingUp: clockTarget(state.world, Date.now()) > state.world.tick,
-        stepDays: clockNow.stepDays,
-        stepHours: clockNow.stepHours,
+        night: clockNow.night,
+        perHour: clockNow.perHour,
+        changesAt: clockNow.changesAt!,
+        changesLabel: clockNow.changesLabel!,
+        // de dia o relógio anda 1 dia a cada 2 min: só conta como "alcançando" um atraso maior
+        catchingUp: clockTarget(state.world, Date.now()) - state.world.tick > 5,
       }
     : null;
 
@@ -85,7 +86,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
       id: "tempo",
       title: clock ? "Acompanhe o relógio" : "Passe o tempo",
       text: clock
-        ? `Neste mundo o tempo anda sozinho: ${clock.stepDays} dias de jogo a cada ${clock.stepHours} horas, nas horas pares de Brasília. Aja na carreira e volte depois do próximo avanço para ver o que mudou no Brasil.`
+        ? "Neste mundo o tempo anda sozinho, igual para todos: 2 meses de jogo a cada 2 horas (da 0h às 7h de Brasília, 1 semana a cada 2 horas). Aja na carreira e volte aqui para ver o que mudou no Brasil."
         : "Neste mundo só seu, o tempo para enquanto você não joga. Avance dias aqui no Painel e veja o que aconteceu no Brasil.",
       href: `${base}#tempo`,
       cta: "Ir para o relógio",

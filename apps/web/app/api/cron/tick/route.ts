@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { START_YEARS } from "@dp/engine";
 import { SITE_URL } from "@/lib/env";
 import { sendMail } from "@/lib/mail";
-import { advanceWorld, logError, runMaintenance, worldExists, worldIdFor, yearOfWorld, type MaintenanceResult } from "@/lib/sim";
+import { advanceSharedWorlds, logError, runMaintenance, yearOfWorld, type MaintenanceResult } from "@/lib/sim";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -31,41 +30,21 @@ function warnMail(w: MaintenanceResult["warn"][number]) {
 }
 
 /**
- * Vercel Cron (vercel.json). A cada 2 horas, logo depois de cada hora par de Brasília, dá o
- * salto dos mundos compartilhados (o relógio anda 7 dias). Uma vez por dia (6h17 UTC) também
- * cuida dos mundos próprios parados (aviso e remoção).
+ * Tarefa diária (Vercel Cron, vercel.json): leva os mundos compartilhados até o relógio, poda
+ * dados antigos e cuida dos mundos próprios parados (aviso e remoção). O relógio também anda
+ * pela tarefa de 15 em 15 minutos (/api/cron/relogio).
  */
 export async function GET(request: NextRequest) {
   const auth = request.headers.get("authorization") ?? "";
   const secret = process.env.CRON_SECRET ?? process.env.SIM_SECRET;
   if (!secret || auth !== `Bearer ${secret}`) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const started = Date.now();
-  const ticks: Record<string, number | string> = {};
-  for (const y of START_YEARS) {
-    if (Date.now() - started > TICK_BUDGET_MS) break;
-    try {
-      if (!(await worldExists(worldIdFor(y)))) continue;
-      // em blocos até alcançar o relógio ou acabar o tempo (o que faltar fica para amanhã ou para o próximo jogador)
-      let total = 0;
-      for (;;) {
-        const t = await advanceWorld(y, 45);
-        total += t;
-        if (t < 45 || Date.now() - started > TICK_BUDGET_MS) break;
-      }
-      ticks[y] = total;
-    } catch (e) {
-      ticks[y] = e instanceof Error ? e.message : "erro";
-      // um jogador já está dando o salto deste mundo agora: nada a fazer, não é erro
-      if (!/ocupado/i.test(String(ticks[y]))) await logError("cron", `/api/cron/tick#${y}`, e);
-    }
-  }
+  // em blocos até alcançar o relógio ou acabar o tempo (o que faltar fica para a próxima rodada ou o próximo jogador)
+  const ticks = await advanceSharedWorlds(TICK_BUDGET_MS);
 
   let maintenance: Omit<MaintenanceResult, "warn"> & { warned: number; mailed: number } = { news: 0, events: 0, notifications: 0, dropped: [], warned: 0, mailed: 0 };
-  // a manutenção é só na rodada diária (6h UTC); as outras rodadas só dão o salto dos mundos.
-  // Sem e-mail configurado, nenhum mundo é avisado nem removido: a regra promete aviso antes (a
-  // poda de dados antigos é da tarefa do próprio banco e segue de qualquer jeito)
-  const daily = new Date().getUTCHours() === 6;
-  if (daily && process.env.RESEND_API_KEY) try {
+  // sem e-mail configurado, nenhum mundo é avisado nem removido: a regra promete aviso antes (a poda
+  // de dados antigos é da tarefa do próprio banco e segue de qualquer jeito)
+  if (process.env.RESEND_API_KEY) try {
     const m = await runMaintenance();
     let mailed = 0;
     for (const w of m.warn) {

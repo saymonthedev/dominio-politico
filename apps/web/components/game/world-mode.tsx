@@ -2,7 +2,7 @@
 import { createContext, useContext } from "react";
 
 /**
- * Mundo compartilhado: o tempo anda sozinho em saltos fixos, então as decisões não param o
+ * Mundo compartilhado: o tempo anda sozinho, igual para todos, então as decisões não param o
  * relógio nem vencem (esperam a resposta do jogador). Nos mundos só do jogador, o tempo para nelas.
  */
 const SharedWorld = createContext(false);

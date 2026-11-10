@@ -40,7 +40,7 @@ const ENTRIES: GlossaryEntry[] = [
   { term: "Quociente eleitoral", text: "Votos válidos divididos pelo número de cadeiras em disputa; base para distribuir as vagas das eleições proporcionais entre os partidos." },
   { term: "Rachadinha", text: "Apropriação de parte dos salários de assessores por quem os nomeou. Pode configurar peculato." },
   { term: "Registro de candidatura", text: "Pedido à Justiça Eleitoral, feito pelo partido depois da convenção, para que alguém possa aparecer na urna." },
-  { term: "Relógio compartilhado", text: "Cada ponto de partida tem um mundo só, para todos os jogadores. Nele o tempo anda sozinho: 7 dias de jogo a cada 2 horas, nas horas pares de Brasília. Ninguém avança na mão, então quem fica fora não perde a vez. No mundo só seu, você avança quando quiser." },
+  { term: "Relógio compartilhado", text: "Cada ponto de partida tem um mundo só, para todos os jogadores. Nele o tempo anda sozinho, igual para todos: de dia, 2 meses de jogo a cada 2 horas (1 dia a cada 2 minutos); da 0h às 7h de Brasília, 1 semana a cada 2 horas. Ninguém avança na mão. No mundo só seu, você avança quando quiser." },
   { term: "Segundo turno", text: "Nova votação entre os dois mais votados quando ninguém passa de 50% dos votos válidos (presidente, governador e prefeito de cidades com mais de 200 mil eleitores)." },
   { term: "Selic", text: "Taxa básica de juros da economia, definida pelo Copom. No jogo, rende o dinheiro em conta e encarece as dívidas." },
   { term: "Snapshot", text: "A fotografia real do país no dia seguinte ao 2º turno escolhido. Depois dela, tudo é simulação." },

@@ -7,17 +7,19 @@ import { Icon } from "../Icon";
 import { Term } from "../Term";
 import { EventModal } from "./EventModal";
 
-/** Relógio de um mundo compartilhado (o tempo anda sozinho, em saltos fixos). */
+/** Relógio de um mundo compartilhado: o tempo anda sozinho, igual para todos. */
 export interface SharedClock {
   /** outros jogadores que jogaram nas últimas 72 h */
   others: number;
-  /** próximo salto (hora real, ISO) e a hora de Brasília dele ("18h") */
-  nextAt: string;
-  nextLabel: string;
-  /** a hora do salto já passou e o mundo está alcançando */
+  /** madrugada (0h às 7h de Brasília): ritmo lento */
+  night: boolean;
+  /** dias de jogo por hora real agora */
+  perHour: number;
+  /** quando o ritmo muda (hora real, ISO) e a hora de Brasília da mudança ("7h", "0h") */
+  changesAt: string;
+  changesLabel: string;
+  /** o mundo ficou bem atrás do relógio e está alcançando */
   catchingUp: boolean;
-  stepDays: number;
-  stepHours: number;
 }
 
 interface Props {
@@ -34,38 +36,26 @@ interface Props {
 }
 
 const DAY = 86_400_000;
-const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const MONTHS_LONG = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const WEEKDAY = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
-/** a tela tenta buscar o mundo novo algumas vezes depois da hora do salto; depois disso, espera o jogador */
+/** alcançando: a tela tenta buscar o mundo novo algumas vezes; depois disso, espera o jogador */
 const MAX_TRIES = 8;
 
 const at = (iso: string) => new Date(`${iso}T12:00:00Z`);
-const short = (d: Date) => `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
-
-function until(ms: number): string {
-  const m = Math.ceil(ms / 60_000);
-  if (m <= 1) return "em instantes";
-  if (m < 60) return `em ${m} min`;
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  return r ? `em ${h} h ${r} min` : `em ${h} h`;
-}
 
 /**
- * O tempo do mundo compartilhado: ninguém avança na mão. A tela mostra a hora do
- * próximo salto e, passada a hora, busca o mundo atualizado sozinha (só com a aba à vista).
+ * O tempo do mundo compartilhado: ninguém avança na mão. A tela mostra o ritmo de agora e
+ * se atualiza sozinha (com a aba à vista) para acompanhar o calendário andando.
  */
 export function WorldClock({ year, date, energy, clock, next, today = [], pending = [] }: Props) {
   const router = useRouter();
-  const [now, setNow] = useState(() => Date.now());
   const [open, setOpen] = useState<StoryEvent | null>(null);
   const [attempt, setAttempt] = useState(0);
   const tries = useRef(0);
   const waiting = useRef(false);
-  const nextMs = Date.parse(clock.nextAt);
   const cur = at(date);
   const toNext = next ? Math.round((at(next.date).getTime() - cur.getTime()) / DAY) : null;
+  const minutesPerDay = Math.round(60 / clock.perHour);
 
   // o mundo andou: recomeça a contagem de tentativas
   useEffect(() => {
@@ -73,18 +63,15 @@ export function WorldClock({ year, date, energy, clock, next, today = [], pendin
   }, [date]);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 20_000);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(() => {
     const refresh = () => {
-      if (tries.current >= MAX_TRIES) return;
       if (document.visibilityState !== "visible") {
         waiting.current = true;
         return;
       }
-      tries.current += 1;
+      if (clock.catchingUp) {
+        if (tries.current >= MAX_TRIES) return;
+        tries.current += 1;
+      }
       setAttempt((a) => a + 1);
       router.refresh();
     };
@@ -95,16 +82,16 @@ export function WorldClock({ year, date, energy, clock, next, today = [], pendin
       }
     };
     document.addEventListener("visibilitychange", onVisible);
-    // alcançando: confere de novo em 15 s; senão, logo depois da hora do próximo salto (se o relógio
-    // do aparelho estiver adiantado e o servidor ainda não virou a hora, tenta de novo em 30 s)
-    const due = nextMs - Date.now();
-    const wait = clock.catchingUp ? 15_000 : due > 0 ? due + 8_000 : 30_000;
+    // alcançando: confere de novo em 15 s; senão, de tempos em tempos e logo depois da troca de ritmo
+    const every = clock.night ? 20 * 60_000 : 4 * 60_000;
+    const toChange = Date.parse(clock.changesAt) - Date.now() + 5_000;
+    const wait = clock.catchingUp ? 15_000 : Math.max(5_000, toChange > 0 ? Math.min(every, toChange) : every);
     const t = setTimeout(refresh, wait);
     return () => {
       clearTimeout(t);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [clock.catchingUp, nextMs, date, attempt, router]);
+  }, [clock.catchingUp, clock.night, clock.changesAt, date, attempt, router]);
 
   const stuck = clock.catchingUp && tries.current >= MAX_TRIES;
 
@@ -137,21 +124,29 @@ export function WorldClock({ year, date, energy, clock, next, today = [], pendin
 
       <div className={`tm__next${clock.catchingUp ? " is-busy" : ""}`} role="status" aria-live="polite">
         <span className="tm__next-label">
-          <Icon name={clock.catchingUp ? "zap" : "calendar"} size={14} /> {clock.catchingUp ? "Avançando" : "Próximo avanço"}
+          <Icon name={clock.catchingUp ? "zap" : clock.night ? "clock" : "play"} size={14} /> {clock.catchingUp ? "Alcançando o relógio" : clock.night ? "Ritmo da madrugada" : "Ritmo agora"}
         </span>
         {clock.catchingUp ? (
           <>
-            <b className="tm__next-time">{stuck ? "O avanço está demorando" : "O mundo está andando a semana"}</b>
+            <b className="tm__next-time">{stuck ? "O mundo está demorando para andar" : "O mundo está andando os dias que faltam"}</b>
             <p>{stuck ? "Atualize a página daqui a pouco para ver o mundo novo." : "A tela atualiza sozinha em instantes."}</p>
           </>
         ) : (
           <>
             <b className="tm__next-time">
-              às {clock.nextLabel}
-              <small>{until(nextMs - now)}</small>
+              1 dia a cada {minutesPerDay} min
+              <small>{clock.night ? "1 semana a cada 2 horas" : "2 meses a cada 2 horas"}</small>
             </b>
             <p>
-              O mundo vai até <b>{short(new Date(cur.getTime() + clock.stepDays * DAY))}</b>. Até lá, aja na carreira: no avanço a energia volta a subir.
+              {clock.night ? (
+                <>
+                  Da 0h às 7h de Brasília o tempo anda devagar. Às <b>{clock.changesLabel}</b> volta ao ritmo do dia: 2 meses a cada 2 horas.
+                </>
+              ) : (
+                <>
+                  À <b>{clock.changesLabel === "0h" ? "meia-noite" : clock.changesLabel}</b> desacelera para a madrugada: 1 semana a cada 2 horas, até as 7h.
+                </>
+              )}
             </p>
           </>
         )}
@@ -176,7 +171,7 @@ export function WorldClock({ year, date, energy, clock, next, today = [], pendin
             <b>
               <Term k="Relógio compartilhado" />
             </b>
-            : o tempo anda sozinho, {clock.stepDays} dias de jogo a cada {clock.stepHours} horas, nas horas pares de Brasília (0h, 2h, 4h…). Ninguém avança na mão, então quem fica fora não perde a vez.{" "}
+            : o tempo anda sozinho, igual para todos. De dia, 2 meses de jogo a cada 2 horas; da 0h às 7h de Brasília, 1 semana a cada 2 horas. Ninguém avança na mão.{" "}
             {clock.others > 0 ? `${clock.others === 1 ? "Outro jogador jogou" : `${clock.others} outros jogadores jogaram`} neste mundo nos últimos 3 dias.` : "Você é o único jogador ativo neste mundo nos últimos 3 dias."}
           </span>
         </p>

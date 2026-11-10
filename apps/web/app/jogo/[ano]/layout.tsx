@@ -46,7 +46,7 @@ export default async function GameLayout({ children, params }: { children: React
   const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
   const invites = (invitesQ.data ?? []).map((r) => r.id as string);
 
-  // O mundo segue andando: passou a hora do salto, avança em segundo plano (com trava: uma tentativa
+  // O mundo segue andando: o relógio passou do dia do mundo, avança em segundo plano (com trava: uma tentativa
   // por mundo a cada 90 s nesta instância, sem fila de servidores esperando o mesmo lease)
   if (world && clockTarget(world, Date.now()) > world.tick) after(() => asPlayer(token, () => backgroundAdvance(year)));
   const shared = modeOfWorld(me.worldId) === "SHARED";
@@ -76,7 +76,7 @@ export default async function GameLayout({ children, params }: { children: React
               <small>Brasil pós-{year}{world?.stats?.fictional ? " · fictício" : world?.stats?.private ? " · só seu" : ""}</small>
             </span>
           </a>
-          <a className="gtop__date" href={`/jogo/${year}#tempo`} title={shared ? "O tempo anda sozinho: veja no Painel o próximo avanço" : "Passar o tempo no Painel"}>
+          <a className="gtop__date" href={`/jogo/${year}#tempo`} title={shared ? "O tempo anda sozinho: veja o ritmo no Painel" : "Passar o tempo no Painel"}>
             {d ? (
               <>
                 <small>{WEEKDAY[d.getUTCDay()]}</small>

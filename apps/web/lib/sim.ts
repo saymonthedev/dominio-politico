@@ -14,15 +14,13 @@ import {
   clearPlayerData,
   createInitialWorld,
   brasiliaHour,
+  clockPace,
   clockTarget,
-  nextClockStep,
   pendingFor,
   PRIVATE_FLAG,
   resolveStory,
   stepDays,
   SHARED_SPEED,
-  SHARED_STEP_DAYS,
-  SHARED_STEP_HOURS,
   Ctx,
   DEFAULT_RULESET,
   housingFromFile,
@@ -798,7 +796,7 @@ export async function withWorld<T>(
     const now = new Date().toISOString();
     const aligned = alignClock(worldId, state, now);
     const target = targetTick(state, now);
-    // salto do mundo compartilhado: quem jogou nos últimos dias vive a semana (recebe acontecimentos)
+    // o relógio do mundo compartilhado andou: quem jogou nos últimos dias vive esses dias (recebe acontecimentos)
     if (target > state.world.tick && modeOfWorld(worldId) === "SHARED") state.living = new Set(await activePlayers(worldId));
     let run: ReturnType<typeof runTicks>;
     try {
@@ -940,8 +938,8 @@ function snapshotOf(state: WorldState, userId: string): PersonSnapshot | null {
 /* ---------- relógio dos mundos compartilhados (regras no motor: clock.ts) ---------- */
 
 /**
- * Mundo compartilhado ainda no relógio antigo (ou com outra velocidade): passa para os saltos
- * fixos a partir de agora, sem pular dias. Mundo só do jogador: relógio parado.
+ * Mundo compartilhado ainda num relógio antigo (outra velocidade): passa para o relógio atual a
+ * partir de agora, sem pular dias. Mundo só do jogador: relógio parado.
  */
 function alignClock(worldId: string, state: WorldState, nowIso: string): boolean {
   const speed = modeOfWorld(worldId) === "SHARED" ? SHARED_SPEED : 0;
@@ -953,54 +951,84 @@ function alignClock(worldId: string, state: WorldState, nowIso: string): boolean
   return true;
 }
 
-/** Jogadores que agiram no mundo nas últimas 72 h (ação, personagem novo). */
+/** Quem agiu no mundo nas últimas 72 h (ação, personagem novo), guardado por 5 min em cada servidor. */
+const activeCache = new Map<string, { at: number; ids: string[] }>();
 async function activePlayers(worldId: string): Promise<string[]> {
+  const hit = activeCache.get(worldId);
+  if (hit && Date.now() - hit.at < 5 * 60_000) return hit.ids;
   try {
     const { data } = await db(playerToken.getStore()).rpc("clock_activity", { p_world: worldId });
-    return ((data ?? null) as { active?: string[] } | null)?.active ?? [];
+    const ids = ((data ?? null) as { active?: string[] } | null)?.active ?? [];
+    activeCache.set(worldId, { at: Date.now(), ids });
+    return ids;
   } catch {
-    return [];
+    return hit?.ids ?? [];
   }
 }
 
-/** Próximo salto do relógio compartilhado, como o jogador lê ("18h"). */
-export function nextStepLabel(ms = Date.now()): string {
-  return `${brasiliaHour(nextClockStep(ms))}h`;
-}
-
 const SHARED_ONLY_AUTO = () =>
-  `Neste mundo compartilhado o tempo anda sozinho: ${SHARED_STEP_DAYS} dias de jogo a cada ${SHARED_STEP_HOURS} horas, nas horas pares de Brasília. O próximo avanço é às ${nextStepLabel()}.`;
+  "Neste mundo compartilhado o tempo anda sozinho, igual para todos: 2 meses de jogo a cada 2 horas (1 dia a cada 2 minutos) e, da 0h às 7h de Brasília, 1 semana a cada 2 horas.";
 
 export interface WorldClock {
-  /** mundo compartilhado: o tempo anda sozinho, em saltos fixos */
+  /** mundo compartilhado: o tempo anda sozinho, igual para todos */
   shared: boolean;
   /** outros jogadores que jogaram nas últimas 72 h */
   others: number;
-  /** próximo salto (hora real, ISO) e a hora de Brasília dele */
-  nextAt: string | null;
-  nextLabel: string | null;
-  stepDays: number;
-  stepHours: number;
+  /** madrugada (ritmo lento) agora */
+  night: boolean;
+  /** dias de jogo por hora real agora */
+  perHour: number;
+  /** quando o ritmo muda (hora real, ISO) e a hora de Brasília da mudança */
+  changesAt: string | null;
+  changesLabel: string | null;
 }
 
 /** O relógio do mundo para o Painel. */
 export async function worldClock(worldId: string, personId: string | null): Promise<WorldClock> {
-  const base = { stepDays: SHARED_STEP_DAYS, stepHours: SHARED_STEP_HOURS };
-  if (modeOfWorld(worldId) !== "SHARED") return { ...base, shared: false, others: 0, nextAt: null, nextLabel: null };
-  const now = Date.now();
+  if (modeOfWorld(worldId) !== "SHARED") return { shared: false, others: 0, night: false, perHour: 0, changesAt: null, changesLabel: null };
+  const pace = clockPace(Date.now());
   const active = await activePlayers(worldId);
   return {
-    ...base,
     shared: true,
     others: active.filter((id) => id !== personId).length,
-    nextAt: new Date(nextClockStep(now)).toISOString(),
-    nextLabel: nextStepLabel(now),
+    night: pace.night,
+    perHour: pace.perHour,
+    changesAt: new Date(pace.changesAt).toISOString(),
+    changesLabel: `${brasiliaHour(pace.changesAt)}h`,
   };
 }
 
 /**
+ * Cron: leva os mundos compartilhados até o relógio, em blocos, até acabar o tempo. A ordem
+ * dos mundos muda a cada rodada para nenhum ficar sempre por último.
+ */
+export async function advanceSharedWorlds(budgetMs: number): Promise<Record<string, number | string>> {
+  const started = Date.now();
+  const ticks: Record<string, number | string> = {};
+  const years = [...START_YEARS].sort(() => Math.random() - 0.5);
+  for (const y of years) {
+    if (Date.now() - started > budgetMs) break;
+    try {
+      if (!(await worldExists(worldIdFor(y)))) continue;
+      let total = 0;
+      for (;;) {
+        const t = await advanceWorld(y, MAX_CATCHUP);
+        total += t;
+        if (t < MAX_CATCHUP || Date.now() - started > budgetMs) break;
+      }
+      ticks[y] = total;
+    } catch (e) {
+      ticks[y] = e instanceof Error ? e.message : "erro";
+      // um jogador já está levando este mundo até o relógio agora: nada a fazer, não é erro
+      if (!/ocupado/i.test(String(ticks[y]))) await reportError("cron", `relogio#${y}`, e);
+    }
+  }
+  return ticks;
+}
+
+/**
  * "Avançar o tempo": processa N dias imediatamente. Só nos mundos do próprio
- * jogador; nos compartilhados o tempo anda sozinho, em saltos fixos.
+ * jogador; nos compartilhados o tempo anda sozinho, igual para todos.
  */
 export async function fastForward(worldId: string, days: number, userId: string): Promise<FastForwardResult> {
   if (modeOfWorld(worldId) === "SHARED") return { ok: false, message: SHARED_ONLY_AUTO(), days: 0 };

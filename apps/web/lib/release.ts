@@ -3,12 +3,12 @@
  * Para anunciar uma nova versão, troque o `id` (e os itens): quem já viu a anterior vê de novo.
  */
 export const RELEASE = {
-  id: "2026-11-10-relogio",
+  id: "2026-11-10-ritmo",
   date: "10 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "Novo relógio nos mundos compartilhados: o tempo anda sozinho, no mesmo ritmo para todo mundo, e quem fica fora não perde a vez.",
+  lede: "Novo ritmo nos mundos compartilhados: o tempo anda sozinho, igual para todos, mais rápido de dia e devagar de madrugada.",
   items: [
-    { icon: "clock", text: "Nos mundos compartilhados o tempo agora anda sozinho: 7 dias de jogo a cada 2 horas, nas horas pares de Brasília (0h, 2h, 4h…). Ninguém avança na mão. O Painel mostra a hora do próximo avanço." },
+    { icon: "clock", text: "De dia, 2 meses de jogo a cada 2 horas (1 dia a cada 2 minutos). Da 0h às 7h de Brasília, enquanto quase todo mundo dorme, 1 semana a cada 2 horas. Ninguém avança na mão, e o Painel mostra o ritmo de agora." },
     { icon: "zap", text: "Os acontecimentos continuam chegando a quem jogou nos últimos dias, e as decisões esperam a sua resposta: nada vence enquanto você está fora." },
     { icon: "user", text: "No mundo só seu (e no fictício) nada muda: você passa o tempo quando quiser, de 1 dia a 1 mês." },
     { icon: "phone", text: "Também saiu hoje: o Celular (menu Você), com mensagens entre jogadores, rede social, notícias e galeria. E ainda a aba Família, doações entre jogadores e o mural de apoiadores." },

@@ -203,7 +203,7 @@ export function advanceDay(ctx: Ctx): void {
   ctx.saveWorld();
 }
 
-/** Tick alvo segundo o relógio real do mundo (saltos fixos nos compartilhados; parado nos do jogador). */
+/** Tick alvo segundo o relógio real do mundo (anda sozinho nos compartilhados; parado nos do jogador). */
 export function targetTick(state: WorldState, nowIso: string): number {
   return clockTarget(state.world, Date.parse(nowIso));
 }

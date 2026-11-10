@@ -60,7 +60,7 @@ export interface WorldState {
    */
   focus?: Set<string>;
   /**
-   * Jogadores que vivem os saltos automáticos do mundo compartilhado (jogaram nos
+   * Jogadores que vivem os dias do relógio automático do mundo compartilhado (jogaram nos
    * últimos dias): recebem acontecimentos sorteados como quem vive os dias, mas os
    * prazos das decisões não correm sem eles (respondem quando voltarem).
    */
