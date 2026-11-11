@@ -19,7 +19,7 @@ import {
   pendingFor,
   PRIVATE_FLAG,
   resolveStory,
-  stepDays,
+  stepDaysAsync,
   SHARED_SPEED,
   Ctx,
   DEFAULT_RULESET,
@@ -30,7 +30,7 @@ import {
   fictionalizeCities,
   fictionalizeWorld,
   hydrateState,
-  runTicks,
+  runTicksAsync,
   STATEFUL_TABLES,
   START_YEARS,
   targetTick,
@@ -798,9 +798,9 @@ export async function withWorld<T>(
     const target = targetTick(state, now);
     // o relógio do mundo compartilhado andou: quem jogou nos últimos dias vive esses dias (recebe acontecimentos)
     if (target > state.world.tick && modeOfWorld(worldId) === "SHARED") state.living = new Set(await activePlayers(worldId));
-    let run: ReturnType<typeof runTicks>;
+    let run: Awaited<ReturnType<typeof runTicksAsync>>;
     try {
-      run = runTicks(state, { target, maxTicks: opts.maxTicks ?? MAX_CATCHUP, budgetMs: opts.budgetMs ?? 12_000, now: () => Date.now(), tolerant: true });
+      run = await runTicksAsync(state, { target, maxTicks: opts.maxTicks ?? MAX_CATCHUP, budgetMs: opts.budgetMs ?? 12_000, now: () => Date.now(), tolerant: true }, breathe);
     } finally {
       state.living = undefined;
     }
@@ -1047,7 +1047,7 @@ export async function fastForward(worldId: string, days: number, userId: string)
     alignClock(worldId, state, now);
     const from = state.world.game_date;
     const start = state.world.tick;
-    const { ctx, ticks } = runTicks(state, { target: start + days, maxTicks: days, budgetMs: 25_000, now: () => Date.now(), tolerant: true });
+    const { ctx, ticks } = await runTicksAsync(state, { target: start + days, maxTicks: days, budgetMs: 25_000, now: () => Date.now(), tolerant: true }, breathe);
     const manual = Math.max(0, state.world.tick - start);
     state.world.anchor_tick = state.world.tick;
     state.world.anchor_real_at = now;
@@ -1134,7 +1134,7 @@ export async function advanceStep(worldId: string, days: number, userId: string)
     alignClock(worldId, state, now);
     const from = state.world.game_date;
     // os dias vividos pelo jogador, um a um (o relógio deste mundo só anda assim)
-    const step = stepDays(state, me.id, { days, budgetMs: 20_000, now: () => Date.now(), tolerant: true });
+    const step = await stepDaysAsync(state, me.id, { days, budgetMs: 20_000, now: () => Date.now(), tolerant: true }, breathe);
     const manual = step.ticks;
     state.world.anchor_tick = state.world.tick;
     state.world.anchor_real_at = now;
@@ -1257,6 +1257,15 @@ export async function clearPlayerWorlds(chars: Array<{ world_id: string; person_
     }
     await withWorld(c.world_id, (_state, mk) => clearPlayerData(mk(c.person_id), c.person_id), { maxTicks: 0 }).catch(() => undefined);
   }
+}
+
+/**
+ * O motor anda os dias sem parar (é síncrono): entre um dia e outro, devolve a vez para as outras
+ * requisições desta instância, que senão ficariam esperando um avanço longo terminar (e podiam
+ * estourar o limite de 60 s sem ter feito nada pesado).
+ */
+function breathe(): Promise<void> {
+  return new Promise((ok) => setImmediate(ok));
 }
 
 /** Uma linha barata por mundo (todos os mundos). */

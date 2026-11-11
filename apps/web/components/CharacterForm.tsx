@@ -73,7 +73,8 @@ export function CharacterForm({
         <ChoiceCards
           name="mode"
           label="Tipo de mundo"
-          columns={3}
+          // vagas de mundos próprios esgotadas: o compartilhado sozinho ocupa a linha toda
+          columns={privateOpen ? 3 : 1}
           onChange={setMode}
           options={[
             {

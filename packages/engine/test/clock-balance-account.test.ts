@@ -9,7 +9,10 @@ import {
   Ctx,
   performAction,
   runTicks,
+  runTicksAsync,
   SHARED_SPEED,
+  stepDays,
+  stepDaysAsync,
   targetTick,
   worldPriceLevel,
 } from "../src";
@@ -131,5 +134,35 @@ describe("relógio dos mundos compartilhados", () => {
     // decisão sem resposta não vence sozinha: espera a volta do jogador
     const story = state.t.person_states.get(ativo.id)!.story!;
     expect(story.log.filter((e) => e.auto && e.kind !== "INFO")).toHaveLength(0);
+  });
+});
+
+describe("dias com pausa no servidor", () => {
+  const pause = () => new Promise<void>((ok) => setImmediate(ok));
+
+  it("andar os dias com pausas dá exatamente o mesmo mundo", async () => {
+    const a = freshWorld("pausas").state;
+    const b = freshWorld("pausas").state;
+    const ra = runTicks(a, { target: a.world.tick + 12, maxTicks: 12 });
+    const rb = await runTicksAsync(b, { target: b.world.tick + 12, maxTicks: 12 }, pause);
+    expect(rb.ticks).toBe(ra.ticks);
+    expect(b.world.game_date).toBe(a.world.game_date);
+    expect(JSON.stringify(b.world.gov)).toBe(JSON.stringify(a.world.gov));
+    expect(rb.ctx.changes.count()).toBe(ra.ctx.changes.count());
+  });
+
+  it("viver os dias com pausas dá o mesmo diário e devolve quem estava vivendo", async () => {
+    const mk = () => {
+      const { state } = freshWorld("pausas-vida");
+      const r = createCharacter(new Ctx(state, "action:setup"), { userId: "00000000-0000-0000-0000-0000000000b1", name: "Lia Pausa", uf: "RJ", age: 29, profession: "professor", origin: "classe_media", interests: [], ideology: {} });
+      return { state, id: r.person!.id };
+    };
+    const a = mk();
+    const b = mk();
+    const ra = stepDays(a.state, a.id, { days: 10 });
+    const rb = await stepDaysAsync(b.state, b.id, { days: 10 }, pause);
+    expect(rb.days.map((d) => d.line)).toEqual(ra.days.map((d) => d.line));
+    expect(rb.stop).toBe(ra.stop);
+    expect(b.state.focus).toBeUndefined();
   });
 });

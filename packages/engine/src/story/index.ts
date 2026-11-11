@@ -10,7 +10,7 @@ export { dailyStory, isPresent, pendingFor, resolveStory, storyCtx, type StoryOu
 export { annualMortality, careerSummary, endCareer, type CareerSummary } from "./life";
 export { emptyStory, pendingBlocking, scheduleStory, storyOf } from "./state";
 export { nextSaturday, weekdayName, WEEKDAYS } from "./time";
-export { routineLine, stepDays, type DayDigest, type DayEvent, type StepResult } from "./step";
+export { routineLine, stepDays, stepDaysAsync, type DayDigest, type DayEvent, type StepDaysOptions, type StepResult } from "./step";
 export {
   afterPolls,
   explainShift,

@@ -208,17 +208,61 @@ export function targetTick(state: WorldState, nowIso: string): number {
   return clockTarget(state.world, Date.parse(nowIso));
 }
 
-/** Avança até `maxTicks` dias (ou até o alvo) e devolve as mudanças acumuladas. */
-export function runTicks(state: WorldState, opts: { target: number; maxTicks: number; budgetMs?: number; now?: () => number; tolerant?: boolean }): { ctx: Ctx; ticks: number } {
+export interface RunTicksOptions {
+  target: number;
+  maxTicks: number;
+  budgetMs?: number;
+  now?: () => number;
+  tolerant?: boolean;
+}
+
+/** Os dias de `runTicks`, um por vez: o gerador para entre um dia e outro (quem chama decide se espera). */
+function* tickSteps(state: WorldState, opts: RunTicksOptions): Generator<void, { ctx: Ctx; ticks: number }> {
   const ctx = new Ctx(state, "tick");
   ctx.tolerant = !!opts.tolerant;
   const now = opts.now ?? (() => 0);
   const start = now();
   let ticks = 0;
   while (state.world.tick < opts.target && ticks < opts.maxTicks) {
+    if (ticks > 0) yield;
     advanceDay(ctx);
     ticks++;
     if (opts.budgetMs && now() - start > opts.budgetMs) break;
   }
   return { ctx, ticks };
+}
+
+/** Avança até `maxTicks` dias (ou até o alvo) e devolve as mudanças acumuladas. */
+export function runTicks(state: WorldState, opts: RunTicksOptions): { ctx: Ctx; ticks: number } {
+  return drain(tickSteps(state, opts));
+}
+
+/**
+ * O mesmo que `runTicks`, esperando `pause()` entre um dia e outro: no servidor, as outras
+ * requisições da mesma instância seguem sendo atendidas enquanto o mundo anda.
+ */
+export function runTicksAsync(state: WorldState, opts: RunTicksOptions, pause: () => Promise<void>): Promise<{ ctx: Ctx; ticks: number }> {
+  return drainAsync(tickSteps(state, opts), pause);
+}
+
+/** Roda um gerador de dias até o fim, sem pausas. */
+export function drain<T>(g: Generator<void, T>): T {
+  let r = g.next();
+  while (!r.done) r = g.next();
+  return r.value;
+}
+
+/** Roda um gerador de dias até o fim, esperando `pause()` entre um passo e outro. */
+export async function drainAsync<T>(g: Generator<void, T>, pause: () => Promise<void>): Promise<T> {
+  let r = g.next();
+  try {
+    while (!r.done) {
+      await pause();
+      r = g.next();
+    }
+    return r.value;
+  } finally {
+    // interrompido no meio: o gerador fecha e desfaz o que marcou no estado (quem está vivendo os dias)
+    if (!r.done) g.return(undefined as never);
+  }
 }

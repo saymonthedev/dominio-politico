@@ -2,7 +2,7 @@ import { day, weekday, type ISODate } from "../calendar";
 import { isJailed } from "../crime";
 import { OFFICES } from "../ruleset";
 import { Ctx, type WorldState } from "../state";
-import { advanceDay } from "../tick";
+import { advanceDay, drain, drainAsync } from "../tick";
 import { StoryCtx } from "./context";
 import { pendingBlocking } from "./state";
 import { WEEKDAYS } from "./time";
@@ -101,8 +101,25 @@ export function routineLine(c: StoryCtx): string {
   return work;
 }
 
+export interface StepDaysOptions {
+  days: number;
+  budgetMs?: number;
+  now?: () => number;
+  tolerant?: boolean;
+}
+
 /** Avança até `days` dias vivendo cada um; para em decisões que seguram o tempo. */
-export function stepDays(state: WorldState, personId: string, opts: { days: number; budgetMs?: number; now?: () => number; tolerant?: boolean }): StepResult {
+export function stepDays(state: WorldState, personId: string, opts: StepDaysOptions): StepResult {
+  return drain(daySteps(state, personId, opts));
+}
+
+/** O mesmo que `stepDays`, esperando `pause()` entre um dia e outro (o servidor segue atendendo). */
+export function stepDaysAsync(state: WorldState, personId: string, opts: StepDaysOptions, pause: () => Promise<void>): Promise<StepResult> {
+  return drainAsync(daySteps(state, personId, opts), pause);
+}
+
+/** Os dias de `stepDays`, um por vez: o gerador para entre um dia e outro. */
+function* daySteps(state: WorldState, personId: string, opts: StepDaysOptions): Generator<void, StepResult> {
   const ctx = new Ctx(state, "tick");
   ctx.tolerant = !!opts.tolerant;
   const now = opts.now ?? (() => 0);
@@ -114,6 +131,7 @@ export function stepDays(state: WorldState, personId: string, opts: { days: numb
   state.focus = new Set([...(prevFocus ?? []), personId]);
   try {
     for (let i = 0; i < opts.days; i++) {
+      if (i > 0) yield;
       const p = state.t.persons.get(personId);
       const st = state.t.person_states.get(personId);
       if (!p || !st) break;
