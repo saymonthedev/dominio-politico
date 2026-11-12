@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addSignatures, createCharacter, Ctx, indicationElection, performAction, runTicks, spawnProceduralCadre } from "../src";
+import { addSignatures, createCharacter, Ctx, indicationElection, indicationNote, performAction, runTicks, spawnProceduralCadre } from "../src";
 import { freshWorld } from "./helpers";
 
 function advanceUntil(state: ReturnType<typeof freshWorld>["state"], done: () => boolean, limit = "2029-12-31") {
@@ -68,4 +68,32 @@ describe("candidaturas do partido próprio", () => {
     expect(party.campaign_fund!.left).toBe(0);
     expect(["ELEITO", "NAO_ELEITO", "SEGUNDO_TURNO", "SUPLENTE"]).toContain(mayorCand.status);
   }, 300_000);
+});
+
+describe("mensagem da indicação do partido", () => {
+  it("diz em que eleição o cargo está em disputa, o período da pré-candidatura e avisa sobre a idade", () => {
+    const { state } = freshWorld("indicacao");
+    const upcoming = [...state.t.elections.values()].filter((e) => e.status !== "ENCERRADA").sort((a, b) => a.year - b.year);
+    const first = upcoming[0];
+    const other = upcoming.find((e) => e.kind !== first.kind)!;
+    // em plena pré-campanha da primeira eleição, indicando para um cargo da eleição do outro tipo
+    state.world.game_date = first.calendar.preCampaignStart;
+    const ctx = new Ctx(state, "view");
+    const person = [...state.t.persons.values()].find((p) => p.kind === "FICTIONAL_GENERATED" && p.status === "ACTIVE")!;
+    const level = first.kind === "GERAL" ? "PRES_MUNICIPAL" : "PRES_NACIONAL";
+    const msg = indicationNote(ctx, level, { ...person, birth_year: 1950 }, true);
+    expect(msg).toContain(`A eleição de ${first.year} é`);
+    expect(msg).toContain(`na de ${other.year}`);
+    expect(msg).toContain(`pré-campanha de ${other.year}`);
+    // 34 anos na posse da próxima eleição geral: Presidente exige 35, só dá 4 anos depois
+    const geral = upcoming.find((e) => e.kind === "GERAL")!;
+    const young = { ...person, birth_year: geral.year + 1 - 34 };
+    const warn = indicationNote(ctx, "PRES_NACIONAL", young, true);
+    expect(warn).toContain("34 anos");
+    expect(warn).toContain("exige 35");
+    expect(warn).toContain(`a de ${geral.year + 4}`);
+    expect(warn).not.toContain("Registre a pré-candidatura (em Carreira)");
+    // outra pessoa indicada: a convenção segue a indicação
+    expect(indicationNote(ctx, "PRES_NACIONAL", { ...person, birth_year: 1960 }, false)).toContain(`A convenção de ${geral.year}`);
+  });
 });

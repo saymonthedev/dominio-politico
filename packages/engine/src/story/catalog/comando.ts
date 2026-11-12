@@ -1,6 +1,6 @@
 import { diffDays } from "../../calendar";
 import { homeCityOf } from "../../housing";
-import { isPresident, partyMembersInScope, partyOfficersInScope, partyPostOf, postRank, setPartyPost } from "../../partypost";
+import { indicationNote, isPresident, partyMembersInScope, partyOfficersInScope, partyPostOf, postRank, setPartyPost } from "../../partypost";
 import type { PersonRow } from "../../types";
 import type { StoryCtx } from "../context";
 import type { EventDef } from "../def";
@@ -366,7 +366,8 @@ const pedido_legenda = ev({
       const geo = p.level === "PRES_NACIONAL" ? "BR" : p.level === "PRES_ESTADUAL" ? c.p.uf : homeCityOf(c.p);
       fx.flag(`indicacao:${geo}`, String(b.who));
       fx.rel(String(b.who), 15);
-      return "Indicação fechada. A convenção vai seguir sua palavra.";
+      const member = actor(c, b.who);
+      return member ? `Indicação fechada. ${indicationNote(c.ctx, p.level, member, false)}` : "Indicação fechada. A convenção vai seguir sua palavra.";
     } },
     { id: "previas", label: "Propor prévias com outros nomes", hint: "Democrático; pode rachar", tone: "bold", run: (c, b, fx) => {
       fx.standing(2);
@@ -378,7 +379,7 @@ const pedido_legenda = ev({
       const geo = p.level === "PRES_NACIONAL" ? "BR" : p.level === "PRES_ESTADUAL" ? c.p.uf : homeCityOf(c.p);
       fx.flag(`indicacao:${geo}`, c.p.id);
       fx.rel(String(b.who), -15);
-      return "Você avisou que o nome é seu. Registre a pré-candidatura quando a pré-campanha abrir.";
+      return `Você avisou que o nome é seu. ${indicationNote(c.ctx, p.level, c.p, true)}`;
     } },
   ],
   fallback: "previas",

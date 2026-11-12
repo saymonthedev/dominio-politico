@@ -1,6 +1,8 @@
+import { ageAt, formatDatePt } from "./calendar";
 import { canonicalGeo } from "./geo";
 import { isReal } from "./news/policy";
 import { homeCityOf } from "./housing";
+import { inaugurationDate, OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx, WorldState } from "./state";
 import { storyOf } from "./story/state";
 import type { MembershipRow, PartyRow, PersonRow, PersonStateRow } from "./types";
@@ -119,6 +121,55 @@ export function directoryPick(ctx: Ctx, party: PartyRow, geo: string): string | 
     if (covers) return pick;
   }
   return null;
+}
+
+/** Cargo que cada presidência de diretório indica: Presidência, governo do estado ou prefeitura. */
+export function indicationOffice(level: PartyPostLevel): OfficeCode {
+  return level === "PRES_NACIONAL" ? "PRESIDENTE" : level === "PRES_ESTADUAL" ? "GOVERNADOR" : "PREFEITO";
+}
+
+const TARGET: Partial<Record<OfficeCode, string>> = { PRESIDENTE: "a Presidência", GOVERNADOR: "o governo do estado", PREFEITO: "a prefeitura" };
+const KIND_LABEL = { GERAL: "geral (presidente, governador, senador e deputados)", MUNICIPAL: "municipal (prefeito e vereador)" } as const;
+
+/**
+ * Quando a indicação vale: a próxima eleição em que o cargo está em disputa e ainda dá para
+ * registrar (até o fim das convenções), o período da pré-candidatura e um aviso se a pessoa não
+ * terá a idade mínima na posse (a convenção ignora quem não pode concorrer).
+ */
+export function indicationNote(ctx: Ctx, level: PartyPostLevel, who: PersonRow, self: boolean): string {
+  const office = indicationOffice(level);
+  const rule = OFFICES[office];
+  const target = TARGET[office] ?? rule.name;
+  const upcoming = [...ctx.t.elections.values()].filter((e) => e.status !== "ENCERRADA" && ctx.date <= e.calendar.conventionEnd).sort((a, b) => a.year - b.year);
+  const e = upcoming.find((x) => x.kind === rule.election);
+  if (!e) {
+    const kind = rule.election === "GERAL" ? "geral" : "municipal";
+    return self ? `Registre a pré-candidatura quando abrir a pré-campanha da próxima eleição ${kind}, em 1º de janeiro do ano da eleição.` : "A convenção da próxima eleição vai seguir a indicação.";
+  }
+  const parts: string[] = [];
+  // ano de eleição do outro tipo: o cargo não está em disputa agora
+  const other = upcoming.find((x) => x.kind !== rule.election && x.year < e.year && ctx.date >= x.calendar.preCampaignStart);
+  if (other) parts.push(`A eleição de ${other.year} é ${KIND_LABEL[other.kind]}: ${target} só está em disputa na de ${e.year}.`);
+  const age = ageAt(who.birth_year, inaugurationDate(office, e.year));
+  if (age < rule.minAge) {
+    let year = e.year;
+    while (ageAt(who.birth_year, inaugurationDate(office, year)) < rule.minAge) year += 4;
+    parts.push(
+      `Atenção: na posse de ${e.year + 1}, ${self ? "você terá" : `${who.name} terá`} ${age} anos, e ${rule.name} exige ${rule.minAge}. ` +
+        (self
+          ? `A primeira eleição em que dá é a de ${year} (a pré-campanha abre em 1º de janeiro de ${year}); a indicação continua valendo até lá.`
+          : `Em ${e.year} a convenção vai escolher outro nome; a primeira eleição em que dá é a de ${year}.`),
+    );
+  } else if (self) {
+    parts.push(
+      ctx.date >= e.calendar.preCampaignStart
+        ? `Registre a pré-candidatura (em Carreira) até ${formatDatePt(e.calendar.conventionEnd)}, fim das convenções de ${e.year}.`
+        : `Registre a pré-candidatura (em Carreira) quando a pré-campanha de ${e.year} abrir: de ${formatDatePt(e.calendar.preCampaignStart)} a ${formatDatePt(e.calendar.conventionEnd)}.`,
+    );
+  } else {
+    parts.push(`A convenção de ${e.year} (${formatDatePt(e.calendar.conventionStart)} a ${formatDatePt(e.calendar.conventionEnd)}) vai seguir a indicação.`);
+  }
+  return parts.join(" ");
 }
 
 export function isPresident(level: PartyPostLevel | null | undefined): boolean {

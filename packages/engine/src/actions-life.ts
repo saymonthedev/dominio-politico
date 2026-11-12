@@ -19,7 +19,7 @@ import {
   sellHomeAndMove,
   type AfterSale,
 } from "./housing";
-import { activeMembership, isPresident, partyMembersInScope, partyOfficersInScope, partyPostOf } from "./partypost";
+import { activeMembership, indicationNote, isPresident, partyMembersInScope, partyOfficersInScope, partyPostOf } from "./partypost";
 import type { Rng } from "./rng";
 import type { Ctx } from "./state";
 import { liveCandidacy } from "./story/context";
@@ -534,7 +534,8 @@ const COMANDO: ActionDef[] = [
       storyOf(st, p, ctx.date).flags[`indicacao:${geo}`] = who.id;
       if (who.id !== p.id) bumpRel(ctx, p.id, who.id, 12);
       const scope = post.level === "PRES_NACIONAL" ? "para a Presidência" : post.level === "PRES_ESTADUAL" ? "para o governo do estado" : "para a prefeitura";
-      return { ok: true, message: who.id === p.id ? `Você será o nome do partido ${scope}: registre a pré-candidatura quando a pré-campanha abrir.` : `${who.name} é o nome do partido ${scope}. A convenção vai seguir a indicação.` };
+      const note = indicationNote(ctx, post.level, who, who.id === p.id);
+      return { ok: true, message: who.id === p.id ? `Você será o nome do partido ${scope}. ${note}` : `${who.name} é o nome do partido ${scope}. ${note}` };
     },
   },
   {
