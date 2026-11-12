@@ -118,8 +118,8 @@ export interface AgendaItem {
 }
 
 /** Prazos e datas do calendário a partir de hoje (eleição, posse, debates e votações do jogador). */
-export function agenda(state: WorldState, me: PersonRow, limit = 8): AgendaItem[] {
-  const today = state.world.game_date;
+/** `today`: o dia de quem olha (no mundo compartilhado, o jogador pode estar à frente do mundo). */
+export function agenda(state: WorldState, me: PersonRow, limit = 8, today = state.world.game_date): AgendaItem[] {
   const items: AgendaItem[] = [];
   for (const e of [...state.t.elections.values()].filter((x) => x.status !== "ENCERRADA").sort((a, b) => a.year - b.year).slice(0, 2)) {
     const kind = e.kind === "GERAL" ? "gerais" : "municipais";

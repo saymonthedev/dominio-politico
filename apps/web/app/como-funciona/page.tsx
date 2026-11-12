@@ -33,9 +33,10 @@ export default function Page() {
           body: (
             <>
               <p>
-                O tempo anda sozinho: <b>2 dias de jogo por hora real</b>. Você também pode avançar 1, 7 ou 15 dias quando quiser — o mundo processa tudo e mostra
-                o que aconteceu.
+                No mundo compartilhado, o tempo anda em <b>rodadas de 2 horas</b>. Em cada rodada você vive os seus dias no seu ritmo: até <b>2 meses de jogo</b> de
+                dia e 1 semana nas rodadas da madrugada. Quando as 2 horas acabam, o mundo anda para todos, e os dias que você não viveu ficam para trás.
               </p>
+              <p>No mundo só seu, o tempo para enquanto você não joga: você avança 1 dia, 1 semana, 15 dias ou 1 mês quando quiser, e o mundo mostra o que aconteceu.</p>
               <p>Copom decide juros, a economia oscila, partidos avaliam filiações, a janela partidária abre, convenções escolhem candidatos e eleições acontecem a cada dois anos.</p>
             </>
           ),

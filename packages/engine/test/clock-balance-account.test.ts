@@ -2,8 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   acceptanceProbability,
   clearPlayerData,
-  clockPace,
+  alignRounds,
+  closeRound,
   clockTarget,
+  enterPersonalDay,
+  nextMilestones,
+  personalDay,
+  planRound,
+  roundDays,
+  roundDue,
+  roundIndex,
   computeAffiliation,
   createCharacter,
   Ctx,
@@ -75,45 +83,116 @@ describe("exclusão de conta", () => {
   });
 });
 
-describe("relógio dos mundos compartilhados", () => {
+describe("rodadas dos mundos compartilhados", () => {
   const at = (iso: string) => Date.parse(iso);
-  const from = (iso: string) => ({ anchor_real_at: iso, anchor_tick: 100, game_days_per_real_hour: SHARED_SPEED });
+  const player = (seed: string) => {
+    const { state } = freshWorld(seed);
+    const r = createCharacter(new Ctx(state, "action:setup"), { userId: "00000000-0000-0000-0000-0000000000c1", name: "Rui Rodada", uf: "PE", age: 31, profession: "professor", origin: "classe_media", interests: [], ideology: {} });
+    expect(r.ok).toBe(true);
+    return { state, id: r.person!.id };
+  };
 
-  it("de dia anda 2 meses a cada 2 horas (1 dia a cada 2 minutos)", () => {
-    // 16h30 de Brasília (19h30 UTC)
-    const w = from("2026-11-10T19:30:00.000Z");
-    expect(clockTarget(w, at("2026-11-10T19:31:00.000Z"))).toBe(100);
-    expect(clockTarget(w, at("2026-11-10T19:32:00.000Z"))).toBe(101);
-    expect(clockTarget(w, at("2026-11-10T21:30:00.000Z"))).toBe(160);
-    // antes da âncora não volta
-    expect(clockTarget(w, at("2026-11-10T10:00:00.000Z"))).toBe(100);
+  it("rodadas de 2 horas: 2 meses de dia, 1 semana nas da madrugada", () => {
+    // 16h de Brasília (19h UTC) e 2h de Brasília (5h UTC)
+    expect(roundDays(roundIndex(at("2026-11-10T19:30:00.000Z")))).toBe(60);
+    expect(roundDays(roundIndex(at("2026-11-11T05:10:00.000Z")))).toBe(7);
+    expect(roundDays(roundIndex(at("2026-11-11T09:00:00.000Z")))).toBe(60);
+    expect(roundIndex(at("2026-11-10T20:59:59.000Z"))).toBe(roundIndex(at("2026-11-10T19:00:00.000Z")));
+    expect(roundIndex(at("2026-11-10T21:00:00.000Z"))).toBe(roundIndex(at("2026-11-10T19:00:00.000Z")) + 1);
   });
 
-  it("de madrugada (0h às 7h de Brasília) anda 7 dias a cada 2 horas", () => {
-    // 0h de Brasília (3h UTC)
-    const w = from("2026-11-11T03:00:00.000Z");
-    expect(clockTarget(w, at("2026-11-11T05:00:00.000Z"))).toBe(107);
-    expect(clockTarget(w, at("2026-11-11T10:00:00.000Z"))).toBe(100 + 24);
-    // das 6h às 8h: 1 hora de madrugada (3,5 dias) e 1 hora de dia (30 dias)
-    const w2 = from("2026-11-11T09:00:00.000Z");
-    expect(clockTarget(w2, at("2026-11-11T11:00:00.000Z"))).toBe(133);
-    // um dia real inteiro: 7 h de madrugada e 17 h de dia
-    expect(clockTarget(w, at("2026-11-12T03:00:00.000Z"))).toBe(100 + 534);
+  it("a rodada termina no marco eleitoral que vier antes dos 2 meses", () => {
+    const { state } = freshWorld("rodada-marco");
+    const i = roundIndex(at("2026-11-10T19:30:00.000Z"));
+    const plan = planRound(state, i);
+    const m = nextMilestones(state, state.world.game_date)[0];
+    const toMilestone = m ? Math.round((Date.parse(m.date) - Date.parse(state.world.game_date)) / 86_400_000) : Infinity;
+    if (toMilestone <= 60) {
+      expect(plan.until).toBe(state.world.tick + toMilestone);
+      expect(plan.cap).toBe(plan.until - 1);
+      expect(plan.milestone?.date).toBe(m!.date);
+    } else {
+      expect(plan).toMatchObject({ until: state.world.tick + 60, cap: state.world.tick + 60, milestone: null });
+    }
   });
 
-  it("o ritmo muda às 7h e à meia-noite de Brasília", () => {
-    const day = clockPace(at("2026-11-10T19:30:00.000Z"));
-    expect(day).toMatchObject({ night: false, perHour: 30 });
-    expect(new Date(day.changesAt).toISOString()).toBe("2026-11-11T03:00:00.000Z");
-    const night = clockPace(at("2026-11-11T05:00:00.000Z"));
-    expect(night).toMatchObject({ night: true, perHour: 3.5 });
-    expect(new Date(night.changesAt).toISOString()).toBe("2026-11-11T10:00:00.000Z");
+  it("o mundo fica parado na rodada e anda até o fim dela na virada", () => {
+    const { state } = freshWorld("rodada-virada");
+    const now = at("2026-11-10T19:30:00.000Z");
+    expect(alignRounds(state, now)).toBe(true);
+    expect(alignRounds(state, now)).toBe(false);
+    const until = state.world.stats.round_until;
+    expect(roundDue(state.world, now)).toBe(false);
+    expect(clockTarget(state.world, now)).toBe(state.world.tick);
+    // virou a rodada (18h de Brasília): o mundo precisa chegar ao fim dela
+    const later = at("2026-11-10T21:05:00.000Z");
+    expect(roundDue(state.world, later)).toBe(true);
+    expect(clockTarget(state.world, later)).toBe(until);
+    runTicks(state, { target: until, maxTicks: 90 });
+    closeRound(state);
+    expect(state.world.tick).toBe(until);
+    expect(roundDue(state.world, later)).toBe(false);
+    expect(state.world.stats.round_until).toBeGreaterThan(until);
+  });
+
+  it("cada jogador vive os próprios dias sem mover o mundo, até o fim da rodada", () => {
+    const { state, id } = player("rodada-pessoal");
+    alignRounds(state, at("2026-11-10T19:30:00.000Z"));
+    const tick = state.world.tick;
+    const date = state.world.game_date;
+    const st = state.t.person_states.get(id)!;
+    st.energy = 10;
+    const r = stepDays(state, id, { days: 5, personalCap: state.world.stats.round_cap });
+    // para antes se aparece uma decisão nova (como no "viver os dias" de sempre)
+    expect(r.ticks).toBeGreaterThan(0);
+    expect([null, "decisao"]).toContain(r.stop);
+    expect(state.world.tick).toBe(tick);
+    expect(state.world.game_date).toBe(date);
+    expect(personalDay(state, id).tick).toBe(tick + r.ticks);
+    expect(st.energy).toBeGreaterThan(10);
+    // ação ou decisão: o mundo vai para o dia do jogador e volta
+    const back = enterPersonalDay(state, id)!;
+    expect(state.world.tick).toBe(tick + r.ticks);
+    back();
+    expect(state.world.tick).toBe(tick);
+    // não passa do último dia da rodada
+    const cap = state.world.stats.round_cap;
+    const rest = stepDays(state, id, { days: 400, personalCap: cap });
+    expect(rest.stop === "rodada" || rest.stop === "decisao" || rest.stop === "fim").toBe(true);
+    expect(personalDay(state, id).tick).toBeLessThanOrEqual(cap);
+  });
+
+  it("na virada, quem já viveu os dias não recupera a energia de novo", () => {
+    const { state, id } = player("rodada-energia");
+    alignRounds(state, at("2026-11-10T19:30:00.000Z"));
+    const st = state.t.person_states.get(id)!;
+    const lived = stepDays(state, id, { days: 3, personalCap: state.world.stats.round_cap }).ticks;
+    expect(lived).toBeGreaterThan(0);
+    st.energy = 5;
+    // o mundo anda os dias que o jogador já viveu: a energia gasta continua gasta
+    runTicks(state, { target: state.world.tick + lived, maxTicks: lived });
+    expect(st.energy).toBe(5);
+    // o dia seguinte ninguém viveu: aí o dia do mundo devolve a energia
+    runTicks(state, { target: state.world.tick + 1, maxTicks: 1 });
+    expect(st.energy).toBeGreaterThan(5);
+  });
+
+  it("na virada, o dia do mundo não mexe na história de quem não jogou", () => {
+    const { state, id } = player("rodada-ausente");
+    alignRounds(state, at("2026-11-10T19:30:00.000Z"));
+    const st = state.t.person_states.get(id)!;
+    // nenhum acontecimento chega nem vence (o mundo pode deixar continuações na fila, que só
+    // aparecem quando o jogador viver um dia); a família e as contas do mês andam no dia do mundo
+    const story = () => JSON.stringify({ pending: st.story?.pending ?? [], log: st.story?.log ?? [], seen: st.story?.seen ?? {}, last: st.story?.lastEvent ?? null });
+    const before = story();
+    runTicks(state, { target: state.world.tick + 20, maxTicks: 20 });
+    expect(story()).toBe(before);
   });
 
   it("mundo só do jogador não anda sozinho", () => {
     const { state } = freshWorld("relogio-proprio");
     state.world.game_days_per_real_hour = 0;
-    expect(targetTick(state, "2027-01-01T00:00:00.000Z")).toBe(state.world.anchor_tick);
+    expect(targetTick(state, "2027-01-01T00:00:00.000Z")).toBe(state.world.tick);
   });
 
   it("com o relógio andando sozinho, só quem jogou nos últimos dias recebe acontecimentos sorteados", () => {

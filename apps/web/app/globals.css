@@ -1476,16 +1476,8 @@ td.num, th.num { text-align: right; }
 .tm__opt--main:hover:not(:disabled) { background: #e2b85a; border-color: #e2b85a; }
 .tm__opt.is-blocked { cursor: not-allowed; opacity: .45; }
 .tm__opt.is-blocked:disabled { cursor: not-allowed; }
-.tm__shared { grid-column: 1 / -1; display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.06); border: 1px dashed rgba(255,255,255,.2); }
-.tm__shared p { display: flex; gap: 8px; align-items: flex-start; font-size: .8rem; }
-.tm__shared p svg { flex: none; margin-top: 2px; color: var(--faixa); }
-.tm__shared .tm__block { color: #ffd9a8; }
-.tm__log { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .76rem; color: #c3cde0; }
-.tm__log b { color: #fff; font-weight: 600; }
-.tm__log .muted { color: #8ea0bb; }
 .pr-note { display: flex; gap: 10px; align-items: flex-start; margin: 0; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--faixa) 12%, var(--cartao)); border: 1px solid color-mix(in srgb, var(--faixa) 40%, transparent); font-size: .86rem; line-height: 1.5; }
 .pr-note svg { flex: none; margin-top: 2px; color: var(--alerta); }
-.tm__busy { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,.08); }
 @media (max-width: 1100px) { .tm { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 560px) { .tm { padding: 18px 16px; } .tm__opts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
@@ -3011,14 +3003,8 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   .phone__notch { visibility: hidden; }
 }
 
-/* Relógio do mundo compartilhado (components/game/WorldClock.tsx): o tempo anda sozinho */
-.tm__next { display: grid; gap: 6px; align-content: center; padding: 16px 18px; border-radius: 16px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); }
-.tm__next-label { display: inline-flex; align-items: center; gap: 7px; font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #9fb0c9; }
-.tm__next-label svg { color: var(--faixa); }
-.tm__next-time { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: clamp(1.7rem, 3.2vw, 2.2rem); font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; color: #fff; }
-.tm__next-time small { font-size: .9rem; font-weight: 600; letter-spacing: 0; color: var(--faixa); }
-.tm__next.is-busy .tm__next-time { font-size: 1.2rem; letter-spacing: -0.01em; }
-.tm__next.is-busy .tm__next-label svg { animation: tm-pulse 1.2s ease-in-out infinite; }
-@keyframes tm-pulse { 50% { opacity: .35; } }
-@media (prefers-reduced-motion: reduce) { .tm__next.is-busy .tm__next-label svg { animation: none; } }
-.tm .tm__wait.is-wide { grid-column: 1 / -1; }
+/* rodada do mundo compartilhado: quem mais joga e como as rodadas viram */
+.tm__round { grid-column: 1 / -1; display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,.06); border: 1px dashed rgba(255,255,255,.2); font-size: .8rem; }
+.tm__round svg { flex: none; margin-top: 2px; color: var(--faixa); }
+.tm__wait .ui-spinner { flex: none; min-width: 0; }
+@media (max-width: 560px) { .tm__opt--round { grid-column: 1 / -1; } }

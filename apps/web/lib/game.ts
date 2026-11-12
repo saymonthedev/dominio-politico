@@ -106,7 +106,7 @@ export const playerState = cache(async (year: number): Promise<WorldState> => {
   const me = await requireMe(year);
   const { sb } = await getSession();
   const [world, session] = await Promise.all([getWorld(year), sb.auth.getSession()]);
-  const load = asPlayer(session.data.session?.access_token, () => cachedState(me.worldId, { tick: world?.tick, personId: me.person.id, seq: me.state.action_seq }));
+  const load = asPlayer(session.data.session?.access_token, () => cachedState(me.worldId, { tick: world?.tick, personId: me.person.id, seq: me.state.action_seq, personal: me.state.story?.personal?.tick }));
   // banco num pico: melhor a tela tentar de novo sozinha (a carga segue e fica na memória) do que
   // estourar o limite de 60 s da função e cair na página de erro da hospedagem
   return withDeadline(load, STATE_DEADLINE_MS, "O mundo demorou para carregar. Tentando de novo…");

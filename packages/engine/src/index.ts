@@ -10,6 +10,7 @@ export * from "./calendar";
 export * from "./character";
 export * from "./cities";
 export * from "./clock";
+export * from "./personal";
 export * from "./crime";
 export * from "./crimes";
 export * from "./economy";

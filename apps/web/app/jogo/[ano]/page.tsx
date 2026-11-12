@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { addDays, clockTarget, electionNight, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
+import { addDays, electionNight, roundDue, roundView, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
@@ -7,8 +7,7 @@ import { QuickAction } from "@/components/game/QuickAction";
 import { Onboarding, type OnboardingStep } from "@/components/game/Onboarding";
 import { actionsFor } from "@/lib/actions-view";
 import { ApuracaoReplay } from "@/components/game/ApuracaoReplay";
-import { TimeMachine } from "@/components/game/TimeMachine";
-import { WorldClock, type SharedClock } from "@/components/game/WorldClock";
+import { TimeMachine, type RoundInfo } from "@/components/game/TimeMachine";
 import { StoryInbox } from "@/components/game/StoryCenter";
 import { Icon } from "@/components/Icon";
 import { PersonAvatar } from "@/components/PersonAvatar";
@@ -43,9 +42,29 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   // o estado em cache pode estar alguns segundos atrás: o personagem vem do banco
   const meNow = state.t.persons.get(me.person.id) ?? me.person;
   const st = me.state;
+  // mundo compartilhado: rodadas de 2 horas; dentro delas o jogador vive os próprios dias (pode estar à frente do mundo)
+  const now = Date.now();
+  const rv = clockNow.shared ? roundView(state, now) : null;
+  const own = me.state.story?.personal;
+  const ahead = !!rv && !!own && own.tick > state.world.tick;
+  const myDate = ahead ? own!.date : state.world.game_date;
+  const myTick = ahead ? own!.tick : state.world.tick;
+  const round: RoundInfo | null = clockNow.shared
+    ? {
+        endsAt: rv?.endsAt ?? 0,
+        night: rv?.night ?? false,
+        worldDate: state.world.game_date,
+        capDate: rv?.capDate ?? state.world.game_date,
+        untilDate: rv?.untilDate ?? state.world.game_date,
+        milestone: rv?.milestone?.label ?? null,
+        // a rodada terminou e o mundo ainda está andando os dias dela (ou o mundo ainda está entrando nas rodadas)
+        turning: !rv || roundDue(state.world, now),
+        others: clockNow.others,
+      }
+    : null;
   const steps = careerSteps(state, me.person, st, year);
   const todo = pending(state, meNow, st);
-  const cal = agenda(state, me.person, 7);
+  const cal = agenda(state, me.person, 7, myDate);
   const news = (newsQ.data ?? []) as NewsRow[];
   const [eco, prev] = (ecoQ.data ?? []) as EconomyRow[];
   const pres = state.world.gov.president_id ? state.t.persons.get(state.world.gov.president_id) : undefined;
@@ -56,18 +75,6 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const firstName = me.person.name.split(" ")[0];
   const pendCount = todo.invites.length + todo.offers.length + todo.investigations + todo.partyRequests.length;
   const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
-  // mundo compartilhado: o tempo anda sozinho, igual para todos (sem botões de avançar)
-  const clock: SharedClock | null = clockNow.shared
-    ? {
-        others: clockNow.others,
-        night: clockNow.night,
-        perHour: clockNow.perHour,
-        changesAt: clockNow.changesAt!,
-        changesLabel: clockNow.changesLabel!,
-        // de dia o relógio anda 1 dia a cada 2 min: só conta como "alcançando" um atraso maior
-        catchingUp: clockTarget(state.world, Date.now()) - state.world.tick > 5,
-      }
-    : null;
 
   // primeiros passos: cada um se completa pelo que o jogador já fez no mundo
   const tutorialOff = (await cookies()).get(`dp_tutorial_${year}`)?.value === "off";
@@ -84,13 +91,13 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
     },
     {
       id: "tempo",
-      title: clock ? "Acompanhe o relógio" : "Passe o tempo",
-      text: clock
-        ? "Neste mundo o tempo anda sozinho, igual para todos: 2 meses de jogo a cada 2 horas (da 0h às 7h de Brasília, 1 semana a cada 2 horas). Aja na carreira e volte aqui para ver o que mudou no Brasil."
+      title: "Passe o tempo",
+      text: round
+        ? "Neste mundo o tempo anda em rodadas de 2 horas. Em cada rodada você vive os seus dias aqui no Painel, no seu ritmo, até 2 meses de jogo (1 semana nas rodadas da madrugada). Quando as 2 horas acabam, o mundo anda para todos e os dias que você não viveu ficam para trás."
         : "Neste mundo só seu, o tempo para enquanto você não joga. Avance dias aqui no Painel e veja o que aconteceu no Brasil.",
       href: `${base}#tempo`,
       cta: "Ir para o relógio",
-      done: state.world.tick - me.person.created_tick >= 7,
+      done: myTick - me.person.created_tick >= 7,
     },
     {
       id: "acontecimento",
@@ -149,7 +156,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
 
   return (
     <>
-      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""}, ${Number(state.world.game_date.slice(0, 4)) - me.person.birth_year} anos. Veja o que fazer agora${clock ? "" : ", passe o tempo"} e acompanhe o país.`}>
+      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""}, ${Number(myDate.slice(0, 4)) - me.person.birth_year} anos. Veja o que fazer agora, passe o tempo e acompanhe o país.`}>
         <a className="ui-btn ui-btn--gold" href={`/jogo/${year}/carreira`}>
           <Icon name="play" size={16} /> <span>Agir na carreira</span>
         </a>
@@ -160,11 +167,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
       {replay.length > 0 && lastVote && <ApuracaoReplay list={replay} year={lastVote.e.year} />}
 
       <div id="tempo" className="mb">
-        {clock ? (
-          <WorldClock year={year} date={state.world.game_date} energy={me.state.energy} clock={clock} next={nextMark} today={todayMarks} pending={storyPending} />
-        ) : (
-          <TimeMachine year={year} date={state.world.game_date} energy={me.state.energy} next={nextMark} today={todayMarks} pending={storyPending} agenda={schedulable} />
-        )}
+        <TimeMachine year={year} date={myDate} energy={me.state.energy} next={nextMark} today={todayMarks} pending={storyPending} agenda={schedulable} round={round} />
       </div>
 
       <div className="ggrid ggrid--main">
@@ -185,7 +188,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
 
         <div className="gstack">
           <Panel className={storyPending.length ? undefined : "is-empty-m"} title={<Term k="Acontecimento">Acontecimentos</Term>} icon="zap" tone={storyPending.some((e) => e.blocking) ? "gold" : undefined} aside={storyPending.length ? <Pill tone="gold">{storyPending.length}</Pill> : undefined} href={`/jogo/${year}/carreira#historia`} hrefLabel="Histórico">
-            <StoryInbox year={year} events={storyPending} today={state.world.game_date} />
+            <StoryInbox year={year} events={storyPending} today={myDate} />
           </Panel>
 
           <Panel className={pendCount ? undefined : "is-empty-m"} title="Pendências" icon="inbox" tone={pendCount ? "gold" : undefined} aside={pendCount ? <Pill tone="gold">{pendCount}</Pill> : undefined}>

@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { sideVitals } from "@/lib/vitals";
-import { canonicalGeo, clockTarget, geoName, type NotificationRow } from "@dp/engine";
+import { canonicalGeo, clockTarget, geoName, usesRounds, type NotificationRow } from "@dp/engine";
 import { Announce } from "@/components/Announce";
 import { GameSidebar } from "@/components/game/GameSidebar";
 import { HashScroll } from "@/components/game/HashScroll";
@@ -9,7 +9,6 @@ import { MobileStatus } from "@/components/game/MobileStatus";
 import { NotificationBell } from "@/components/game/NotificationBell";
 import { StoryBell } from "@/components/game/StoryCenter";
 import { Toaster } from "@/components/game/Toaster";
-import { SharedWorldProvider } from "@/components/game/world-mode";
 import { UserMenu } from "@/components/game/UserMenu";
 import { LogoMark } from "@/components/Logo";
 import { SupportTopButton } from "@/components/Support";
@@ -48,9 +47,13 @@ export default async function GameLayout({ children, params }: { children: React
 
   // O mundo segue andando: o relógio passou do dia do mundo, avança em segundo plano (com trava: uma tentativa
   // por mundo a cada 90 s nesta instância, sem fila de servidores esperando o mesmo lease)
-  if (world && clockTarget(world, Date.now()) > world.tick) after(() => asPlayer(token, () => backgroundAdvance(year)));
+  // (mundo compartilhado ainda fora das rodadas: entra nelas já, sem esperar o cron)
   const shared = modeOfWorld(me.worldId) === "SHARED";
-  const d = world ? new Date(`${world.game_date}T12:00:00Z`) : null;
+  if (world && (clockTarget(world, Date.now()) > world.tick || (shared && !usesRounds(world)))) after(() => asPlayer(token, () => backgroundAdvance(year)));
+  // mundo compartilhado nas rodadas: o jogador está no dia dele (pode estar à frente do mundo)
+  const own = me.state.story?.personal;
+  const myDate = world && own && usesRounds(world) && own.tick > world.tick ? own.date : world?.game_date;
+  const d = myDate ? new Date(`${myDate}T12:00:00Z`) : null;
   const city = canonicalGeo(me.person.municipality);
   const place = /^\d{7}$/.test(city) ? geoName(city, { cities }) : me.person.uf;
 
@@ -60,7 +63,6 @@ export default async function GameLayout({ children, params }: { children: React
   const avatar = isAvatarCode(chosen) ? chosen : defaultAvatar(me.person.id);
 
   return (
-    <SharedWorldProvider shared={shared}>
     <Toaster>
       <a className="skip" href="#conteudo">
         Pular para o conteúdo
@@ -76,7 +78,7 @@ export default async function GameLayout({ children, params }: { children: React
               <small>Brasil pós-{year}{world?.stats?.fictional ? " · fictício" : world?.stats?.private ? " · só seu" : ""}</small>
             </span>
           </a>
-          <a className="gtop__date" href={`/jogo/${year}#tempo`} title={shared ? "O tempo anda sozinho: veja o ritmo no Painel" : "Passar o tempo no Painel"}>
+          <a className="gtop__date" href={`/jogo/${year}#tempo`} title={shared ? "Seu dia na rodada: viva os dias no Painel" : "Passar o tempo no Painel"}>
             {d ? (
               <>
                 <small>{WEEKDAY[d.getUTCDay()]}</small>
@@ -90,7 +92,7 @@ export default async function GameLayout({ children, params }: { children: React
           </a>
           <span className="gtop__spacer" />
           {DONATIONS && <SupportTopButton />}
-          <StoryBell year={year} events={storyPending} today={world?.game_date ?? storyPending[0]?.on ?? ""} />
+          <StoryBell year={year} events={storyPending} today={myDate ?? storyPending[0]?.on ?? ""} />
           <NotificationBell
             year={year}
             unread={unread}
@@ -128,6 +130,5 @@ export default async function GameLayout({ children, params }: { children: React
         </main>
       </div>
     </Toaster>
-    </SharedWorldProvider>
   );
 }

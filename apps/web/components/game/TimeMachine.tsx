@@ -59,7 +59,39 @@ export interface TimeMachineProps {
   today?: string[];
   /** ações que dá para agendar no período (época de eleição: pré-candidatura e campanha) */
   agenda?: ActionView[];
+  /** mundo compartilhado: a rodada de 2 horas em que o jogador vive os próprios dias */
+  round?: RoundInfo | null;
 }
+
+/** Rodada de 2 horas do mundo compartilhado, para a tela. */
+export interface RoundInfo {
+  /** quando a rodada termina (hora real, ms) */
+  endsAt: number;
+  /** madrugada: rodada de 1 semana */
+  night: boolean;
+  /** dia em que o mundo está (onde a rodada começou) */
+  worldDate: string;
+  /** último dia que dá para viver nesta rodada */
+  capDate: string;
+  /** dia a que o mundo chega na virada */
+  untilDate: string;
+  /** marco do calendário em que a rodada termina */
+  milestone: string | null;
+  /** a rodada terminou e o mundo está andando os dias dela */
+  turning: boolean;
+  /** outros jogadores que jogaram nas últimas 72 h */
+  others: number;
+}
+
+/** Hora de Brasília (UTC−3) de um instante: "16h". */
+const brtHour = (ms: number) => `${new Date(ms - 3 * 3_600_000).getUTCHours()}h`;
+/** Quanto falta: "1h05", "12 min". */
+const untilLabel = (ms: number, now: number) => {
+  const m = Math.max(0, Math.ceil((ms - now) / 60_000));
+  return m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}` : `${m} min`;
+};
+/** Depois da virada, a tela confere o mundo novo algumas vezes (com a aba à vista). */
+const MAX_POLLS = 30;
 
 /** Decisão tomada no meio do avanço (vai para o resumo). */
 interface Decided {
@@ -97,7 +129,7 @@ function mergeChunks(chunks: StepAdvanceResult[]): FastForwardResult | null {
 const isoPlus = (iso: string, n: number) => addDays(iso, n).toISOString().slice(0, 10);
 const daysFrom = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / DAY);
 
-export function TimeMachine({ year, date, energy, next, pending = [], agenda = [], today: todayMarks = [] }: TimeMachineProps) {
+export function TimeMachine({ year, date, energy, next, pending = [], agenda = [], today: todayMarks = [], round = null }: TimeMachineProps) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [diary, setDiary] = useState<DayDigest[]>([]);
   const [shown, setShown] = useState(0);
@@ -131,6 +163,46 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
   const live = phase !== "idle";
   const current = live && shown > 0 ? diary[shown - 1].date : date;
   const cur = new Date(`${current}T12:00:00Z`);
+  // rodada: dias que ainda dá para viver (até o último dia da rodada)
+  const left = round ? Math.max(0, daysFrom(date, round.capDate)) : Infinity;
+  // a hora só no navegador (o servidor e a tela não brigam pelo texto)
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  const [polls, setPolls] = useState(0);
+  useEffect(() => {
+    if (!round) return;
+    setNowMs(Date.now());
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, [round]);
+  // fim da rodada (ou virada em andamento): a tela busca o mundo novo sozinha
+  useEffect(() => {
+    if (!round || live || polls >= MAX_POLLS) return;
+    let later = false;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") {
+        later = true;
+        return;
+      }
+      setPolls((n) => n + 1);
+      router.refresh();
+    };
+    const onVisible = () => {
+      if (later && document.visibilityState === "visible") {
+        later = false;
+        refresh();
+      }
+    };
+    const wait = round.turning ? 20_000 : Math.min(Math.max(5_000, round.endsAt - Date.now() + 15_000), 2 * 3_600_000);
+    const t = setTimeout(refresh, wait);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [round?.turning, round?.endsAt, live, polls]);
+  // a virada terminou (mundo novo na tela): volta a contar as tentativas do zero
+  useEffect(() => setPolls(0), [round?.worldDate]);
 
   const finish = () => {
     setPhase("summary");
@@ -223,6 +295,8 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
     // o trecho terminou de passar na tela: a barra lateral acompanha o dia em que o relógio está
     publishVitals(r.vitals);
     if (r.stop === "fim") return showEnd();
+    // viveu até o último dia da rodada: o resto vem na próxima
+    if (r.stop === "rodada") return finish();
     // decisões que seguram o tempo e qualquer escolha nova: aparecem na hora
     const block = r.pending?.find((e) => e.blocking) ?? (r.stopOn ? r.pending?.find((e) => e.id === r.stopOn) : undefined);
     if (block) {
@@ -295,7 +369,7 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
     <section className={`tm${live ? " is-live" : ""}`} aria-labelledby="tm-title">
       <div className="tm__now">
         <span className="tm__kicker">
-          <Icon name="clock" size={14} /> {live ? "Vivendo os dias" : "Passar o tempo"}
+          <Icon name="clock" size={14} /> {live ? "Vivendo os dias" : round ? "Seus dias na rodada" : "Passar o tempo"}
         </span>
         <h2 id="tm-title" aria-live={live ? "polite" : undefined}>
           <small>{WEEKDAY[cur.getUTCDay()].replace(/^./, (c) => c.toUpperCase())}</small>
@@ -319,12 +393,28 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
                 Próximo marco: <b>{next.label}</b>, {toNext === 1 ? "amanhã" : `daqui a ${toNext} dias`}.{" "}
               </>
             ) : null}
-            Os dias passam um a um: dias tranquilos correm sozinhos e as decisões importantes param o relógio. Energia: {Math.round(energy)}/100 (recupera 25 por dia).
+            {round?.turning ? (
+              <>A rodada terminou: o mundo está andando para todos. Energia: {Math.round(energy)}/100 (recupera 25 por dia).</>
+            ) : round ? (
+              <>
+                Rodada até as <b>{brtHour(round.endsAt)}</b> de Brasília{nowMs !== null && !round.turning ? ` (faltam ${untilLabel(round.endsAt, nowMs)})` : ""}: dá para viver até <b>{longIso(round.capDate)}</b>
+                {round.milestone ? `, véspera de um marco (${round.milestone})` : ""}. Na virada, o mundo anda para todos e os dias que você não viveu ficam para trás. Energia: {Math.round(energy)}/100 (recupera 25 por dia).
+              </>
+            ) : (
+              <>Os dias passam um a um: dias tranquilos correm sozinhos e as decisões importantes param o relógio. Energia: {Math.round(energy)}/100 (recupera 25 por dia).</>
+            )}
           </p>
         )}
       </div>
 
-      {!live && waiting ? (
+      {!live && round?.turning ? (
+        <div className="tm__wait" role="status">
+          <span className="ui-spinner" aria-hidden="true" />
+          <span>
+            <b>A rodada virou.</b> O mundo está andando os dias de todos{round.untilDate > round.worldDate ? ` até ${longIso(round.untilDate)}` : ""}. A tela atualiza sozinha em instantes.
+          </span>
+        </div>
+      ) : !live && waiting ? (
         <div className="tm__wait" role="note">
           <Icon name="alert" size={18} />
           <span>
@@ -334,16 +424,30 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
             Decidir agora
           </Button>
         </div>
+      ) : !live && round && left <= 0 ? (
+        <div className="tm__wait" role="note">
+          <Icon name="check" size={18} />
+          <span>
+            <b>Você viveu a rodada inteira.</b> Às {brtHour(round.endsAt)} o mundo anda para todos até {longIso(round.untilDate)} e começa uma nova rodada. Enquanto isso, dá para agir na carreira no seu dia.
+          </span>
+        </div>
       ) : !live ? (
         <div className="tm__opts" role="group" aria-label="Escolha quanto tempo passar">
-          {OPTIONS.map((o) => (
-            <button key={o.days} type="button" className={`tm__opt${o.days === 7 ? " tm__opt--main" : ""}`} onClick={() => start(o.days)}>
+          {OPTIONS.filter((o) => o.days < left).map((o) => (
+            <button key={o.days} type="button" className={`tm__opt${o.days === 7 && !round ? " tm__opt--main" : ""}`} onClick={() => start(o.days)}>
               <b>{o.label}</b>
               <span>até {short(addDays(date, o.days))}</span>
               <small>{o.hint}</small>
             </button>
           ))}
-          {next && toNext !== null && toNext >= 1 && (
+          {round && left > 0 && (
+            <button type="button" className="tm__opt tm__opt--main tm__opt--round" onClick={() => start(left)}>
+              <b>Até o fim da rodada</b>
+              <span>até {shortIso(round.capDate)}</span>
+              <small>{left === 1 ? "o último dia que falta" : `os ${left} dias que faltam, com pausas`}</small>
+            </button>
+          )}
+          {next && toNext !== null && toNext >= 1 && toNext < left && (
             <button type="button" className="tm__opt tm__opt--marco" onClick={() => start(toNext)}>
               <b>Próximo marco</b>
               <span>até {short(addDays(date, toNext))}</span>
@@ -388,6 +492,16 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
             ) : null}
           </div>
         </div>
+      )}
+
+      {round && !live && (
+        <p className="tm__round">
+          <Icon name="users" size={14} />
+          <span>
+            Mundo compartilhado: rodadas de 2 horas (viram nas horas pares de Brasília), {round.night ? "de 1 semana na madrugada" : "de até 2 meses de jogo de dia"}.{" "}
+            {round.others > 0 ? `${round.others === 1 ? "Outro jogador jogou" : `${round.others} outros jogadores jogaram`} aqui nos últimos 3 dias.` : "Você é o único jogador ativo aqui nos últimos 3 dias."}
+          </span>
+        </p>
       )}
 
       {decision && phase === "deciding" && (
@@ -697,7 +811,8 @@ export function PeriodReport({
             </section>
           )}
 
-          {/* 4. o país: indicadores numa linha e as manchetes principais */}
+          {/* 4. o país: indicadores numa linha e as manchetes principais (na rodada, o país anda na virada: o aviso do topo explica) */}
+          {(result.country || lead || !result.note) && (
           <section className="pr-sec">
             <h3>
               <Icon name="newspaper" size={15} /> No Brasil
@@ -731,6 +846,7 @@ export function PeriodReport({
               <p className="pr-foot-note">Dias tranquilos: nenhuma manchete relevante.</p>
             )}
           </section>
+          )}
         </div>
 
         <footer className="pr__foot">

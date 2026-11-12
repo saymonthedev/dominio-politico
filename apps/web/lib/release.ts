@@ -3,15 +3,15 @@
  * Para anunciar uma nova versão, troque o `id` (e os itens): quem já viu a anterior vê de novo.
  */
 export const RELEASE = {
-  id: "2026-11-10-ritmo",
-  date: "10 de novembro de 2026",
+  id: "2026-11-12-rodadas",
+  date: "12 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "Novo ritmo nos mundos compartilhados: o tempo anda sozinho, igual para todos, mais rápido de dia e devagar de madrugada.",
+  lede: "Mundos compartilhados em rodadas de 2 horas: o tempo real é o mesmo para todos, mas cada um vive os próprios dias.",
   items: [
-    { icon: "clock", text: "De dia, 2 meses de jogo a cada 2 horas (1 dia a cada 2 minutos). Da 0h às 7h de Brasília, enquanto quase todo mundo dorme, 1 semana a cada 2 horas. Ninguém avança na mão, e o Painel mostra o ritmo de agora." },
-    { icon: "zap", text: "Os acontecimentos continuam chegando a quem jogou nos últimos dias, e as decisões esperam a sua resposta: nada vence enquanto você está fora." },
+    { icon: "clock", text: "Cada rodada dura 2 horas e vira nas horas pares de Brasília. Nela você vive os seus dias no seu ritmo, no Painel: até 2 meses de jogo de dia, 1 semana nas rodadas da madrugada (0h, 2h e 4h)." },
+    { icon: "zap", text: "Quando as 2 horas acabam, o mundo anda para todos até o fim da rodada. Quem não viveu os dias fica sem eles: se você só jogou janeiro, fevereiro passa sem você." },
+    { icon: "calendar", text: "Perto de um marco do calendário eleitoral (prazo de filiação, convenções, campanha, turnos) a rodada para na véspera, e na campanha cada rodada tem até 15 dias." },
     { icon: "user", text: "No mundo só seu (e no fictício) nada muda: você passa o tempo quando quiser, de 1 dia a 1 mês." },
-    { icon: "phone", text: "Também saiu hoje: o Celular (menu Você), com mensagens entre jogadores, rede social, notícias e galeria. E ainda a aba Família, doações entre jogadores e o mural de apoiadores." },
     { icon: "heart", text: "Gosta do jogo? O botão Apoiar no topo continua lá, para contribuir com Pix se quiser. O jogo segue 100% grátis.", donation: true },
   ],
 } as const;

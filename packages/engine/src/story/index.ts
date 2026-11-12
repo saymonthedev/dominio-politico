@@ -6,7 +6,7 @@ export type { ApprovalEntry, Car, CarModel, CareerEnd, ChoiceTone, Home, HomeKin
 export type { ChoiceDef, EventDef, Rendered } from "./def";
 export { STORY_DEFS, birthdayOf } from "./catalog";
 export { StoryCtx, liveCandidacy, type CampaignPhase } from "./context";
-export { dailyStory, isPresent, pendingFor, resolveStory, storyCtx, type StoryOutcome } from "./director";
+export { dailyStory, isPresent, pendingFor, resolveStory, storyCtx, storyDay, type StoryOutcome } from "./director";
 export { annualMortality, careerSummary, endCareer, type CareerSummary } from "./life";
 export { emptyStory, pendingBlocking, scheduleStory, storyOf } from "./state";
 export { nextSaturday, weekdayName, WEEKDAYS } from "./time";

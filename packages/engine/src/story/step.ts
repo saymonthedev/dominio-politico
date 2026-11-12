@@ -3,8 +3,9 @@ import { isJailed } from "../crime";
 import { OFFICES } from "../ruleset";
 import { Ctx, type WorldState } from "../state";
 import { advanceDay, drain, drainAsync } from "../tick";
+import { livePlayerDay, nextPersonalDay, personalDay, travelTo } from "../personal";
 import { StoryCtx } from "./context";
-import { pendingBlocking } from "./state";
+import { pendingBlocking, storyOf } from "./state";
 import { WEEKDAYS } from "./time";
 import type { StoryDelta, StoryKind, StoryTag, StoryWho } from "./types";
 import { bairro } from "./catalog/util";
@@ -50,8 +51,11 @@ export interface StepResult {
   ctx: Ctx;
   ticks: number;
   days: DayDigest[];
-  /** por que parou antes do fim: decisão pendente, fim da carreira ou limite de tempo de processamento */
-  stop: "decisao" | "fim" | "limite" | null;
+  /**
+   * por que parou antes do fim: decisão pendente, fim da carreira, limite de tempo de
+   * processamento ou fim da rodada (mundo compartilhado: o jogador viveu até onde dava)
+   */
+  stop: "decisao" | "fim" | "limite" | "rodada" | null;
   /** acontecimento novo que fez o relógio parar */
   stopOn?: string;
 }
@@ -106,6 +110,11 @@ export interface StepDaysOptions {
   budgetMs?: number;
   now?: () => number;
   tolerant?: boolean;
+  /**
+   * Mundo compartilhado nas rodadas: o jogador vive só os próprios dias (o mundo não anda), até
+   * este dia (tick), o último da rodada.
+   */
+  personalCap?: number;
 }
 
 /** Avança até `days` dias vivendo cada um; para em decisões que seguram o tempo. */
@@ -120,7 +129,9 @@ export function stepDaysAsync(state: WorldState, personId: string, opts: StepDay
 
 /** Os dias de `stepDays`, um por vez: o gerador para entre um dia e outro. */
 function* daySteps(state: WorldState, personId: string, opts: StepDaysOptions): Generator<void, StepResult> {
-  const ctx = new Ctx(state, "tick");
+  const personal = opts.personalCap !== undefined;
+  // dias pessoais: sorteios e ids próprios do jogador (o dia do mundo, depois, é outro)
+  const ctx = new Ctx(state, personal ? `personal:${personId}` : "tick");
   ctx.tolerant = !!opts.tolerant;
   const now = opts.now ?? (() => 0);
   const start = now();
@@ -145,35 +156,56 @@ function* daySteps(state: WorldState, personId: string, opts: StepDaysOptions): 
       }
       const seenLog = new Set((st.story?.log ?? []).slice(0, 40).map((e) => e.id));
       const seenPending = new Set((st.story?.pending ?? []).map((e) => e.id));
-      const money0 = st.money;
-      const energy0 = st.energy;
-      advanceDay(ctx);
-      const date = state.world.game_date;
-      const story = st.story;
-      const events: DayEvent[] = [];
-      for (const e of story?.log ?? []) {
-        if (seenLog.has(e.id)) break;
-        events.push({ id: e.id, def: e.def, title: e.title, outcome: e.outcome, kind: e.kind, tags: e.tags, deltas: e.deltas, auto: e.auto, who: e.who, choiceLabel: e.choiceLabel });
+      let back: (() => void) | null = null;
+      if (personal) {
+        const own = personalDay(state, personId);
+        if (own.tick >= opts.personalCap!) {
+          stop = "rodada";
+          break;
+        }
+        // o mundo vai para o dia seguinte do jogador só enquanto ele vive esse dia
+        const next = nextPersonalDay(own);
+        back = travelTo(state, next.tick, next.date);
       }
-      events.reverse();
-      const pending = (story?.pending ?? []).filter((e) => !seenPending.has(e.id)).map((e) => ({ id: e.id, title: e.title, kind: e.kind, blocking: e.blocking, tags: e.tags }));
-      const news = ctx.changes
-        .get("news_articles")
-        .filter((n) => n.tick === state.world.tick && (n.visibility === "PUBLIC" || (p.user_id && n.user_id === p.user_id)))
-        .sort((a, b) => Number(b.user_id === p.user_id) - Number(a.user_id === p.user_id) || b.importance - a.importance);
-      const c = new StoryCtx(ctx, p, st, ctx.rng("story-day", personId));
-      const highlight = pending[0]?.title ?? events.find((e) => e.kind !== "INFO" || !e.auto)?.title ?? events[0]?.title;
-      days.push({
-        date,
-        weekday: WEEKDAYS[weekday(date)],
-        line: highlight ?? (p.status === "ACTIVE" ? routineLine(c) : "Fim da jornada."),
-        events,
-        pending,
-        headline: news[0] ? { title: news[0].headline, category: news[0].category } : null,
-        money: Math.round(st.money - money0),
-        energy: Math.round(st.energy - energy0),
-        quiet: !events.length && !pending.length,
-      });
+      try {
+        const money0 = st.money;
+        const energy0 = st.energy;
+        if (personal) {
+          ctx.beginTick();
+          livePlayerDay(ctx, personId);
+          storyOf(st).personal = { tick: state.world.tick, date: state.world.game_date };
+          ctx.save("person_states", st);
+        } else advanceDay(ctx);
+        const date = state.world.game_date;
+        const story = st.story;
+        const events: DayEvent[] = [];
+        for (const e of story?.log ?? []) {
+          if (seenLog.has(e.id)) break;
+          events.push({ id: e.id, def: e.def, title: e.title, outcome: e.outcome, kind: e.kind, tags: e.tags, deltas: e.deltas, auto: e.auto, who: e.who, choiceLabel: e.choiceLabel });
+        }
+        events.reverse();
+        const pending = (story?.pending ?? []).filter((e) => !seenPending.has(e.id)).map((e) => ({ id: e.id, title: e.title, kind: e.kind, blocking: e.blocking, tags: e.tags }));
+        const news = ctx.changes
+          .get("news_articles")
+          .filter((n) => n.tick === state.world.tick && (n.visibility === "PUBLIC" || (p.user_id && n.user_id === p.user_id)))
+          .sort((a, b) => Number(b.user_id === p.user_id) - Number(a.user_id === p.user_id) || b.importance - a.importance);
+        const c = new StoryCtx(ctx, p, st, ctx.rng("story-day", personId));
+        const highlight = pending[0]?.title ?? events.find((e) => e.kind !== "INFO" || !e.auto)?.title ?? events[0]?.title;
+        days.push({
+          date,
+          weekday: WEEKDAYS[weekday(date)],
+          line: highlight ?? (p.status === "ACTIVE" ? routineLine(c) : "Fim da jornada."),
+          events,
+          pending,
+          headline: news[0] ? { title: news[0].headline, category: news[0].category } : null,
+          money: Math.round(st.money - money0),
+          energy: Math.round(st.energy - energy0),
+          quiet: !events.length && !pending.length,
+        });
+      } finally {
+        back?.();
+      }
+      const story = st.story;
       if (p.status !== "ACTIVE" || story?.ended) {
         stop = "fim";
         break;

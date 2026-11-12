@@ -1,4 +1,4 @@
-import { clockTarget } from "./clock";
+import { clockTarget, usesRounds } from "./clock";
 import { monthlyFamily } from "./family";
 import { partyInvitations, processAffiliationRequests } from "./affiliation";
 import { addDays, day, diffDays, month, weekday } from "./calendar";
@@ -147,10 +147,13 @@ export function advanceDay(ctx: Ctx): void {
 
   // Energia e renda dos jogadores
   step("energia dos jogadores", d, () => {
+    const rounds = usesRounds(w);
     for (const p of ctx.t.persons.values()) {
       if (p.kind !== "PLAYER" || p.status !== "ACTIVE") continue;
       const st = ctx.pstate(p.id);
       if (!st) continue;
+      // nas rodadas, quem já viveu este dia no próprio ritmo não recebe o dia de novo
+      if (rounds && (st.story?.personal?.tick ?? -1) >= w.tick) continue;
       const before = st.energy;
       // muito cansaço, lesão ou falta de casa devolvem menos energia
       st.energy = Math.min(100, st.energy + energyRecovery(st, d));

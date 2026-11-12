@@ -158,6 +158,11 @@ export interface StoryState {
   avatar?: string;
   /** o que o jogador mudou na família (proximidade, casamento, filhos, separação) */
   family?: import("../family").FamilyState;
+  /**
+   * Mundo compartilhado nas rodadas: o dia em que o jogador está (já viveu até ele nesta rodada).
+   * Vale enquanto estiver à frente do mundo; na virada da rodada o mundo alcança e ele some.
+   */
+  personal?: { tick: number; date: import("../calendar").ISODate };
 }
 
 export interface ApprovalEntry {

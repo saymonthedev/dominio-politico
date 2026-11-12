@@ -1,4 +1,5 @@
 import { addDays, diffDays } from "../calendar";
+import { usesRounds } from "../clock";
 import { isJailed } from "../crime";
 import type { Ctx, WorldState } from "../state";
 import type { PersonRow } from "../types";
@@ -269,24 +270,34 @@ function contextual(c: StoryCtx): void {
   fireEvent(c, pick.def, pick.b);
 }
 
-/** Roda o dia das histórias para todos os jogadores. */
+/**
+ * Roda o dia das histórias para todos os jogadores. No mundo compartilhado nas rodadas, a
+ * história de cada jogador só anda nos dias que ele mesmo vive (storyDay): o dia do mundo não
+ * mexe nela, e quem não jogou a rodada fica sem aqueles dias.
+ */
 export function dailyStory(ctx: Ctx): void {
+  if (usesRounds(ctx.world)) return;
   for (const p of ctx.t.persons.values()) {
     if (p.kind !== "PLAYER" || p.status !== "ACTIVE") continue;
-    const c = storyCtx(ctx, p, "day");
-    if (!c || c.s.ended) continue;
-    dailyLife(c);
-    if (c.s.ended) {
-      ctx.save("persons", p);
-      ctx.save("person_states", c.st);
-      continue;
-    }
-    sweepPending(c);
-    runQueue(c);
-    if ((isPresent(ctx, p.id) || ctx.s.living?.has(p.id)) && !isJailed(c.st, ctx.date)) contextual(c);
-    if (promote(p, c.st)) ctx.save("persons", p);
-    ctx.save("person_states", c.st);
+    storyDay(ctx, p);
   }
+}
+
+/** O dia da história de um jogador: saúde, prazos, continuações e (se ele está vivendo os dias) o acaso. */
+export function storyDay(ctx: Ctx, p: PersonRow): void {
+  const c = storyCtx(ctx, p, "day");
+  if (!c || c.s.ended) return;
+  dailyLife(c);
+  if (c.s.ended) {
+    ctx.save("persons", p);
+    ctx.save("person_states", c.st);
+    return;
+  }
+  sweepPending(c);
+  runQueue(c);
+  if ((isPresent(ctx, p.id) || ctx.s.living?.has(p.id)) && !isJailed(c.st, ctx.date)) contextual(c);
+  if (promote(p, c.st)) ctx.save("persons", p);
+  ctx.save("person_states", c.st);
 }
 
 /** Pendentes para a tela (ordenados: os que seguram o tempo primeiro). */

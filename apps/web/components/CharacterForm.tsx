@@ -81,8 +81,8 @@ export function CharacterForm({
               value: "SHARED",
               label: "Compartilhado",
               hint: sharedAhead
-                ? `Com outros jogadores. O tempo anda sozinho, 2 meses de jogo a cada 2 horas: hoje este mundo está em ${fmtMonthYear(sharedDate!)}.`
-                : "Com outros jogadores. O tempo anda sozinho, 2 meses de jogo a cada 2 horas, e todos veem o mesmo país.",
+                ? `Com outros jogadores, em rodadas de 2 horas: em cada uma você vive até 2 meses de jogo no seu ritmo, e na virada o mundo anda para todos. Hoje este mundo está em ${fmtMonthYear(sharedDate!)}.`
+                : "Com outros jogadores, em rodadas de 2 horas: em cada uma você vive até 2 meses de jogo no seu ritmo, e na virada o mundo anda para todos.",
               icon: "users",
             },
             ...(privateOpen

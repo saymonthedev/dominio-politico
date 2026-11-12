@@ -6,7 +6,6 @@ import { usePopover } from "../a11y";
 import { Icon } from "../Icon";
 import { EventModal } from "./EventModal";
 import { deadline, KIND, markSeen, seenSet, STORY_INTRO, TAG } from "./story-ui";
-import { useSharedWorld } from "./world-mode";
 
 /** Um pop-up por vez em toda a tela (o relógio também abre os seus). */
 export function storyModalOpen(): boolean {
@@ -20,9 +19,7 @@ function clockBusy(): boolean {
 
 function EventRow({ ev, today, onOpen }: { ev: StoryEvent; today: string; onOpen: () => void }) {
   const kind = KIND[ev.kind];
-  // mundo compartilhado: nada segura o tempo nem vence
-  const shared = useSharedWorld();
-  const due = shared ? null : deadline(today, ev.expires);
+  const due = deadline(today, ev.expires);
   return (
     <li className={`sc__item sc__item--${kind.tone}`}>
       <button type="button" onClick={onOpen}>
@@ -33,7 +30,7 @@ function EventRow({ ev, today, onOpen }: { ev: StoryEvent; today: string; onOpen
           <b>{ev.title}</b>
           <small>
             {kind.label}
-            {ev.blocking && !shared ? " · segura o tempo" : ""}
+            {ev.blocking ? " · segura o tempo" : ""}
             {due ? ` · ${due}` : ""}
           </small>
         </span>
@@ -47,18 +44,17 @@ function EventRow({ ev, today, onOpen }: { ev: StoryEvent; today: string; onOpen
 export function StoryInbox({ year, events, today }: { year: number; events: StoryEvent[]; today: string }) {
   const [open, setOpen] = useState<StoryEvent | null>(null);
   const router = useRouter();
-  const shared = useSharedWorld();
   if (!events.length) {
     return (
       <p className="muted small" style={{ margin: 0 }}>
-        {STORY_INTRO} Agora não há nada esperando você: {shared ? "com o passar do tempo" : "passe o tempo e"} eles aparecem aqui.
+        {STORY_INTRO} Agora não há nada esperando você: passe o tempo e eles aparecem aqui.
       </p>
     );
   }
   return (
     <>
       <p className="muted small sc__lede">
-        {shared ? "Responda clicando em cada um. Eles esperam a sua resposta enquanto o mundo segue andando." : "Responda clicando em cada um. Decisões param o tempo; oportunidades podem esperar até o prazo."}
+        Responda clicando em cada um. Decisões param o tempo; oportunidades podem esperar até o prazo.
       </p>
       <ul className="sc__list">
         {events.map((ev) => (

@@ -5,6 +5,7 @@ import {
   CRIMES,
   Ctx,
   currentElection,
+  enterPersonalDay,
   fundableCandidacies,
   geoName,
   indicableMembers,
@@ -80,6 +81,17 @@ const PERSON_LIMIT = 300;
 
 /** Monta as ações disponíveis do personagem, com as opções já resolvidas pelo servidor. */
 export function actionsFor(state: WorldState, personId: string, categories?: ActionCategory[]): ActionView[] {
+  // mundo compartilhado nas rodadas: a ação vale no dia do jogador (ele pode estar à frente do mundo),
+  // então prazos, recargas e lesões também são conferidos nesse dia (tudo síncrono: o mundo volta antes de qualquer espera)
+  const back = enterPersonalDay(state, personId);
+  try {
+    return actionViews(state, personId, categories);
+  } finally {
+    back?.();
+  }
+}
+
+function actionViews(state: WorldState, personId: string, categories?: ActionCategory[]): ActionView[] {
   const ctx = new Ctx(state, "view");
   const me = state.t.persons.get(personId);
   const st = state.t.person_states.get(personId);
