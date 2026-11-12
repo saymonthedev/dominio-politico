@@ -17,7 +17,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const me = await requireMe(year);
   const state = await playerState(year);
   const person = state.t.persons.get(me.person.id) ?? me.person;
-  let fits = partyFits(state, person);
+  let fits = partyFits(state, person, me.state);
   if (ordem === "bancada") fits = [...fits].sort((a, b) => (b.party.seats.camara ?? 0) - (a.party.seats.camara ?? 0));
   if (ordem === "chance") fits = [...fits].sort((a, b) => b.chance - a.chance);
   const acts = actionsFor(state, me.person.id, ["BASE"]);

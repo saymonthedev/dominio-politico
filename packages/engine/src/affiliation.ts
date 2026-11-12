@@ -5,7 +5,7 @@ import { ideologyAffinity } from "./ideology";
 import { eraRules } from "./ruleset";
 import type { Ctx } from "./state";
 import { scheduleStory, storyOf } from "./story/state";
-import type { AffiliationRequestRow, PartyRow, PersonRow } from "./types";
+import type { AffiliationRequestRow, PartyRow, PersonRow, PersonStateRow } from "./types";
 
 /**
  * chance_de_aceite = afinidade_ideológica + reputação + trajetória + relacionamento_local
@@ -51,8 +51,11 @@ export function bestPartyRelationship(ctx: Ctx, person: PersonRow, party: PartyR
   return { score: best, withId };
 }
 
-export function computeAffiliation(ctx: Ctx, person: PersonRow, party: PartyRow, kind: "PEDIDO" | "CONVITE"): AffiliationBreakdown {
-  const st = ctx.pstate(person.id)!;
+/**
+ * `st`: o estado da pessoa (a tela passa o que acabou de ler do banco: a memória do servidor pode
+ * ainda não ter um personagem recém-criado enquanto alguém grava no mundo).
+ */
+export function computeAffiliation(ctx: Ctx, person: PersonRow, party: PartyRow, kind: "PEDIDO" | "CONVITE", st: PersonStateRow | undefined = ctx.pstate(person.id)): AffiliationBreakdown {
   const affinity = ideologyAffinity(person.ideology, party.ideology);
   const rel = bestPartyRelationship(ctx, person, party).score;
   const territory = party.territory[person.uf] ?? 0;
@@ -62,11 +65,11 @@ export function computeAffiliation(ctx: Ctx, person: PersonRow, party: PartyRow,
   const b: AffiliationBreakdown = {
     afinidade_ideologica: (affinity - 0.6) * 80,
     reputacao: (person.reputation - 30) * 0.5,
-    trajetoria: Math.min(15, st.activism * 0.3) + (STAGE_WEIGHT[person.stage] ?? 0) + (person.office_code ? 20 : 0),
+    trajetoria: Math.min(15, (st?.activism ?? 0) * 0.3) + (STAGE_WEIGHT[person.stage] ?? 0) + (person.office_code ? 20 : 0),
     relacionamento_local: rel * 0.45,
     necessidade_do_partido: (1 - territory) * 10 + (ctx.date >= "2027-10-01" ? 5 : 0),
     apoio_de_faccao: factionSupport * 15,
-    historico_de_escandalos: -st.scandal * 0.8,
+    historico_de_escandalos: -(st?.scandal ?? 0) * 0.8,
     cultura_de_entrada: 0,
     total: 0,
   };

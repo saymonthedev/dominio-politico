@@ -37,7 +37,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
   const players = ((playersQ.data ?? []) as PersonRow[]).sort((a, b) => Number(b.id === me.person.id) - Number(a.id === me.person.id) || b.reputation - a.reputation);
   const people = [...players, ...((peopleQ.data ?? []) as PersonRow[]).filter((p) => p.kind !== "PLAYER")];
   const topUfs = [...UFS].sort((a, b) => (party.territory[b.code] ?? 0) - (party.territory[a.code] ?? 0)).slice(0, 8);
-  const fit = partyFits(state, state.t.persons.get(me.person.id) ?? me.person).find((f) => f.party.id === id);
+  const fit = partyFits(state, state.t.persons.get(me.person.id) ?? me.person, me.state).find((f) => f.party.id === id);
   const mine = me.person.party_id === id;
   const post = mine ? partyPostOf(state, state.t.persons.get(me.person.id) ?? me.person, me.state) : null;
   const command = post ? actionsFor(state, me.person.id, ["COMANDO"]) : [];

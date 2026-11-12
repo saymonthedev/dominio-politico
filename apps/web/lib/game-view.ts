@@ -198,11 +198,13 @@ export interface PartyFit {
 }
 
 /** Afinidade e chance de filiação em cada partido, para orientar a escolha. */
-export function partyFits(state: WorldState, me: PersonRow): PartyFit[] {
+/** `st`: o estado do jogador lido agora do banco (a memória do servidor pode ainda não ter o personagem). */
+export function partyFits(state: WorldState, me: PersonRow, st?: PersonStateRow): PartyFit[] {
   const ctx = new Ctx(state, "view");
+  const mine = ctx.pstate(me.id) ?? st;
   return [...state.t.parties.values()]
     .filter((p) => p.status === "ATIVO")
-    .map((party) => ({ party, affinity: ideologyAffinity(me.ideology, party.ideology), chance: acceptanceProbability(computeAffiliation(ctx, me, party, "PEDIDO").total) }))
+    .map((party) => ({ party, affinity: ideologyAffinity(me.ideology, party.ideology), chance: acceptanceProbability(computeAffiliation(ctx, me, party, "PEDIDO", mine).total) }))
     .sort((a, b) => b.affinity - a.affinity);
 }
 
