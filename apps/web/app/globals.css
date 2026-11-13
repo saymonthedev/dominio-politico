@@ -2788,7 +2788,12 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 }
 
 /* ===================== Assinatura (/assinar) ===================== */
-.pay { display: grid; gap: 18px; max-width: 720px; }
+/* no computador: pagamento à esquerda, o que inclui à direita (a página inteira, alinhada com o título) */
+.pay { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.pay__main { display: grid; gap: 18px; min-width: 0; }
+.pay__side { display: grid; gap: 14px; padding: 20px; border-radius: 18px; border: 1px solid var(--linha); background: var(--cartao); }
+.pay__side h2 { margin: 0; font-size: 1.05rem; letter-spacing: -0.01em; }
+@media (max-width: 880px) { .pay { grid-template-columns: minmax(0, 1fr); } }
 .pay__card { display: grid; gap: 14px; padding: 20px; border-radius: 18px; border: 1px solid var(--linha); background: var(--cartao); }
 .pay__state { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: var(--rebaixada); font-size: .9rem; line-height: 1.5; }
 .pay__state svg { flex: none; margin-top: 2px; color: var(--faixa-texto); }
