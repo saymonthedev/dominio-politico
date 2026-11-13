@@ -51,6 +51,14 @@ export const myWorldId = cache(async (year: number): Promise<string> => {
 
 export const myWorldMode = async (year: number): Promise<WorldMode> => modeOfWorld(await myWorldId(year));
 
+/** Até quando a assinatura da conta vale (null: nunca assinou). */
+export const myPaidUntil = cache(async (): Promise<string | null> => {
+  const { sb, user } = await getSession();
+  if (!user) return null;
+  const { data } = await sb.from("subscriptions").select("paid_until").eq("user_id", user.id).maybeSingle();
+  return (data as { paid_until: string } | null)?.paid_until ?? null;
+});
+
 export const getWorld = cache(async (year: number): Promise<PublicWorld | null> => {
   const { sb } = await getSession();
   const { data } = await sb.from("worlds").select("*").eq("id", await myWorldId(year)).maybeSingle();

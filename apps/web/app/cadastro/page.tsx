@@ -5,7 +5,7 @@ import { SignUpForm } from "@/components/AuthForms";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 import { START_POINTS } from "@/lib/startpoints";
 
-export const metadata: Metadata = pageMeta({ title: "Criar conta", path: "/cadastro", description: "Crie sua conta grátis no Domínio Político e comece como cidadão num Brasil real, de 2002 a 2026, rumo ao Planalto." });
+export const metadata: Metadata = pageMeta({ title: "Criar conta", path: "/cadastro", description: "Crie sua conta no Domínio Político e comece como cidadão num Brasil real, de 2002 a 2026, rumo ao Planalto." });
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ next?: string; ano?: string }> }) {
   const { next, ano } = await searchParams;

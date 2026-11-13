@@ -8,6 +8,7 @@ import { Icon } from "@/components/Icon";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 import { StartTrack } from "@/components/StartTrack";
 import { brazilUfPaths } from "@/lib/geo-paths";
+import { paywallOn, PRICE } from "@/lib/payments";
 import { homeMeta } from "@/lib/seo";
 import { START_POINTS } from "@/lib/startpoints";
 
@@ -216,10 +217,10 @@ export default function Home() {
         <div className="cta-band">
           <div>
             <h2>A próxima eleição já está no calendário.</h2>
-            <p>Crie sua conta, escolha o ano e comece como cidadão. Gratuito, 16+.</p>
+            <p>Crie sua conta, escolha o ano e comece como cidadão. {paywallOn() ? `R$ ${PRICE} por mês, por Pix` : "Gratuito"}, 16+.</p>
           </div>
           <AuthLink className="btn" href={startHref()} authHref={playHref()} authChildren="Ir para meus mundos">
-            Criar conta grátis
+            Criar conta
           </AuthLink>
         </div>
       </section>

@@ -3,11 +3,10 @@ import { Announce } from "@/components/Announce";
 import { Icon } from "@/components/Icon";
 import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
 import { StartTrack } from "@/components/StartTrack";
-import { SupportCard } from "@/components/Support";
-import { DONATIONS } from "@/lib/donations";
+import { ThanksCard } from "@/components/Thanks";
 import { STAGE_LABEL } from "@/components/ui";
-import { getSession, myCharacters } from "@/lib/game";
-import { fmtDate, initials } from "@/lib/format";
+import { getSession, myCharacters, myPaidUntil } from "@/lib/game";
+import { fmtDate, fmtDay, initials } from "@/lib/format";
 import { modeOfWorld, worldIdFor, yearOfWorld } from "@/lib/sim";
 import { START_POINTS } from "@/lib/startpoints";
 
@@ -15,7 +14,7 @@ export const metadata: Metadata = { title: "Seus mundos" };
 
 export default async function Page() {
   const { sb } = await getSession();
-  const chars = await myCharacters();
+  const [chars, paidUntil] = await Promise.all([myCharacters(), myPaidUntil()]);
   const details = await Promise.all(
     chars.map(async (c) => {
       const [{ data: p }, { data: w }] = await Promise.all([
@@ -99,8 +98,8 @@ export default async function Page() {
           </div>
         )}
 
-        {/* convite parado, só para quem já joga (quem acabou de chegar vê primeiro o jogo) */}
-        {DONATIONS && details.length > 0 && <SupportCard variant="wide" />}
+        {/* agradecimento (no lugar do antigo convite para apoiar com Pix), com até quando a assinatura vale */}
+        <ThanksCard variant="wide" until={paidUntil && Date.parse(paidUntil) > Date.now() ? fmtDay(paidUntil) : null} />
 
         {ended.length > 0 && (
           <div className="legacy">

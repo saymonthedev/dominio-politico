@@ -2,6 +2,7 @@ import { pageMeta } from "@/lib/seo";
 import { Callout, ContentPage } from "@/components/ContentPage";
 import { DoDont, Steps, SummaryTiles, UpdatedAt } from "@/components/Legal";
 import { DISCLAIMER } from "@/components/SiteChrome";
+import { AUTHOR } from "@/lib/author";
 
 export const metadata = pageMeta({ title: "Termos de Uso", path: "/termos", description: "Termos de uso do Domínio Político: regras de conduta, contas, conteúdo e limites da simulação política. Jogo de entretenimento, para maiores de 16 anos." });
 
@@ -21,7 +22,7 @@ export default function Page() {
               { icon: "lock", title: "Fica no jogo", text: "Nada é publicado em redes sociais reais." },
             ]}
           />
-          <UpdatedAt date="27/10/2026" version="1.1" />
+          <UpdatedAt date="13/11/2026" version="1.2" />
         </>
       }
       sections={[
@@ -90,12 +91,42 @@ export default function Page() {
           ),
         },
         {
+          id: "assinatura",
+          title: "Assinatura e pagamento",
+          icon: "coins",
+          body: (
+            <>
+              <p>
+                O acesso ao jogo é por assinatura: R$ 3 por 30 dias de jogo, pagos por Pix. O pagamento é processado pelo Mercado Pago, e o acesso libera assim que o Pix é
+                confirmado.
+              </p>
+              <ul>
+                <li>Não há renovação automática: cada pagamento vale 30 dias. Renovando antes de vencer, os 30 dias somam ao que ainda falta.</li>
+                <li>
+                  Com a assinatura vencida, as telas do jogo ficam bloqueadas até um novo pagamento. Os personagens ficam guardados; mundos só seus parados por 90 dias
+                  continuam sendo apagados, com aviso por e-mail antes, como já acontecia.
+                </li>
+                <li>
+                  Direito de arrependimento: em até 7 dias do pagamento, você pode pedir a devolução integral pelo Instagram{" "}
+                  <a href={AUTHOR.instagram} target="_blank" rel="noopener">
+                    {AUTHOR.handle}
+                  </a>{" "}
+                  (art. 49 do Código de Defesa do Consumidor). Com a devolução, os 30 dias daquele pagamento saem da assinatura.
+                </li>
+                <li>Você pode apagar a conta quando quiser, em Minha conta. Depois dos 7 dias, o período já pago não é devolvido.</li>
+                <li>Se o preço mudar, o aviso vem antes, no jogo; o que já foi pago vale pelo período comprado.</li>
+              </ul>
+            </>
+          ),
+        },
+        {
           id: "simulacao",
           title: "Sem vantagens pagas",
           icon: "coins",
           body: (
             <Callout title="Tudo se conquista jogando">
-              Não há venda de votos, imunidade, cargos ou qualquer vantagem eleitoral paga. Boatos e desinformação existem apenas dentro do mundo simulado.
+              A assinatura dá acesso ao jogo, igual para todos. Não há venda de votos, imunidade, cargos ou qualquer vantagem eleitoral paga. Boatos e desinformação existem
+              apenas dentro do mundo simulado.
             </Callout>
           ),
         },

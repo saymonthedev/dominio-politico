@@ -3,8 +3,6 @@ import { useId, useRef, useState } from "react";
 import { usePopover } from "../a11y";
 import { AvatarSvg } from "../Avatar";
 import { Icon } from "../Icon";
-import { DONATIONS } from "@/lib/donations";
-import { openSupport } from "../Support";
 
 export function UserMenu({ initials, avatar }: { initials: string; avatar?: string | null }) {
   const [open, setOpen] = useState(false);
@@ -46,18 +44,9 @@ export function UserMenu({ initials, avatar }: { initials: string; avatar?: stri
           <a href="/glossario" role="menuitem">
             <Icon name="info" size={16} /> Glossário
           </a>
-          {DONATIONS && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                openSupport();
-              }}
-            >
-              <Icon name="heart" size={16} /> Apoiar o jogo (Pix)
-            </button>
-          )}
+          <a href="/assinar" role="menuitem">
+            <Icon name="heart" size={16} /> Assinatura
+          </a>
           <form action="/sair" method="post" role="none">
             <button type="submit" role="menuitem">
               <Icon name="logout" size={16} /> Sair

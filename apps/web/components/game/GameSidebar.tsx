@@ -6,8 +6,7 @@ import { AUTHOR, authorSite } from "@/lib/author";
 import { usePopover } from "../a11y";
 import { AvatarSvg } from "../Avatar";
 import { Icon } from "../Icon";
-import { DONATIONS } from "@/lib/donations";
-import { SupportCard } from "../Support";
+import { ThanksCard } from "../Thanks";
 import { LiveNumber } from "./ActionFx";
 import { useLiveVitals } from "./live-vitals";
 
@@ -84,7 +83,8 @@ function Credit() {
   );
 }
 
-export function GameSidebar({ year, profile: initial, badges }: { year: number; profile: SideProfile; badges: Record<string, number> }) {
+/** `paidUntil`: até quando a assinatura vale (formatado), para o agradecimento no fim do menu. */
+export function GameSidebar({ year, profile: initial, badges, paidUntil = null }: { year: number; profile: SideProfile; badges: Record<string, number>; paidUntil?: string | null }) {
   // no meio do "passar o tempo", cada decisão já atualiza os números (sem esperar o período acabar)
   const live = useLiveVitals(initial);
   const profile: SideProfile = live ? { ...initial, stage: live.stage, energy: live.energy, money: live.money, reputation: live.reputation, attrs: live.attrs } : initial;
@@ -230,7 +230,7 @@ export function GameSidebar({ year, profile: initial, badges }: { year: number; 
             );
           })}
         </nav>
-        {DONATIONS && <SupportCard />}
+        <ThanksCard until={paidUntil} />
         <Credit />
       </aside>
 
@@ -258,7 +258,7 @@ export function GameSidebar({ year, profile: initial, badges }: { year: number; 
                   <div className="gmore__grid">{g.items.map((it) => link(it, "gmore__item"))}</div>
                 </div>
               ))}
-              {DONATIONS && <SupportCard />}
+              <ThanksCard until={paidUntil} />
               <Credit />
             </div>
           )}

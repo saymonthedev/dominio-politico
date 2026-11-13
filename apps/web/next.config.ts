@@ -19,6 +19,8 @@ const config: NextConfig = {
         destination: "https://dominio-politico.com.br/:path*",
         permanent: true,
       },
+      // o apoio por Pix virou a assinatura: os links antigos levam para ela
+      { source: "/apoie", destination: "/assinar", permanent: true },
     ];
   },
   async headers() {

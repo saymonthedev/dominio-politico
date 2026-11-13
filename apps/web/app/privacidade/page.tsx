@@ -20,7 +20,7 @@ export default function Page() {
               { icon: "download", title: "Controle total", text: "Exporte ou apague seus dados quando quiser." },
             ]}
           />
-          <UpdatedAt date="27/10/2026" version="1.1" />
+          <UpdatedAt date="13/11/2026" version="1.2" />
         </>
       }
       sections={[
@@ -48,9 +48,17 @@ export default function Page() {
                   keep: "Enquanto a conta existir; depois, anonimizados",
                 },
                 {
+                  icon: "coins",
+                  what: "Assinatura e pagamentos",
+                  examples: "Até quando a assinatura vale e, de cada Pix, o número no Mercado Pago, o valor, a situação e as datas. O e-mail da conta vai ao Mercado Pago para gerar o Pix",
+                  why: "Liberar o acesso pago, conferir os pagamentos e fazer devoluções",
+                  basis: "Execução de contrato (art. 7º, V) e cumprimento de obrigação legal (art. 7º, II)",
+                  keep: "A assinatura, enquanto a conta existir; os pagamentos, sem vínculo com a conta depois de apagada",
+                },
+                {
                   icon: "cookie",
                   what: "Cookie de sessão",
-                  examples: "Token de autenticação do Supabase",
+                  examples: "Token de autenticação do Supabase e, para quem assina, um cookie com a data até quando a assinatura vale",
                   why: "Manter você conectado entre páginas",
                   basis: "Estritamente necessário ao serviço",
                   keep: "Até sair ou o token expirar",
@@ -114,6 +122,7 @@ export default function Page() {
                   { name: "Supabase", role: "Banco e autenticação", detail: "Guarda a conta e o estado dos mundos, com controle de acesso por linha em todas as tabelas." },
                   { name: "Vercel", role: "Hospedagem e métricas", detail: "Serve o site e executa o motor da simulação, com funções na região de São Paulo. Conta visitas por página de forma agregada, sem cookies e sem identificar o visitante (Web Analytics)." },
                   { name: "Resend", role: "E-mail", detail: "Envia os e-mails de confirmação, recuperação de senha e avisos da conta." },
+                  { name: "Mercado Pago", role: "Pagamentos", detail: "Processa o Pix da assinatura. Recebe o e-mail da conta e o valor; os dados bancários de quem paga ficam com o Mercado Pago e não chegam ao jogo." },
                   { name: "Cloudflare", role: "Anti-robô", detail: "Verifica, no cadastro e na entrada, se a visita é de uma pessoa (Turnstile), sem guardar seus dados de acesso." },
                 ]}
               />

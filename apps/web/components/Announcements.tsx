@@ -4,12 +4,9 @@ import type { Release } from "@/lib/release";
 import { useModal } from "./a11y";
 import { Button } from "./forms";
 import { Icon } from "./Icon";
-import { OPEN_SUPPORT, openSupport, type PixInfo } from "./Support";
-import { SupportDialog } from "./SupportDialog";
 
 const SEEN_RELEASE = "dp:novidades";
-const SUPPORT_DAY = "dp:apoio:dia";
-/** espera a tela assentar antes de qualquer aviso */
+/** espera a tela assentar antes do aviso */
 const FIRST_DELAY_MS = 2_500;
 /** algo acontecendo (relógio rodando, acontecimento, apuração, outro pop-up): tenta de novo depois */
 const RETRY_MS = 15_000;
@@ -29,12 +26,9 @@ const write = (k: string, v: string) => {
   }
 };
 
-/** Dia de hoje no horário de Brasília (o lembrete de apoio vale por dia do calendário). */
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
-
 const busy = () => !!document.querySelector(".tm.is-live, .ev-overlay, .pr-overlay, .ui-overlay");
 
-function ReleaseDialog({ release, onClose, donations }: { release: Release; onClose: () => void; donations: boolean }) {
+function ReleaseDialog({ release, onClose }: { release: Release; onClose: () => void }) {
   const box = useRef<HTMLDivElement>(null);
   useModal(box, true, onClose);
   return (
@@ -47,7 +41,7 @@ function ReleaseDialog({ release, onClose, donations }: { release: Release; onCl
         <h2 id="news-title">{release.title}</h2>
         <p>{release.lede}</p>
         <ul className="news__list">
-          {release.items.filter((it) => donations || !("donation" in it)).map((it) => (
+          {release.items.map((it) => (
             <li key={it.text}>
               <Icon name={it.icon} size={18} />
               <span>{it.text}</span>
@@ -55,19 +49,6 @@ function ReleaseDialog({ release, onClose, donations }: { release: Release; onCl
           ))}
         </ul>
         <div className="ui-dialog__actions">
-          {donations && (
-            <Button
-              type="button"
-              tone="ghost"
-              icon="heart"
-              onClick={() => {
-                onClose();
-                openSupport();
-              }}
-            >
-              Apoiar o jogo
-            </Button>
-          )}
           <Button type="button" tone="gold" onClick={onClose}>
             Bora jogar
           </Button>
@@ -77,19 +58,10 @@ function ReleaseDialog({ release, onClose, donations }: { release: Release; onCl
   );
 }
 
-/**
- * Avisos de quem entra no jogo, um por vez e sem atrapalhar: primeiro as novidades da versão (uma vez
- * por versão); noutra visita, o lembrete de apoio por Pix (no máximo uma vez por dia). Os botões
- * "Apoiar" do jogo abrem a caixa de apoio por aqui (evento OPEN_SUPPORT).
- */
-export function Announcements({ pix, release }: { pix: PixInfo | null; release: Release }) {
-  const [open, setOpen] = useState<null | "news" | "support" | "reminder">(null);
+/** Novidades da versão para quem entra no jogo: uma vez por versão, sem atrapalhar o que estiver na tela. */
+export function Announcements({ release }: { release: Release }) {
+  const [open, setOpen] = useState(false);
   useEffect(() => {
-    const onOpen = () => {
-      write(SUPPORT_DAY, today());
-      setOpen("support");
-    };
-    window.addEventListener(OPEN_SUPPORT, onOpen);
     let timer: ReturnType<typeof setTimeout>;
     const decide = () => {
       if (busy()) {
@@ -98,19 +70,11 @@ export function Announcements({ pix, release }: { pix: PixInfo | null; release: 
       }
       if (read(SEEN_RELEASE) !== release.id) {
         write(SEEN_RELEASE, release.id);
-        setOpen("news");
-      } else if (pix && read(SUPPORT_DAY) !== today()) {
-        write(SUPPORT_DAY, today());
-        setOpen("reminder");
+        setOpen(true);
       }
     };
     timer = setTimeout(decide, FIRST_DELAY_MS);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener(OPEN_SUPPORT, onOpen);
-    };
-  }, [release.id, pix]);
-  if (open === "news") return <ReleaseDialog release={release} donations={!!pix} onClose={() => setOpen(null)} />;
-  if (open && pix) return <SupportDialog pix={pix} reminder={open === "reminder"} onClose={() => setOpen(null)} />;
-  return null;
+    return () => clearTimeout(timer);
+  }, [release.id]);
+  return open ? <ReleaseDialog release={release} onClose={() => setOpen(false)} /> : null;
 }

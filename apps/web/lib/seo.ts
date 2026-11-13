@@ -4,7 +4,7 @@ export const SITE_NAME = "Domínio Político";
 export const SITE_TITLE = "Domínio Político — jogo de política brasileira, do bairro ao Planalto";
 /** Até ~155 caracteres: o Google corta o resto na busca. */
 export const SITE_DESCRIPTION =
-  "Jogo de política brasileira online e grátis: comece como cidadão num Brasil real (2002 a 2026) e chegue à Presidência. Eleições, partidos e escândalos.";
+  "Jogo de política brasileira online: comece como cidadão num Brasil real (2002 a 2026) e chegue à Presidência. Eleições, partidos, campanhas e escândalos.";
 
 const OG_BASE = { type: "website", locale: "pt_BR", siteName: SITE_NAME } as const;
 /** Imagem de compartilhamento do site (app/opengraph-image); páginas com imagem própria a substituem. */

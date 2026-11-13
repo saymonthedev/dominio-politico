@@ -34,3 +34,8 @@ export function initials(name: string): string {
     .join("")
     .toUpperCase();
 }
+
+/** Dia de um instante no horário de Brasília, por extenso: "13 de dezembro de 2026" (assinatura). */
+export function fmtDay(iso: string): string {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "numeric", month: "long", year: "numeric" }).format(new Date(iso));
+}

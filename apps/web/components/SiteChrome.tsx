@@ -1,5 +1,4 @@
 import { AUTHOR, authorSite } from "@/lib/author";
-import { DONATIONS } from "@/lib/donations";
 import { HeaderCta, MobileEnter } from "./AuthAware";
 import { Icon } from "./Icon";
 import { Brand, LogoMark } from "./Logo";
@@ -25,11 +24,6 @@ export function PublicHeader({ loggedIn, page }: { loggedIn?: boolean; page?: "e
           {LINKS.map(([href, label]) => (
             <a key={href} className="link" href={href}>{label}</a>
           ))}
-          {DONATIONS && (
-            <a className="link top-links__support" href="/apoie">
-              <Icon name="heart" size={14} /> Apoie
-            </a>
-          )}
         </nav>
         {loggedIn === undefined ? (
           <HeaderCta page={page} />
@@ -51,7 +45,6 @@ export function PublicHeader({ loggedIn, page }: { loggedIn?: boolean; page?: "e
             {LINKS.map(([href, label]) => (
               <a key={href} href={href}>{label}</a>
             ))}
-            {DONATIONS && <a href="/apoie">Apoie com Pix</a>}
             {loggedIn === undefined ? <MobileEnter /> : !loggedIn && <a href="/entrar">Entrar</a>}
           </div>
         </details>
@@ -150,11 +143,6 @@ export function Footer() {
                 <a href={AUTHOR.instagram} target="_blank" rel="noopener" aria-label={`Instagram de ${AUTHOR.name}: ${AUTHOR.handle} (abre em nova aba)`}>
                   <Icon name="instagram" size={15} /> {AUTHOR.handle}
                 </a>
-                {DONATIONS && (
-                  <a href="/apoie" className="footer-author__support">
-                    <Icon name="heart" size={15} /> Apoie com Pix
-                  </a>
-                )}
               </span>
             </div>
           </div>

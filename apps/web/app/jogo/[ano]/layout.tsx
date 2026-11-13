@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { sideVitals } from "@/lib/vitals";
 import { canonicalGeo, clockTarget, geoName, usesRounds, type NotificationRow } from "@dp/engine";
 import { Announce } from "@/components/Announce";
+import { Icon } from "@/components/Icon";
 import { GameSidebar } from "@/components/game/GameSidebar";
 import { HashScroll } from "@/components/game/HashScroll";
 import { KeyboardMode } from "@/components/game/KeyboardMode";
@@ -11,12 +12,11 @@ import { StoryBell } from "@/components/game/StoryCenter";
 import { Toaster } from "@/components/game/Toaster";
 import { UserMenu } from "@/components/game/UserMenu";
 import { LogoMark } from "@/components/Logo";
-import { SupportTopButton } from "@/components/Support";
-import { DONATIONS } from "@/lib/donations";
 import { STAGE_LABEL } from "@/components/ui";
-import { initials } from "@/lib/format";
+import { fmtDay, initials } from "@/lib/format";
 import { defaultAvatar, isAvatarCode } from "@/lib/avatar-code";
-import { getSession, getWorld, requireMe } from "@/lib/game";
+import { getSession, getWorld, myPaidUntil, requireMe } from "@/lib/game";
+import { isExempt, paywallOn } from "@/lib/payments";
 import { asPlayer, backgroundAdvance, citiesFor, ensureWorld, modeOfWorld } from "@/lib/sim";
 
 export const dynamic = "force-dynamic";
@@ -34,12 +34,17 @@ export default async function GameLayout({ children, params }: { children: React
   const token = (await sb.auth.getSession()).data.session?.access_token;
   // mundo que não existe ou ficou pela metade (criação interrompida): monta ou completa agora
   if (!world || world.stats?.building) await asPlayer(token, () => ensureWorld(year, me.worldId));
-  const [unreadQ, recentQ, invitesQ, cities] = await Promise.all([
+  const [unreadQ, recentQ, invitesQ, cities, paidUntil] = await Promise.all([
     sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("world_id", me.worldId).is("read_at", null),
     sb.from("notifications").select("*").eq("user_id", user!.id).eq("world_id", me.worldId).order("tick", { ascending: false }).limit(8),
     sb.from("affiliation_requests").select("id").eq("world_id", me.worldId).eq("person_id", me.person.id).eq("kind", "CONVITE").eq("status", "PENDENTE"),
     citiesFor(year),
+    myPaidUntil(),
   ]);
+  // assinatura: a data vai para o agradecimento do menu; faltando 3 dias ou menos, aviso no topo
+  const paidActive = !!paidUntil && Date.parse(paidUntil) > Date.now();
+  const daysLeft = paidActive ? Math.ceil((Date.parse(paidUntil!) - Date.now()) / 86_400_000) : 0;
+  const renewSoon = paywallOn() && paidActive && daysLeft <= 3 && !!user && !isExempt(user.id);
   const unread = unreadQ.count ?? 0;
   // acontecimentos esperando resposta (os que seguram o tempo primeiro)
   const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
@@ -91,7 +96,6 @@ export default async function GameLayout({ children, params }: { children: React
             )}
           </a>
           <span className="gtop__spacer" />
-          {DONATIONS && <SupportTopButton />}
           <StoryBell year={year} events={storyPending} today={myDate ?? storyPending[0]?.on ?? ""} />
           <NotificationBell
             year={year}
@@ -107,6 +111,7 @@ export default async function GameLayout({ children, params }: { children: React
         <GameSidebar
           year={year}
           badges={{ "/notificacoes": unread, "": invites.length }}
+          paidUntil={paidActive ? fmtDay(paidUntil!) : null}
           profile={{
             name: me.person.name,
             stage: STAGE_LABEL[me.person.stage] ?? me.person.stage,
@@ -126,6 +131,15 @@ export default async function GameLayout({ children, params }: { children: React
           <HashScroll />
           <KeyboardMode />
           <Announce />
+          {renewSoon && (
+            <p className="paynote" role="note">
+              <Icon name="clock" size={16} />
+              <span>
+                Sua assinatura vence {daysLeft <= 1 ? "em menos de 1 dia" : `em ${daysLeft} dias`} ({fmtDay(paidUntil!)}). Renove para seguir jogando sem parar: os 30 dias somam ao que falta.
+              </span>
+              <a href="/assinar">Renovar por R$ 3</a>
+            </p>
+          )}
           {children}
         </main>
       </div>

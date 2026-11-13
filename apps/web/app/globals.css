@@ -2762,78 +2762,63 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .author-credit__links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .author-credit__links a { font-weight: 600; }
 
-/* ===================== Apoio por Pix e novidades da versão ===================== */
-.support, .news { position: relative; width: min(520px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; }
-.support__close { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border-radius: 10px; border: 0; background: transparent; color: var(--apagado); display: grid; place-items: center; cursor: pointer; }
-.support__close:hover { background: var(--rebaixada); color: var(--tinta); }
-.support__icon, .news__icon { background: color-mix(in srgb, var(--faixa) 18%, transparent); color: var(--faixa-texto); }
-.ui-dialog .support__free { margin-top: -8px; font-size: .84rem; color: var(--mata); font-weight: 600; }
-.support__pix { display: grid; gap: 4px; padding: 14px 16px; border-radius: 14px; background: var(--planalto); color: #fff; margin-bottom: 12px; }
-.support__label { font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--faixa-suave); font-weight: 700; }
-.support__key { font-family: var(--f-mono); font-size: 1.05rem; font-weight: 600; overflow-wrap: anywhere; user-select: all; }
-.support__to { font-size: .8rem; color: #c3cde0; }
-.support__to b { color: #fff; font-weight: 600; }
-.support__copy { display: flex; flex-wrap: wrap; gap: 8px; }
-.support__copy .ui-btn { flex: 1 1 200px; }
-.ui-dialog .support__how { margin: 10px 0 12px; font-size: .8rem; }
-.support__qr { display: grid; gap: 10px; margin-bottom: 8px; }
-.support__qr-toggle { display: none; align-items: center; gap: 8px; justify-self: start; border: 0; background: none; padding: 6px 0; color: var(--faixa-texto); font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer; }
-.support__qr-img { margin: 0; display: grid; justify-items: center; gap: 6px; }
-.support__qr-img svg { width: 168px; height: 168px; border-radius: 12px; border: 1px solid var(--linha); background: #fff; }
-.support__qr-img figcaption { font-size: .76rem; color: var(--apagado); }
-.ui-dialog .support__note { margin: 10px 0 0; font-size: .74rem; text-align: right; }
-/* no celular o QR fica guardado (ninguém escaneia a própria tela); no computador aparece direto */
-@media (max-width: 640px) {
-  .support__qr-toggle { display: inline-flex; }
-  .support__qr:not(.is-open) .support__qr-img { display: none; }
-}
+/* ===================== Novidades da versão ===================== */
+.news { position: relative; width: min(520px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.news__icon { background: color-mix(in srgb, var(--faixa) 18%, transparent); color: var(--faixa-texto); }
 .news__kicker { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--faixa-texto); font-weight: 700; margin-bottom: 4px; }
 .news__list { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 10px; }
 .news__list li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; font-size: .88rem; line-height: 1.5; }
 .news__list li svg { color: var(--faixa-texto); margin-top: 2px; }
-.footer-author__links .footer-author__support { display: inline-flex; align-items: center; gap: 7px; color: var(--faixa-suave); background: none; border: 0; padding: 0; font: inherit; font-size: .84rem; font-weight: 600; min-height: 32px; cursor: pointer; }
-.footer-author__links .footer-author__support svg { color: var(--faixa); }
-.footer-author__links .footer-author__support:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
-.umenu__pop button[role="menuitem"] svg { flex-shrink: 0; }
+.umenu__pop button[role="menuitem"] svg, .umenu__pop a[role="menuitem"] svg { flex-shrink: 0; }
+
+/* agradecimento a quem joga e assina: no fim do menu do jogo e na tela de mundos */
+.thanks { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--faixa) 35%, var(--linha)); background: color-mix(in srgb, var(--faixa) 7%, var(--cartao)); color: var(--tinta); }
+.thanks__icon { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--faixa) 18%, transparent); color: var(--faixa-texto); }
+.thanks__text { display: grid; gap: 2px; font-size: .78rem; line-height: 1.45; color: var(--apagado); }
+.thanks__text b { font-size: .84rem; font-weight: 700; color: var(--tinta); }
+.thanks__text a { color: var(--faixa-texto); font-weight: 600; }
+.thanks--side { margin: 16px 4px 0; }
+.gmore .thanks--side { margin: 0 2px; }
+.thanks--wide { align-items: center; gap: 14px; padding: 16px 18px; margin-top: 28px; }
+.thanks--wide .thanks__icon { width: 42px; height: 42px; border-radius: 12px; }
+.thanks--wide .thanks__text { font-size: .88rem; }
+.thanks--wide .thanks__text b { font-size: .98rem; }
 @media (prefers-color-scheme: dark) {
-  .support__icon, .news__icon, .supcard__icon { color: var(--faixa-suave); }
-  .news__kicker, .news__list li svg, .support__qr-toggle { color: var(--faixa-suave); }
+  .news__icon, .thanks__icon, .news__kicker, .news__list li svg, .thanks__text a { color: var(--faixa-suave); }
 }
 
-/* convite para apoiar sempre à vista, sem pop-up: botão do topo do jogo, cartão no menu e na tela de mundos */
-.topbtn--support { display: inline-flex; align-items: center; gap: 7px; width: auto; padding: 0 13px; color: var(--faixa); border-color: color-mix(in srgb, var(--faixa) 40%, transparent); font-size: .8rem; font-weight: 700; }
-.topbtn--support:hover { background: color-mix(in srgb, var(--faixa) 14%, transparent); }
-@media (max-width: 1000px) {
-  .topbtn--support { width: 40px; padding: 0; justify-content: center; }
-  .topbtn--support span { display: none; }
-}
-/* celular pequeno: o topo não tem espaço; o convite fica no menu "Mais" e no menu da conta */
-@media (max-width: 480px) { .topbtn--support { display: none; } }
-.supcard { display: grid; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--faixa) 35%, var(--linha)); background: color-mix(in srgb, var(--faixa) 7%, var(--cartao)); color: var(--tinta); }
-.supcard__icon { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--faixa) 18%, transparent); color: var(--faixa-texto); }
-.supcard__text { display: grid; gap: 2px; font-size: .78rem; line-height: 1.45; color: var(--apagado); }
-.supcard__text b { font-size: .84rem; font-weight: 700; color: var(--tinta); }
-.supcard__btn { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 0 16px; border-radius: 10px; background: var(--faixa); color: var(--planalto); font-size: .82rem; font-weight: 700; white-space: nowrap; }
-.supcard__btn:hover { background: var(--faixa-suave); }
-.supcard__btn:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--faixa) 50%, transparent); }
-.supcard--side { grid-template-columns: auto minmax(0, 1fr); align-items: start; margin: 16px 4px 0; }
-.supcard--side .supcard__btn { grid-column: 1 / -1; }
-.gmore .supcard--side { margin: 0 2px; }
-.supcard--wide { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 16px 18px; margin-top: 28px; }
-.supcard--wide .supcard__icon { width: 42px; height: 42px; border-radius: 12px; }
-.supcard--wide .supcard__text { font-size: .88rem; }
-.supcard--wide .supcard__text b { font-size: .98rem; }
+/* ===================== Assinatura (/assinar) ===================== */
+.pay { display: grid; gap: 18px; max-width: 720px; }
+.pay__card { display: grid; gap: 14px; padding: 20px; border-radius: 18px; border: 1px solid var(--linha); background: var(--cartao); }
+.pay__state { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: var(--rebaixada); font-size: .9rem; line-height: 1.5; }
+.pay__state svg { flex: none; margin-top: 2px; color: var(--faixa-texto); }
+.pay__state.is-ok { background: color-mix(in srgb, var(--mata) 10%, var(--cartao)); }
+.pay__state.is-ok svg { color: var(--mata); }
+.pay__price { display: flex; align-items: baseline; gap: 8px; margin: 0; }
+.pay__price b { font-size: 2.4rem; letter-spacing: -0.03em; line-height: 1; }
+.pay__price span { color: var(--apagado); font-size: .95rem; }
+.pay__perks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pay__perks li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: .88rem; line-height: 1.5; }
+.pay__perks li svg { color: var(--mata); margin-top: 2px; }
+.pay__qr { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 18px; align-items: start; }
+.pay__qr img { width: 200px; height: 200px; border-radius: 12px; border: 1px solid var(--linha); background: #fff; }
+.pay__copy { display: grid; gap: 10px; min-width: 0; }
+.pay__code { font-family: var(--f-mono); font-size: .72rem; line-height: 1.5; word-break: break-all; padding: 10px 12px; border-radius: 10px; background: var(--rebaixada); max-height: 96px; overflow: auto; user-select: all; }
+.pay__wait { display: flex; align-items: center; gap: 10px; font-size: .86rem; color: var(--apagado); }
+.pay__done { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 26px 18px; border-radius: 18px; background: color-mix(in srgb, var(--mata) 10%, var(--cartao)); border: 1px solid color-mix(in srgb, var(--mata) 35%, var(--linha)); }
+.pay__done h2 { margin: 0; }
+.pay__done p { margin: 0; max-width: 46ch; line-height: 1.55; }
+.pay__done > svg { color: var(--mata); }
+.pay__err { color: var(--urgente); font-size: .86rem; margin: 0; }
+.pay__fine { font-size: .78rem; line-height: 1.55; color: var(--apagado); margin: 0; }
 @media (max-width: 640px) {
-  .supcard--wide { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
-  .supcard--wide .supcard__btn { grid-column: 1 / -1; }
+  .pay__qr { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  .pay__copy { width: 100%; }
 }
-.masthead a.link.top-links__support { display: inline-flex; align-items: center; gap: 6px; color: var(--faixa-suave); }
-.masthead a.link.top-links__support svg { color: var(--faixa); }
-.masthead a.link.top-links__support:hover { color: #fff; }
-.support-page { max-width: 520px; display: grid; gap: 4px; }
-.support-page .support__free { margin: 0 0 12px; font-size: .9rem; color: var(--mata); font-weight: 600; }
-.support-page .support__how { margin: 10px 0 12px; font-size: .84rem; color: var(--apagado); line-height: 1.6; }
-.support-page .support__qr-img { justify-items: start; }
+/* aviso de vencimento da assinatura no topo do jogo */
+.paynote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; padding: 10px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--faixa) 40%, var(--linha)); background: color-mix(in srgb, var(--faixa) 10%, var(--cartao)); font-size: .86rem; }
+.paynote svg { color: var(--faixa-texto); flex: none; }
+.paynote a { font-weight: 700; color: var(--faixa-texto); }
 
 /* Ilustrações dos bens (components/game/BensArt.tsx) */
 .art {
