@@ -23,6 +23,9 @@ export async function POST(request: NextRequest) {
     await syncPayment(id);
     return NextResponse.json({ ok: true });
   } catch (e) {
+    // pagamento que não existe para a nossa chave (o "Simular notificação" do painel usa um id de
+    // mentira): nada a fazer, e responder erro faria o Mercado Pago tentar de novo por dias
+    if (e instanceof Error && /Mercado Pago 404/.test(e.message)) return NextResponse.json({ ok: true, ignored: true });
     await reportError("pagamento", `aviso ${id}`, e);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
