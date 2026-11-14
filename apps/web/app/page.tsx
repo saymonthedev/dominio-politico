@@ -41,6 +41,45 @@ const FEATURES = [
   { icon: "shield", title: "Fato e ficção separados", text: "Toda notícia diz se é fato real (com fonte) ou simulação. Pessoas reais nunca recebem crimes ou falas inventadas." },
 ];
 
+/**
+ * Perguntas frequentes: aparecem na página (texto que buscadores e assistentes como o ChatGPT usam para
+ * responder sobre o jogo) e nos dados estruturados. Número par, para fechar as linhas de 2.
+ */
+const FAQ = [
+  {
+    q: "O que é o Domínio Político?",
+    a: "Um jogo de política brasileira online, no navegador. Você cria um político, começa como cidadão no dia seguinte a uma eleição presidencial real (de 2002 a 2026) e constrói a carreira: milita, entra num partido, disputa eleições e pode chegar à Presidência.",
+  },
+  {
+    q: "Quanto custa?",
+    a: `O jogo é por assinatura: ${PRICE_LABEL} por mês, pagos por Pix, sem renovação automática. Cada pagamento libera ${PERIOD_DAYS} dias de jogo.`,
+  },
+  {
+    q: "Dá para jogar no celular?",
+    a: "Sim. O jogo roda no navegador do celular e do computador, sem instalar nada, e o personagem é o mesmo nos dois.",
+  },
+  {
+    q: "Dá para jogar com outras pessoas?",
+    a: "Sim. Cada ano de partida tem um mundo compartilhado, em que o tempo anda em rodadas de 2 horas para todos os jogadores. Se preferir, dá para jogar num mundo só seu, no seu ritmo.",
+  },
+  {
+    q: "Dá para virar presidente?",
+    a: "Dá. A carreira começa como cidadão e passa por ativista, filiado e candidato, com eleições para vereador, prefeito, deputado, senador, governador e presidente. Cada eleição tem convenção, campanha, pesquisas e apuração.",
+  },
+  {
+    q: "Os políticos e partidos são reais?",
+    a: "O ponto de partida usa dados oficiais: partidos e eleitos do TSE, economia do Banco Central e o mapa real dos estados e municípios. Daí em diante a história é simulada, e pessoas reais nunca recebem crimes ou falas inventadas.",
+  },
+  {
+    q: "Preciso entender de política?",
+    a: "Não. Os primeiros passos guiam o começo, o glossário explica cada termo ao passar o mouse, e o manual está sempre a um clique.",
+  },
+  {
+    q: "O jogo recebe atualizações?",
+    a: "Sim, com frequência. Os jogadores mandam ideias pela aba Sugestões, e quem tem a sugestão transformada em atualização ganha o crédito no aviso que vai para todos.",
+  },
+];
+
 export const metadata: Metadata = homeMeta;
 
 /** Imagem oficial do site (a mesma das prévias de link): buscadores e assistentes usam esta, e não outra da página. */
@@ -81,6 +120,7 @@ const JSON_LD = [
     operatingSystem: "Web",
     inLanguage: "pt-BR",
     // assinatura mensal por Pix (sem a chave do Mercado Pago, o jogo fica aberto)
+    playMode: ["SinglePlayer", "MultiPlayer"],
     isAccessibleForFree: !paywallOn(),
     offers: paywallOn()
       ? { "@type": "Offer", price: PRICE.toFixed(2), priceCurrency: "BRL", description: `Assinatura de ${PRICE_LABEL} por ${PERIOD_DAYS} dias de jogo, paga por Pix, sem renovação automática` }
@@ -89,6 +129,12 @@ const JSON_LD = [
     screenshot: SHARE_IMAGE,
     author: { "@type": "Person", name: AUTHOR.name, url: AUTHOR.site, sameAs: [AUTHOR.site, AUTHOR.instagram] },
     creator: { "@type": "Person", name: AUTHOR.name, url: AUTHOR.site },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    inLanguage: "pt-BR",
+    mainEntity: FAQ.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
   },
 ];
 
@@ -117,12 +163,12 @@ export default function Home() {
       <section className="home-hero">
         <div className="container inner">
           <div>
-            <div className="section-kicker">Simulador político persistente · Brasil real</div>
-            <h1>
+            <h1 className="section-kicker">Jogo de política brasileira online · Brasil real</h1>
+            <p className="home-hero__title">
               Do bairro ao <em>Planalto</em>.
               <br />
               Ou ao escândalo.
-            </h1>
+            </p>
             <p className="lede">
               Entre no Brasil do dia seguinte a uma eleição presidencial real, com partidos, eleitos e economia de verdade. A partir dali, a história é
               simulada, e o país continua andando mesmo quando você sai.
@@ -221,7 +267,24 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container" style={{ paddingBottom: 72 }}>
+      <section className="home-section alt" aria-labelledby="faq-title">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">Perguntas frequentes</div>
+            <h2 id="faq-title">Dúvidas sobre o jogo</h2>
+          </div>
+          <div className="faq">
+            {FAQ.map((f) => (
+              <div key={f.q} className="faq__item">
+                <h3>{f.q}</h3>
+                <p>{f.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="container" style={{ paddingBottom: 72, paddingTop: 72 }}>
         <div className="cta-band">
           <div>
             <h2>A próxima eleição já está no calendário.</h2>

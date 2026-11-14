@@ -390,8 +390,10 @@ td.num, th.num { text-align: right; }
 .home-hero { background: var(--planalto); color: #fff; position: relative; overflow: hidden; }
 .home-hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(900px 420px at 80% 10%, rgba(212,165,60,.18), transparent 60%), radial-gradient(700px 360px at 0% 100%, rgba(22,48,89,.95), transparent 70%); }
 .home-hero .inner { position: relative; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 48px; align-items: center; padding-top: 56px; padding-bottom: 56px; }
-.home-hero h1 { font-size: clamp(2.2rem, 5.2vw, 3.9rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.04; margin: 14px 0 18px; }
-.home-hero h1 em { font-style: normal; color: var(--faixa); }
+/* o título da busca é a linha pequena de cima (h1); o slogan grande segue igual na tela */
+.home-hero h1.section-kicker { margin: 0; line-height: 1.5; }
+.home-hero__title { font-size: clamp(2.2rem, 5.2vw, 3.9rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.04; margin: 14px 0 18px; }
+.home-hero__title em { font-style: normal; color: var(--faixa); }
 .home-hero .lede { font-size: 1.08rem; font-weight: 300; color: #d5deeb; max-width: 560px; line-height: 1.7; }
 .home-hero .cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 26px; }
 .home-hero .hero-price { margin: 14px 0 0; font-size: .9rem; color: #c3cde0; }
@@ -417,6 +419,11 @@ td.num, th.num { text-align: right; }
 
 .home-section { padding: 72px 0; }
 .home-section.alt { background: var(--rebaixada); }
+.faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.faq__item { padding: 20px 22px; background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--r-lg); }
+.faq__item h3 { font-size: 1.02rem; margin: 0 0 6px; }
+.faq__item p { color: var(--apagado); margin: 0; font-size: .92rem; line-height: 1.6; }
+@media (max-width: 720px) { .faq { grid-template-columns: minmax(0, 1fr); } }
 .section-head { max-width: 640px; margin-bottom: 32px; }
 .section-head h2 { font-size: clamp(1.6rem, 3.2vw, 2.3rem); font-weight: 700; letter-spacing: -0.03em; margin: 8px 0 10px; }
 .section-head p { color: var(--apagado); font-size: 1rem; line-height: 1.65; margin: 0; }
