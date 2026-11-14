@@ -56,6 +56,14 @@ export default function Page() {
                   keep: "A assinatura, enquanto a conta existir; os pagamentos, sem vínculo com a conta depois de apagada",
                 },
                 {
+                  icon: "sparkle",
+                  what: "Sugestões para o jogo",
+                  examples: "Título, texto, até 3 fotos e o nome que você escolhe para os créditos",
+                  why: "Melhorar o jogo e dar crédito a quem sugeriu (o nome e o título aparecem para todos se a sugestão virar atualização)",
+                  basis: "Consentimento (art. 7º, I): você manda se quiser",
+                  keep: "Enquanto a conta existir; as fotos são apagadas junto com a conta",
+                },
+                {
                   icon: "cookie",
                   what: "Cookie de sessão",
                   examples: "Token de autenticação do Supabase e, para quem assina, um cookie com a data até quando a assinatura vale",

@@ -7,7 +7,8 @@ const config: NextConfig = {
   // identidade da publicação: na Vercel, a dela; no servidor próprio, o commit (APP_BUILD, posto pelo deploy)
   env: { NEXT_PUBLIC_BUILD: process.env.VERCEL_DEPLOYMENT_ID ?? process.env.APP_BUILD ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev" },
   experimental: {
-    serverActions: { bodySizeLimit: "1mb" },
+    // fotos das sugestões (até 3, já reduzidas na tela); a Vercel aceita até 4,5 MB por requisição
+    serverActions: { bodySizeLimit: "4mb" },
   },
   // endereços que abrem o mesmo site levam ao domínio oficial (um só endereço para o Google),
   // direto na borda da Vercel, sem rodar função nenhuma

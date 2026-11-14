@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
+import { AdminSuggestions } from "@/components/AdminSuggestions";
 import { Sparkline } from "@/components/ui";
+import { isAdmin } from "@/lib/admin";
 import { fmtDate, fmtDec, fmtNum } from "@/lib/format";
 import { getSession } from "@/lib/game";
 import { adminOverview, asPlayer, lagDaysOf, MAX_PRIVATE_WORLDS, modeOfWorld, type AdminOverview, type AdminSharedWorld, type AdminWorldRow } from "@/lib/sim";
+import { adminSuggestions, type AdminSuggestion } from "@/lib/suggestions";
 
 export const metadata: Metadata = { title: "Saúde do jogo", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-/** Contas com acesso ao painel: ids separados por vírgula em ADMIN_USER_IDS. */
-const ADMINS = new Set((process.env.ADMIN_USER_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean));
 
 const mb = (b: number) => `${fmtDec(b / 1024 / 1024, 1)} MB`;
 /** limite do banco no plano gratuito do Supabase */
@@ -142,7 +143,9 @@ function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
 /** Painel de saúde: contas, banco e o estado de cada mundo, sem abrir mundo nenhum. */
 export default async function Page() {
   const { sb, user } = await getSession();
-  if (!user || !ADMINS.has(user.id)) notFound();
+  if (!user || !isAdmin(user.id)) notFound();
+  // sugestões dos jogadores: carregam junto, e um erro aqui não derruba o painel
+  const suggestionsP = adminSuggestions().catch((e: unknown) => (e instanceof Error ? e.message : String(e)));
   const token = (await sb.auth.getSession()).data.session?.access_token;
   let o: AdminOverview | null = null;
   let failure = "";
@@ -177,6 +180,8 @@ export default async function Page() {
   // banco ainda sem o painel leve: os detalhes dos compartilhados vêm dentro de cada mundo
   const shared: AdminSharedWorld[] = o.shared ?? (o.worlds.filter((w) => modeOfWorld(w.id) === "SHARED") as unknown as AdminSharedWorld[]);
   const rows = new Map(o.worlds.map((w) => [w.id, w]));
+  const suggestions = await suggestionsP;
+  const fresh = Array.isArray(suggestions) ? suggestions.filter((x: AdminSuggestion) => x.status === "NOVA").length : 0;
   return (
     <>
       <AppHeader />
@@ -189,6 +194,13 @@ export default async function Page() {
           <Kpi label="Mundos próprios" value={`${own} / ${MAX_PRIVATE_WORLDS}`} note={`${o.worlds.length} mundos no total`} warn={own >= MAX_PRIVATE_WORLDS} />
           <Kpi label="Erros em 24 h" value={fmtNum(o.errors_24h)} note={`${o.errors_7d} em 7 dias`} warn={o.errors_24h > 0} />
         </div>
+        <section className="admin-world" id="sugestoes">
+          <header>
+            <h2>Sugestões dos jogadores</h2>
+            <span className="muted small">{fresh ? `${fresh} nova(s) esperando resposta` : "nenhuma nova"} · concluída avisa todos com crédito; reprovada avisa só quem sugeriu</span>
+          </header>
+          {Array.isArray(suggestions) ? <AdminSuggestions items={suggestions} /> : <p className="muted small">Não deu para carregar as sugestões: {suggestions}</p>}
+        </section>
         <section className="admin-world">
           <header>
             <h2>Erros recentes</h2>

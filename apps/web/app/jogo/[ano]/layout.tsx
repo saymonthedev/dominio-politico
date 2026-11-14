@@ -11,6 +11,8 @@ import { NotificationBell } from "@/components/game/NotificationBell";
 import { StoryBell } from "@/components/game/StoryCenter";
 import { Toaster } from "@/components/game/Toaster";
 import { UserMenu } from "@/components/game/UserMenu";
+import { SuggestionNews } from "@/components/game/SuggestionNews";
+import type { SuggestionPopups } from "@/lib/suggestions";
 import { LogoMark } from "@/components/Logo";
 import { STAGE_LABEL } from "@/components/ui";
 import { fmtDay, initials } from "@/lib/format";
@@ -34,13 +36,16 @@ export default async function GameLayout({ children, params }: { children: React
   const token = (await sb.auth.getSession()).data.session?.access_token;
   // mundo que não existe ou ficou pela metade (criação interrompida): monta ou completa agora
   if (!world || world.stats?.building) await asPlayer(token, () => ensureWorld(year, me.worldId));
-  const [unreadQ, recentQ, invitesQ, cities, paidUntil] = await Promise.all([
+  const [unreadQ, recentQ, invitesQ, cities, paidUntil, popupsQ] = await Promise.all([
     sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("world_id", me.worldId).is("read_at", null),
     sb.from("notifications").select("*").eq("user_id", user!.id).eq("world_id", me.worldId).order("tick", { ascending: false }).limit(8),
     sb.from("affiliation_requests").select("id").eq("world_id", me.worldId).eq("person_id", me.person.id).eq("kind", "CONVITE").eq("status", "PENDENTE"),
     citiesFor(year),
     myPaidUntil(),
+    // sugestões que viraram atualização (para todos) e as reprovadas desta conta, para os avisos
+    sb.rpc("suggestion_popups"),
   ]);
+  const popups = (popupsQ.data as SuggestionPopups | null) ?? { news: [], mine: [] };
   // assinatura: a data vai para o agradecimento do menu; faltando 3 dias ou menos, aviso no topo
   const paidActive = !!paidUntil && Date.parse(paidUntil) > Date.now();
   const daysLeft = paidActive ? Math.ceil((Date.parse(paidUntil!) - Date.now()) / 86_400_000) : 0;
@@ -75,22 +80,23 @@ export default async function GameLayout({ children, params }: { children: React
       <header className="gtop">
         <div className="gtop__inner">
           <a className="gtop__brand" href="/jogo" title="Seus mundos">
-            <LogoMark size={34} />
-            <span>
-              <b>
-                Domínio <em>Político</em>
-              </b>
-              <small>Brasil pós-{year}{world?.stats?.fictional ? " · fictício" : world?.stats?.private ? " · só seu" : ""}</small>
-            </span>
+            <LogoMark size={32} />
+            <b>
+              Domínio <em>Político</em>
+            </b>
           </a>
+          <span className="gtop__world" title={`Ponto de partida: Brasil pós-${year}`}>
+            {year} · {world?.stats?.fictional ? "Fictício" : world?.stats?.private ? "Só seu" : "Compartilhado"}
+          </span>
           <a className="gtop__date" href={`/jogo/${year}#tempo`} title={shared ? "Seu dia na rodada: viva os dias no Painel" : "Passar o tempo no Painel"}>
+            <Icon name="calendar" size={16} />
             {d ? (
-              <>
+              <span>
                 <small>{WEEKDAY[d.getUTCDay()]}</small>
                 <b>
                   {d.getUTCDate()} de {MONTH[d.getUTCMonth()]} de {d.getUTCFullYear()}
                 </b>
-              </>
+              </span>
             ) : (
               <b>Montando o mundo…</b>
             )}
@@ -131,6 +137,7 @@ export default async function GameLayout({ children, params }: { children: React
           <HashScroll />
           <KeyboardMode />
           <Announce />
+          <SuggestionNews news={popups.news} mine={popups.mine} />
           {renewSoon && (
             <p className="paynote" role="note">
               <Icon name="clock" size={16} />

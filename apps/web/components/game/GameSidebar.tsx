@@ -30,7 +30,7 @@ const GROUPS: Array<{ id: string; title: string; items: Item[] }> = [
     ],
   },
   { id: "pais", title: "O país", items: [["/noticias", "Notícias", "newspaper"], ["/eleicoes", "Eleições", "ballot"], ["/partidos", "Partidos", "flag"], ["/mapa", "Mapa", "map"], ["/economia", "Economia", "chart"], ["/ranking", "Ranking", "star"]] },
-  { id: "bastidores", title: "Bastidores", items: [["/investigacoes", "Investigações", "search"], ["/esquemas", "Esquemas", "key"], ["/notificacoes", "Notificações", "bell"]] },
+  { id: "bastidores", title: "Bastidores", items: [["/investigacoes", "Investigações", "search"], ["/esquemas", "Esquemas", "key"], ["/notificacoes", "Notificações", "bell"], ["/sugestoes", "Sugestões", "sparkle"]] },
 ];
 const ALL = GROUPS.flatMap((g) => g.items);
 /** atalhos fixos da barra do celular; o resto fica em "Mais" */

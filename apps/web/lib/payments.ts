@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { isAdmin } from "./admin";
 import { simSecret, SITE_URL, SUPABASE_KEY, SUPABASE_URL } from "./env";
 
 /**
@@ -20,11 +21,7 @@ const API = "https://api.mercadopago.com";
 export const paywallOn = (): boolean => !!process.env.MP_ACCESS_TOKEN && process.env.PAYWALL !== "off";
 
 /** Contas que jogam sem pagar (as do painel de administração). */
-export const isExempt = (userId: string): boolean =>
-  (process.env.ADMIN_USER_IDS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .includes(userId);
+export const isExempt = (userId: string): boolean => isAdmin(userId);
 
 export interface PixCharge {
   id: string;

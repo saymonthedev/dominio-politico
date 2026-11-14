@@ -12,15 +12,15 @@ export interface Release {
 
 /** Com a assinatura ligada (chave do Mercado Pago na Vercel). */
 export const RELEASE: Release = {
-  id: "2026-11-13-assinatura",
-  date: "13 de novembro de 2026",
+  id: "2026-11-14-sugestoes",
+  date: "14 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "O Domínio Político agora é por assinatura: R$ 3 por mês, por Pix. Obrigado por apoiar o jogo!",
+  lede: "Agora você pode mandar ideias para o jogo, e o topo das telas ficou de cara nova.",
   items: [
-    { icon: "heart", text: "É a assinatura que mantém os servidores no ar e o jogo crescendo. Cada Pix vale 30 dias de jogo, e o acesso libera sozinho assim que o pagamento cai." },
-    { icon: "clock", text: "Sem renovação automática: perto de vencer, o jogo avisa no topo, e é só pagar outro Pix. Os 30 dias somam ao que ainda falta." },
-    { icon: "user", text: "Seus personagens e mundos ficam guardados, mesmo se a assinatura vencer." },
-    { icon: "flag", text: "Também nesta semana: mundos compartilhados em rodadas de 2 horas, com cada jogador vivendo os próprios dias no Painel." },
+    { icon: "sparkle", text: "Nova aba Sugestões, em Bastidores: mande ideias para o jogo, com até 3 fotos. Se a sua virar atualização, todos os jogadores recebem um aviso com o seu nome." },
+    { icon: "chat", text: "Toda sugestão é lida e respondida. Se não der para fazer agora, só você recebe a resposta, com o motivo." },
+    { icon: "calendar", text: "Topo do jogo renovado: o ano e o tipo do mundo num selo, a data com calendário e os botões mais limpos." },
+    { icon: "heart", text: "O jogo segue por assinatura de R$ 3 por mês, por Pix. Obrigado por apoiar!" },
   ],
 };
 

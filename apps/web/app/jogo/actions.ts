@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { dropUserPhotos } from "@/lib/suggestions";
 import { redirect } from "next/navigation";
 import { createCharacter, performAction, type ActionResult, type WorldState } from "@dp/engine";
 import { activePersonId, getSession, myActiveCharacters, myCharacters, myWorldId } from "@/lib/game";
@@ -237,6 +238,8 @@ export async function deleteMyData(): Promise<void> {
   const chars = user ? await myCharacters() : [];
   // o motor limpa dossiês, achados, dinheiro não declarado, fundação e presidência de partido; o banco anonimiza o resto
   if (user) await clearPlayerWorlds(chars).catch(() => undefined);
+  // fotos das sugestões (as sugestões em si saem com a conta, no banco)
+  if (user) await dropUserPhotos(user.id).catch(() => undefined);
   await sb.rpc("delete_my_data");
   // o banco mexeu nesses mundos por fora do motor: nenhuma memória do servidor deles vale mais
   await Promise.all([...new Set(chars.map((c) => c.world_id))].map((w) => bumpWorldRev(w).catch(() => undefined)));
