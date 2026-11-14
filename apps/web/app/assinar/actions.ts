@@ -3,7 +3,7 @@ import { getSession } from "@/lib/game";
 import { createPix, paywallOn, syncPayment, type PaymentCheck, type PixCharge } from "@/lib/payments";
 import { reportError } from "@/lib/report-error";
 
-/** Gera o Pix de R$ 3 da assinatura para a conta que está jogando. */
+/** Gera o Pix da assinatura para a conta que está jogando. */
 export async function startPix(): Promise<{ ok: true; charge: PixCharge } | { ok: false; message: string }> {
   const { user } = await getSession();
   if (!user?.email) return { ok: false, message: "Entre na sua conta para assinar." };

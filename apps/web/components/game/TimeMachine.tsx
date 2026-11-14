@@ -364,6 +364,10 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
   const remaining = Math.max(0, daysFrom(last.current?.to ?? date, endRef.current));
   const report = phase === "summary" ? mergeChunks(chunks) : null;
   const opportunities = (last.current?.pending ?? []).filter((e) => !e.blocking).length;
+  // saltos que cabem (na rodada, só os que não passam do fim dela) e as opções da faixa larga
+  const jumps = OPTIONS.filter((o) => o.days < left);
+  const toRoundEnd = !!round && left > 0;
+  const toMarco = next && toNext !== null && toNext >= 1 && toNext < left ? toNext : null;
 
   return (
     <section className={`tm${live ? " is-live" : ""}`} aria-labelledby="tm-title">
@@ -433,26 +437,34 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
         </div>
       ) : !live ? (
         <div className="tm__opts" role="group" aria-label="Escolha quanto tempo passar">
-          {OPTIONS.filter((o) => o.days < left).map((o) => (
-            <button key={o.days} type="button" className={`tm__opt${o.days === 7 && !round ? " tm__opt--main" : ""}`} onClick={() => start(o.days)}>
-              <b>{o.label}</b>
-              <span>até {short(addDays(date, o.days))}</span>
-              <small>{o.hint}</small>
-            </button>
-          ))}
-          {round && left > 0 && (
-            <button type="button" className="tm__opt tm__opt--main tm__opt--round" onClick={() => start(left)}>
-              <b>Até o fim da rodada</b>
-              <span>até {shortIso(round.capDate)}</span>
-              <small>{left === 1 ? "o último dia que falta" : `os ${left} dias que faltam, com pausas`}</small>
-            </button>
+          {jumps.length > 0 && (
+            <div className="tm__steps">
+              {jumps.map((o) => (
+                <button key={o.days} type="button" className={`tm__opt${o.days === 7 && !round ? " tm__opt--main" : ""}`} onClick={() => start(o.days)}>
+                  <b>{o.label}</b>
+                  <span>até {short(addDays(date, o.days))}</span>
+                  <small>{o.hint}</small>
+                </button>
+              ))}
+            </div>
           )}
-          {next && toNext !== null && toNext >= 1 && toNext < left && (
-            <button type="button" className="tm__opt tm__opt--marco" onClick={() => start(toNext)}>
-              <b>Próximo marco</b>
-              <span>até {short(addDays(date, toNext))}</span>
-              <small>{next.label}</small>
-            </button>
+          {(toRoundEnd || toMarco !== null) && (
+            <div className="tm__wide">
+              {round && toRoundEnd && (
+                <button type="button" className="tm__opt tm__opt--main tm__opt--round" onClick={() => start(left)}>
+                  <b>Até o fim da rodada</b>
+                  <span>até {shortIso(round.capDate)}</span>
+                  <small>{left === 1 ? "o último dia que falta" : `os ${left} dias que faltam, com pausas`}</small>
+                </button>
+              )}
+              {next && toMarco !== null && (
+                <button type="button" className="tm__opt tm__opt--marco" onClick={() => start(toMarco)}>
+                  <b>Próximo marco</b>
+                  <span>até {short(addDays(date, toMarco))}</span>
+                  <small>{next.label}</small>
+                </button>
+              )}
+            </div>
           )}
         </div>
       ) : (

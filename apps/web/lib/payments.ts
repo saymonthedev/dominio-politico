@@ -2,9 +2,12 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { isAdmin } from "./admin";
 import { simSecret, SITE_URL, SUPABASE_KEY, SUPABASE_URL } from "./env";
+import { PERIOD_DAYS, PRICE } from "./price";
+
+export { PERIOD_DAYS, PRICE, PRICE_LABEL } from "./price";
 
 /**
- * Assinatura mensal: R$ 3 por 30 dias de jogo, por Pix pelo Mercado Pago. Só no servidor.
+ * Assinatura mensal: R$ 3,50 por 30 dias de jogo (preço em ./price), por Pix pelo Mercado Pago. Só no servidor.
  *
  * A cobrança só liga com a chave do Mercado Pago na Vercel (MP_ACCESS_TOKEN): sem ela o jogo segue
  * aberto, para ninguém ficar trancado sem ter como pagar. PAYWALL=off desliga mesmo com a chave.
@@ -12,8 +15,11 @@ import { simSecret, SITE_URL, SUPABASE_KEY, SUPABASE_URL } from "./env";
  * chave): o aviso automático só diz "olhe este pagamento", então um aviso falso não libera nada.
  */
 
-export const PRICE = 3;
-export const PERIOD_DAYS = 30;
+/**
+ * Menor valor aceito na conferência: os Pix de R$ 3 gerados antes do reajuste (valem 1 hora) ainda
+ * liberam os 30 dias, e devolução ou contestação de um pagamento antigo ainda tira os dias dele.
+ */
+const MIN_ACCEPTED = 3;
 /** O Pix gerado vale por 1 hora (o Mercado Pago pede pelo menos 30 minutos). */
 const PIX_MINUTES = 60;
 const API = "https://api.mercadopago.com";
@@ -59,7 +65,7 @@ function mpDate(ms: number): string {
   return `${new Date(ms - 3 * 3_600_000).toISOString().slice(0, 23)}-03:00`;
 }
 
-/** Gera um Pix de R$ 3 para a conta (o id da conta vai junto, para a conferência saber de quem é). */
+/** Gera o Pix da assinatura para a conta (o id da conta vai junto, para a conferência saber de quem é). */
 export async function createPix(user: { id: string; email: string }): Promise<PixCharge> {
   const expires = Date.now() + PIX_MINUTES * 60_000;
   const p = await mp<MpPayment>("/v1/payments", {
@@ -99,7 +105,7 @@ export async function syncPayment(id: string, userId?: string): Promise<PaymentC
   // esperando o Pix: nada a gravar ainda (a tela confere de poucos em poucos segundos)
   if (p.status === "pending" || p.status === "in_process") return { status: p.status, paidUntil: null };
   // valor ou moeda diferentes (não deveria acontecer): registra, mas não libera
-  const ok = p.currency_id === "BRL" && p.transaction_amount >= PRICE;
+  const ok = p.currency_id === "BRL" && p.transaction_amount >= MIN_ACCEPTED;
   const status = ok ? p.status : `invalid:${p.status}`;
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data, error } = await sb.rpc("pay_register", { p_secret: simSecret(), p_payment: String(p.id), p_user: owner, p_amount: p.transaction_amount, p_status: status });

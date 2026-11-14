@@ -22,7 +22,7 @@ export default function Page() {
               { icon: "lock", title: "Fica no jogo", text: "Nada é publicado em redes sociais reais." },
             ]}
           />
-          <UpdatedAt date="13/11/2026" version="1.2" />
+          <UpdatedAt date="14/11/2026" version="1.3" />
         </>
       }
       sections={[
@@ -97,7 +97,7 @@ export default function Page() {
           body: (
             <>
               <p>
-                O acesso ao jogo é por assinatura: R$ 3 por 30 dias de jogo, pagos por Pix. O pagamento é processado pelo Mercado Pago, e o acesso libera assim que o Pix é
+                O acesso ao jogo é por assinatura: R$ 3,50 por 30 dias de jogo, pagos por Pix. O pagamento é processado pelo Mercado Pago, e o acesso libera assim que o Pix é
                 confirmado.
               </p>
               <ul>

@@ -18,7 +18,7 @@ import { STAGE_LABEL } from "@/components/ui";
 import { fmtDay, initials } from "@/lib/format";
 import { defaultAvatar, isAvatarCode } from "@/lib/avatar-code";
 import { getSession, getWorld, myPaidUntil, requireMe } from "@/lib/game";
-import { isExempt, paywallOn } from "@/lib/payments";
+import { isExempt, paywallOn, PRICE_LABEL } from "@/lib/payments";
 import { asPlayer, backgroundAdvance, citiesFor, ensureWorld, modeOfWorld } from "@/lib/sim";
 
 export const dynamic = "force-dynamic";
@@ -144,7 +144,7 @@ export default async function GameLayout({ children, params }: { children: React
               <span>
                 Sua assinatura vence {daysLeft <= 1 ? "em menos de 1 dia" : `em ${daysLeft} dias`} ({fmtDay(paidUntil!)}). Renove para seguir jogando sem parar: os 30 dias somam ao que falta.
               </span>
-              <a href="/assinar">Renovar por R$ 3</a>
+              <a href="/assinar">Renovar por {PRICE_LABEL}</a>
             </p>
           )}
           {children}

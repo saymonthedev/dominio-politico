@@ -19,8 +19,8 @@ export const RELEASE: Release = {
   items: [
     { icon: "sparkle", text: "Nova aba Sugestões, em Bastidores: mande ideias para o jogo, com até 3 fotos. Se a sua virar atualização, todos os jogadores recebem um aviso com o seu nome." },
     { icon: "chat", text: "Toda sugestão é lida e respondida. Se não der para fazer agora, só você recebe a resposta, com o motivo." },
-    { icon: "calendar", text: "Topo do jogo renovado: o ano e o tipo do mundo num selo, a data com calendário e os botões mais limpos." },
-    { icon: "heart", text: "O jogo segue por assinatura de R$ 3 por mês, por Pix. Obrigado por apoiar!" },
+    { icon: "calendar", text: "Topo do jogo renovado: o ano e o tipo do mundo num selo, a data com calendário e os botões mais limpos. No computador, as telas agora ficam centralizadas e o Painel ficou mais bem distribuído." },
+    { icon: "heart", text: "O jogo segue por assinatura mensal, por Pix. Obrigado por apoiar!" },
   ],
 };
 

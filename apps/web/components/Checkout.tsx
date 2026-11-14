@@ -18,6 +18,7 @@ const mmss = (ms: number) => {
  * poucos segundos (com a aba à vista). Caiu o pagamento: agradece e libera o jogo na hora.
  */
 export function Checkout({ price, days, renew }: { price: number; days: number; renew: boolean }) {
+  const priceLabel = `R$ ${price.toFixed(2).replace(".", ",")}`;
   const [phase, setPhase] = useState<Phase>("idle");
   const [charge, setCharge] = useState<PixCharge | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +115,7 @@ export function Checkout({ price, days, renew }: { price: number; days: number; 
           <p className="pay__err">Este Pix venceu sem pagamento. Gere outro para continuar.</p>
         ) : (
           <div className="pay__qr">
-            <img src={`data:image/png;base64,${charge.qr}`} alt="QR Code do Pix de R$ 3" width={200} height={200} />
+            <img src={`data:image/png;base64,${charge.qr}`} alt={`QR Code do Pix de ${priceLabel}`} width={200} height={200} />
             <div className="pay__copy">
               <b>Pix copia e cola</b>
               <div className="pay__code">{charge.code}</div>
@@ -141,7 +142,7 @@ export function Checkout({ price, days, renew }: { price: number; days: number; 
   return (
     <div className="pay__card">
       <p className="pay__price">
-        <b>R$ {price}</b>
+        <b>{priceLabel}</b>
         <span>por {days} dias de jogo</span>
       </p>
       <Button type="button" tone="gold" size="lg" icon="qr" loading={phase === "creating"} onClick={start} disabled={phase === "creating"}>

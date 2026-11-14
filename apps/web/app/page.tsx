@@ -8,7 +8,7 @@ import { Icon } from "@/components/Icon";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 import { StartTrack } from "@/components/StartTrack";
 import { brazilUfPaths } from "@/lib/geo-paths";
-import { paywallOn, PRICE } from "@/lib/payments";
+import { paywallOn, PERIOD_DAYS, PRICE, PRICE_LABEL } from "@/lib/payments";
 import { homeMeta } from "@/lib/seo";
 import { START_POINTS } from "@/lib/startpoints";
 
@@ -80,8 +80,11 @@ const JSON_LD = [
     applicationCategory: "Game",
     operatingSystem: "Web",
     inLanguage: "pt-BR",
-    isAccessibleForFree: true,
-    offers: { "@type": "Offer", price: "0", priceCurrency: "BRL" },
+    // assinatura mensal por Pix (sem a chave do Mercado Pago, o jogo fica aberto)
+    isAccessibleForFree: !paywallOn(),
+    offers: paywallOn()
+      ? { "@type": "Offer", price: PRICE.toFixed(2), priceCurrency: "BRL", description: `Assinatura de ${PRICE_LABEL} por ${PERIOD_DAYS} dias de jogo, paga por Pix, sem renovação automática` }
+      : { "@type": "Offer", price: "0", priceCurrency: "BRL" },
     image: SHARE_IMAGE,
     screenshot: SHARE_IMAGE,
     author: { "@type": "Person", name: AUTHOR.name, url: AUTHOR.site, sameAs: [AUTHOR.site, AUTHOR.instagram] },
@@ -130,6 +133,11 @@ export default function Home() {
               </AuthLink>
               <a className="btn on-dark" href="/como-funciona">Como funciona</a>
             </div>
+            {paywallOn() && (
+              <p className="hero-price">
+                Assinatura de <b>{PRICE_LABEL} por mês</b>, paga por Pix, sem renovação automática. 16+.
+              </p>
+            )}
             <div className="hero-facts">
               <div>
                 <b>{START_POINTS.length}</b>
@@ -217,7 +225,7 @@ export default function Home() {
         <div className="cta-band">
           <div>
             <h2>A próxima eleição já está no calendário.</h2>
-            <p>Crie sua conta, escolha o ano e comece como cidadão. {paywallOn() ? `R$ ${PRICE} por mês, por Pix` : "Gratuito"}, 16+.</p>
+            <p>Crie sua conta, escolha o ano e comece como cidadão. {paywallOn() ? `Assinatura de ${PRICE_LABEL} por mês, por Pix` : "Gratuito"}, 16+.</p>
           </div>
           <AuthLink className="btn" href={startHref()} authHref={playHref()} authChildren="Ir para meus mundos">
             Criar conta

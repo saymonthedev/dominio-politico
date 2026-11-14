@@ -5,7 +5,7 @@ import { Icon } from "@/components/Icon";
 import { AUTHOR } from "@/lib/author";
 import { fmtDay } from "@/lib/format";
 import { getSession, myPaidUntil } from "@/lib/game";
-import { isExempt, paywallOn, PERIOD_DAYS, PRICE } from "@/lib/payments";
+import { isExempt, paywallOn, PERIOD_DAYS, PRICE, PRICE_LABEL } from "@/lib/payments";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export const metadata = pageMeta({
   title: "Assinatura",
   path: "/assinar",
   description:
-    "Assine o Domínio Político por R$ 3 por mês, com Pix. O acesso libera na hora.",
+    `Assine o Domínio Político por ${PRICE_LABEL} por mês, com Pix. O acesso libera na hora.`,
   index: false,
 });
 
@@ -31,7 +31,7 @@ export default async function Page() {
     <ContentPage
       kicker="Assinatura"
       title="Assine o Domínio Político"
-      lede={`R$ ${PRICE} por mês, por Pix. É a assinatura que mantém os servidores no ar e o jogo crescendo, feito por uma pessoa só.`}
+      lede={`${PRICE_LABEL} por mês, por Pix. É a assinatura que mantém os servidores no ar e o jogo crescendo, feito por uma pessoa só.`}
     >
       <section className="pay">
         <div className="pay__main">
@@ -69,7 +69,7 @@ export default async function Page() {
                 {paidUntil
                   ? `Sua assinatura venceu em ${fmtDay(paidUntil)}.`
                   : "O jogo agora é por assinatura."}{" "}
-                Para continuar jogando, assine por R$ {PRICE} por mês. Seus
+                Para continuar jogando, assine por {PRICE_LABEL} por mês. Seus
                 personagens e mundos continuam guardados e voltam do jeito que
                 você deixou.
               </span>
