@@ -5,6 +5,7 @@ import { isPlayerLed } from "./partyfounding";
 import { OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
 import type { CampaignFund, CandidacyRow, ElectionRow, PartyRow, PersonRow } from "./types";
+import { ballotNumber } from "./ticket";
 
 /**
  * Candidaturas do partido próprio. Quem preside um partido fundado no jogo
@@ -74,7 +75,7 @@ export function indicateCandidate(ctx: Ctx, party: PartyRow, member: PersonRow, 
     geo,
     status: "PRE",
     is_player: false,
-    ballot_number: party.number * (rule.system === "PROPORCIONAL" ? 1000 : 1) + (rule.system === "PROPORCIONAL" ? (Number(member.id.replace(/\D/g, "").slice(-3)) || 321) : 0),
+    ballot_number: ballotNumber(ctx, party, office, race.id, member.id),
     campaign: emptyCampaign(),
     votes: 0,
     vote_share: 0,

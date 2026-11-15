@@ -375,6 +375,12 @@ export interface CampaignState {
   supporters?: Array<{ id: string; name: string; amount: number; on: string }>;
   /** cabos eleitorais contratados (legais) */
   canvassers?: number;
+  /** partidos aliados na coligação (sem o do candidato; até 4) */
+  coalition?: string[];
+  /** vice na chapa (prefeito, governador e presidente) */
+  vice?: { id: string; name: string; party_id: string | null } | null;
+  /** 1º e 2º suplentes (senador) */
+  suplentes?: Array<{ id: string; name: string; party_id: string | null }>;
   /** personalidade da campanha (NPCs): agressiva, populista, técnica, veterana */
   persona?: "AGRESSIVA" | "POPULISTA" | "TECNICA" | "VETERANA";
 }

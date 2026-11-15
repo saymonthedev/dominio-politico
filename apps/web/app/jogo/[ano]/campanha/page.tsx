@@ -92,6 +92,25 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               <h2>
                 {OFFICES[current.office_code].name} · {geoName(current.geo, { cities })}
               </h2>
+              {(current.campaign.coalition?.length || current.campaign.vice || current.campaign.suplentes?.length) && (
+                <p className="ehero__ticket">
+                  {current.campaign.coalition?.length ? (
+                    <>
+                      Coligação: <b>{[current.party_id, ...current.campaign.coalition].map((id) => state.t.parties.get(id)?.acronym).filter(Boolean).join(", ")}</b>.{" "}
+                    </>
+                  ) : null}
+                  {current.campaign.vice ? (
+                    <>
+                      Vice: <b>{current.campaign.vice.name}</b>.{" "}
+                    </>
+                  ) : null}
+                  {current.campaign.suplentes?.length ? (
+                    <>
+                      Suplentes: <b>{current.campaign.suplentes.map((x) => x.name).join(" e ")}</b>.
+                    </>
+                  ) : null}
+                </p>
+              )}
               <p>
                 {current.votes
                   ? `${fmtNum(current.votes)} votos (${fmtPct(current.vote_share, 2)}).`

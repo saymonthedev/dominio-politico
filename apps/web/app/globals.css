@@ -1358,6 +1358,7 @@ td.num, th.num { text-align: right; }
 .ehero p { margin: 0; color: #c3cde0; font-size: .9rem; max-width: 560px; line-height: 1.55; }
 .ehero p b { color: #fff; }
 .ehero__tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.ehero .ehero__ticket { margin: 0 0 8px; font-size: .86rem; }
 .ehero__count { display: grid; justify-items: end; text-align: right; }
 .ehero__count b { font-family: var(--f-mono); font-size: 2.6rem; line-height: 1; color: var(--faixa); letter-spacing: -0.04em; }
 .ehero__count span { font-size: .78rem; color: #c3cde0; max-width: 180px; }

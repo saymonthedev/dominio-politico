@@ -46,3 +46,4 @@ export * from "./tick";
 export * from "./types";
 export * from "./wellbeing";
 export * from "./story";
+export * from "./ticket";

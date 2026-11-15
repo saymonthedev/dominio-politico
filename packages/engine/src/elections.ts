@@ -12,6 +12,7 @@ import { eraRules, inaugurationDate, OFFICES, officesForElection, senateSeatsFor
 import type { Ctx, WorldState } from "./state";
 import { ufShares, type Contender } from "./support";
 import type { CampaignState, CandidacyRow, CandidateResult, DebateRow, ElectionRow, PartyListResult, PartyRow, PersonRow, RaceRow, VoterSegmentRow } from "./types";
+import { ballotNumber } from "./ticket";
 
 export const emptyCampaign = (): CampaignState => ({
   budget: 0, spent: 0, fefc: 0, donations: 0, volunteers: 0, team: {}, momentum: 0, debate_score: 0, proposals: [], rumor_damage: 0,
@@ -163,12 +164,18 @@ export function contenderFor(ctx: Ctx, c: CandidacyRow, uf: string): Contender {
   const st = ctx.pstate(p.id);
   const party = ctx.t.parties.get(c.party_id);
   const officeIncumbent = p.office_code === c.office_code && (p.office_geo === c.geo || c.geo === "BR");
+  // chapa: a força dos partidos coligados soma (pela metade, com teto) e o vice conhecido ajuda
+  const allied = (c.campaign.coalition ?? []).reduce((s, id) => {
+    const x = ctx.t.parties.get(id);
+    return s + (x && x.status === "ATIVO" ? x.territory[uf] ?? 0 : 0);
+  }, 0);
+  const viceReach = c.campaign.vice ? ctx.pstate(c.campaign.vice.id)?.reach[uf] ?? 0 : 0;
   return {
     id: c.id,
     ideology: p.ideology,
     reputation: p.reputation,
-    recognition: Math.min(1, (st?.reach[uf] ?? 0) + (c.office_code === "PRESIDENTE" ? p.visibility / 500 : 0)),
-    partyStrength: party ? party.territory[uf] ?? 0 : 0,
+    recognition: Math.min(1, (st?.reach[uf] ?? 0) + (c.office_code === "PRESIDENTE" ? p.visibility / 500 : 0) + 0.35 * viceReach),
+    partyStrength: Math.min(0.7, (party ? party.territory[uf] ?? 0 : 0) + 0.45 * allied),
     govAlignment: party?.gov_alignment ?? 0,
     incumbent: officeIncumbent,
     momentum: c.campaign.momentum + c.campaign.debate_score,
@@ -418,7 +425,7 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
         geo: race.geo,
         status: "HOMOLOGADA",
         is_player: false,
-        ballot_number: party.number,
+        ballot_number: ballotNumber(ctx, party, race.office_code, race.id, chosen.id),
         campaign: emptyCampaign(),
         votes: 0,
         vote_share: 0,

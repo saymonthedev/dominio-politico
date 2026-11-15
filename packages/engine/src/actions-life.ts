@@ -30,6 +30,7 @@ import type { PersonRow, PersonStateRow } from "./types";
 import { isReal } from "./news/policy";
 import { injure, INJURIES } from "./wellbeing";
 import { bondAll, FAMILY_ACTIONS, familyOf } from "./family";
+import { ticketParamOptions } from "./ticket";
 
 /**
  * Ações de vida (descanso, esporte, família), de bens (casa e carro) e de comando
@@ -571,6 +572,8 @@ export const LIFE_ACTIONS: ActionDef[] = [...LIFE, ...FAMILY_ACTIONS, ...BENS, .
 
 /** Opções para os parâmetros novos (bairro, padrão, carro, pagamento, filiados). */
 export function lifeParamOptions(ctx: Ctx, p: PersonRow, st: PersonStateRow, type: string): Array<{ value: string; label: string }> | undefined {
+  const ticket = ticketParamOptions(ctx, p, type);
+  if (ticket) return ticket;
   switch (type) {
     case "bairro":
       return bairroOptions(ctx, p);

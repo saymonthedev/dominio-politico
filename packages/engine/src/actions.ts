@@ -52,10 +52,11 @@ import { closeStory, promote } from "./story/state";
 import { reachScale, reputationGain, standingGain } from "./story/effects";
 import { afterAction } from "./story/hooks";
 import { endCareer } from "./story/life";
-import { partyLeader } from "./story/world";
+import { partyLeader, spawnFigure } from "./story/world";
 import { eraRules, OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
 import type { CandidacyRow, EntryCulture, ElectionRow, PersonRow, PersonStateRow, RaceRow } from "./types";
+import { BALLOT_DIGITS, ballotChoices, ballotNumber, coalitionAccepts, coalitionChoices, coalitionOf, MAX_COALITION, runningMateChoices, WITH_VICE } from "./ticket";
 
 export type ActionCategory = "BASE" | "PARTIDO" | "MEU_PARTIDO" | "CAMPANHA" | "MANDATO" | "INVESTIGACAO" | "ESQUEMA" | "FINANCAS" | "VIDA" | "BENS" | "COMANDO";
 
@@ -96,7 +97,10 @@ export interface ActionParam {
     | "party_member_or_me"
     | "party_plain"
     | "party_officer"
-    | "player_campaign";
+    | "player_campaign"
+    | "coalition_party"
+    | "running_mate"
+    | "ballot_number";
   options?: Array<{ value: string; label: string }>;
   /** valores de referência (R$ de 2026) para type "amount"; a tela corrige pela época */
   amounts?: number[];
@@ -273,6 +277,44 @@ function campaignAction(
 
 
 /** Pré-candidatura registrada e ainda não decidida pela convenção. */
+/**
+ * Chapa aberta para mudanças: pré-candidatura ou candidatura registrada, até a campanha oficial
+ * começar (é quando o registro no TSE fecha).
+ */
+function ticketOpen(ctx: Ctx, p: PersonRow, kind: "vice" | "suplentes" | "coligacao" | "numero"): CandidacyRow | string {
+  const c = activeCandidacy(ctx, p.id);
+  if (!c || (c.status !== "PRE" && c.status !== "HOMOLOGADA")) return "Disponível com pré-candidatura ou candidatura registrada.";
+  const e = ctx.t.elections.get(c.election_id);
+  if (e && ctx.date >= e.calendar.campaignStart) return "A chapa fechou no registro das candidaturas, antes da campanha oficial.";
+  const office = c.office_code;
+  if (kind === "vice" && !WITH_VICE.includes(office)) return "Só candidaturas a prefeito, governador e presidente têm vice.";
+  if (kind === "suplentes" && office !== "SENADOR") return "Só candidaturas ao Senado têm suplentes.";
+  if (kind === "coligacao" && OFFICES[office].system !== "MAJORITARIO") return "No jogo, coligação vale nas disputas majoritárias: prefeito, governador, senador e presidente.";
+  if (kind === "numero" && BALLOT_DIGITS[office] <= 2) return "Para prefeito, governador e presidente, o número é o do partido.";
+  return c;
+}
+
+/** Vice ou suplente escolhido: um nome da lista ou um nome novo do partido (personagem fictício). */
+function pickMate(ctx: Ctx, p: PersonRow, c: CandidacyRow, value: string, slot: string): PersonRow | string {
+  if (value === "novo") {
+    if (!p.party_id) return "Sem partido não há chapa.";
+    const local = c.geo !== "BR" && c.geo.length > 2;
+    return spawnFigure(ctx, {
+      ref: `chapa:${slot}:${c.id}`,
+      roleLabel: slot === "vice" ? `vice na chapa de ${p.name}` : `${slot === "sup1" ? "1º" : "2º"} suplente de ${p.name}`,
+      uf: c.geo === "BR" ? p.uf : local ? ufOfGeo(c.geo) : c.geo,
+      municipality: local ? c.geo : p.municipality,
+      partyId: p.party_id,
+      age: [OFFICES[c.office_code].minAge + 2, 66],
+      reputation: 40,
+    });
+  }
+  const mate = runningMateChoices(ctx, p, c).find((x) => x.id === value);
+  return mate ?? "Esse nome não está disponível para a chapa (precisa ser filiado(a) a um partido da coligação, ter a idade mínima e morar na disputa).";
+}
+
+const mateLabel = (ctx: Ctx, m: { name: string; party_id: string | null }) => `${m.name}${m.party_id ? ` (${ctx.t.parties.get(m.party_id)?.acronym ?? ""})` : ""}`;
+
 function preCandidacy(ctx: Ctx, p: PersonRow): CandidacyRow | string {
   const c = activeCandidacy(ctx, p.id);
   if (!c || c.status !== "PRE") return "Disponível com pré-candidatura registrada, até a convenção.";
@@ -661,7 +703,7 @@ export const ACTIONS: ActionDef[] = [
         geo,
         status: "PRE",
         is_player: true,
-        ballot_number: party.number * (rule.system === "PROPORCIONAL" ? 1000 : 1) + (rule.system === "PROPORCIONAL" ? (Number(p.id.replace(/\D/g, "").slice(0, 3)) || 123) : 0),
+        ballot_number: ballotNumber(ctx, party, office, race.id, p.id),
         campaign: emptyCampaign(),
         votes: 0,
         vote_share: 0,
@@ -673,6 +715,98 @@ export const ACTIONS: ActionDef[] = [
         ok: true,
         message: `Pré-candidatura a ${rule.name} em ${geoName(geo, ctx.s)} registrada no ${party.acronym}. Convenções: ${formatDatePt(e.calendar.conventionStart)} a ${formatDatePt(e.calendar.conventionEnd)}.${elig.ok ? "" : " " + cand.note}`,
       };
+    },
+  },
+  // ------------------------------------------------------------------ CHAPA
+  {
+    id: "formar_coligacao",
+    label: "Chamar um partido para a coligação",
+    description: `Coligação de até ${MAX_COALITION} partidos nas disputas majoritárias: a força dos aliados nas urnas soma à sua, e o vice pode vir deles. Partido com candidato próprio na disputa não entra; afinidade conta.`,
+    category: "CAMPANHA",
+    energy: 10,
+    params: [{ name: "partido", label: "Partido", type: "coalition_party" }],
+    available: (ctx, p) => {
+      const c = ticketOpen(ctx, p, "coligacao");
+      if (typeof c === "string") return c;
+      return coalitionOf(c).length >= MAX_COALITION ? `A coligação já tem ${MAX_COALITION} partidos, o máximo.` : null;
+    },
+    run: ({ ctx, p, st, params }) => {
+      const c = ticketOpen(ctx, p, "coligacao") as CandidacyRow;
+      const pick = coalitionChoices(ctx, c).find((x) => x.party.id === params.partido);
+      if (!pick) return { ok: false, message: "Esse partido não pode entrar na sua coligação (tem candidato próprio, já está em outra chapa ou não existe mais)." };
+      if (!coalitionAccepts(pick.fit, st.political_capital, p.reputation)) {
+        return { ok: false, message: `O ${pick.party.acronym} recusou: ${pick.fit < 0.55 ? "as linhas dos dois partidos são distantes demais" : "falta peso para negociar (capital político e reputação)"}.` };
+      }
+      c.campaign.coalition = [...(c.campaign.coalition ?? []), pick.party.id];
+      st.political_capital = clamp(st.political_capital - 2);
+      ctx.save("candidacies", c);
+      const names = coalitionOf(c).map((id) => ctx.t.parties.get(id)?.acronym ?? "?").join(", ");
+      return { ok: true, message: `O ${pick.party.acronym} fechou com você. A coligação agora tem ${coalitionOf(c).length} partidos (${names}), e a força deles nas urnas soma à sua.` };
+    },
+  },
+  {
+    id: "escolher_vice",
+    label: "Escolher o(a) vice da chapa",
+    description: "Prefeito, governador e presidente concorrem com vice: alguém do seu partido ou de um partido da coligação. Um vice conhecido na região ajuda a chapa a ser lembrada.",
+    category: "CAMPANHA",
+    energy: 5,
+    params: [{ name: "pessoa", label: "Vice", type: "running_mate" }],
+    available: (ctx, p) => {
+      const c = ticketOpen(ctx, p, "vice");
+      return typeof c === "string" ? c : null;
+    },
+    run: ({ ctx, p, params }) => {
+      const c = ticketOpen(ctx, p, "vice") as CandidacyRow;
+      const mate = pickMate(ctx, p, c, params.pessoa, "vice");
+      if (typeof mate === "string") return { ok: false, message: mate };
+      c.campaign.vice = { id: mate.id, name: mate.name, party_id: mate.party_id };
+      ctx.save("candidacies", c);
+      return { ok: true, message: `${mateLabel(ctx, c.campaign.vice)} é seu/sua vice. A chapa está formada para ${OFFICES[c.office_code].name.toLowerCase()}.` };
+    },
+  },
+  {
+    id: "escolher_suplentes",
+    label: "Escolher os suplentes ao Senado",
+    description: "Senador concorre com dois suplentes, que assumem a cadeira se ele sair: nomes do seu partido ou da coligação.",
+    category: "CAMPANHA",
+    energy: 5,
+    params: [
+      { name: "suplente1", label: "1º suplente", type: "running_mate" },
+      { name: "suplente2", label: "2º suplente", type: "running_mate" },
+    ],
+    available: (ctx, p) => {
+      const c = ticketOpen(ctx, p, "suplentes");
+      return typeof c === "string" ? c : null;
+    },
+    run: ({ ctx, p, params }) => {
+      const c = ticketOpen(ctx, p, "suplentes") as CandidacyRow;
+      if (params.suplente1 !== "novo" && params.suplente1 === params.suplente2) return { ok: false, message: "Escolha duas pessoas diferentes." };
+      const a = pickMate(ctx, p, c, params.suplente1, "sup1");
+      if (typeof a === "string") return { ok: false, message: a };
+      const b = pickMate(ctx, p, c, params.suplente2, "sup2");
+      if (typeof b === "string") return { ok: false, message: b };
+      c.campaign.suplentes = [a, b].map((x) => ({ id: x.id, name: x.name, party_id: x.party_id }));
+      ctx.save("candidacies", c);
+      return { ok: true, message: `Suplentes definidos: ${mateLabel(ctx, c.campaign.suplentes[0])} (1º) e ${mateLabel(ctx, c.campaign.suplentes[1])} (2º).` };
+    },
+  },
+  {
+    id: "escolher_numero",
+    label: "Escolher seu número de urna",
+    description: "O número começa com o do partido: senador tem 3 dígitos, deputado federal 4, deputado estadual e vereador 5. Os finais fáceis de lembrar aparecem primeiro.",
+    category: "CAMPANHA",
+    energy: 0,
+    params: [{ name: "numero", label: "Número", type: "ballot_number" }],
+    available: (ctx, p) => {
+      const c = ticketOpen(ctx, p, "numero");
+      return typeof c === "string" ? c : null;
+    },
+    run: ({ ctx, p, params }) => {
+      const c = ticketOpen(ctx, p, "numero") as CandidacyRow;
+      if (!ballotChoices(ctx, c).some((o) => o.value === params.numero)) return { ok: false, message: "Esse número não está livre." };
+      c.ballot_number = Number(params.numero);
+      ctx.save("candidacies", c);
+      return { ok: true, message: `Seu número de urna agora é ${c.ballot_number}.` };
     },
   },
   // ------------------------------------------------------------------ PRÉ-CAMPANHA
