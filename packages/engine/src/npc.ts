@@ -1,11 +1,86 @@
 import { ageAt } from "./calendar";
 import { jitter, type Ideology } from "./ideology";
-import { generateName, PROFESSIONS } from "./names";
+import { distinctName, freshName, PROFESSIONS } from "./names";
 import type { Rng } from "./rng";
 import type { Ctx } from "./state";
 import type { CareerStage, PersonKind, PersonRow, PersonStateRow, Traits } from "./types";
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+/** Nomes em uso no mundo, montados uma vez por cálculo (refeitos se alguém entrou ou saiu por outro caminho). */
+const NAMES = new WeakMap<Ctx, { size: number; names: Set<string> }>();
+export function namesInUse(ctx: Ctx): Set<string> {
+  let c = NAMES.get(ctx);
+  if (!c || c.size !== ctx.t.persons.size) {
+    c = { size: ctx.t.persons.size, names: new Set([...ctx.t.persons.values()].map((p) => p.name)) };
+    NAMES.set(ctx, c);
+  }
+  return c.names;
+}
+
+/** Nome novo e único para uma pessoa que vai entrar no mundo agora (fica reservado). */
+export function newPersonName(ctx: Ctx, rng: Rng): string {
+  const names = namesInUse(ctx);
+  const name = freshName(rng, names);
+  names.add(name);
+  NAMES.get(ctx)!.size += 1;
+  return name;
+}
+
+/**
+ * Desfaz nomes repetidos entre pessoas fictícias. Um bug antigo dava o mesmo nome (e a mesma
+ * idade e profissão) a vários eleitos sem nome de um partido na mesma disputa de deputado ou
+ * vereador. Quem chegou primeiro fica; os outros ganham um sobrenome do meio, também nos
+ * resultados gravados e nas chapas. Pessoas reais e jogadores não mudam.
+ */
+export function dedupeNames(ctx: Ctx): number {
+  const byName = new Map<string, PersonRow[]>();
+  for (const p of ctx.t.persons.values()) {
+    const list = byName.get(p.name);
+    if (list) list.push(p);
+    else byName.set(p.name, [p]);
+  }
+  const taken = new Set(byName.keys());
+  const renamed = new Map<string, string>();
+  for (const [name, list] of byName) {
+    if (list.length < 2) continue;
+    const fictional = list.filter((p) => p.kind === "FICTIONAL_GENERATED");
+    // com uma pessoa real ou um jogador de mesmo nome, todos os fictícios mudam; senão, fica o primeiro
+    const change = fictional.length === list.length ? fictional.slice(1) : fictional;
+    for (const p of change) {
+      const next = distinctName(name, taken, ctx.rng("nomes", p.id));
+      taken.add(next);
+      p.name = next;
+      ctx.save("persons", p);
+      renamed.set(p.id, next);
+    }
+  }
+  if (!renamed.size) return 0;
+  for (const r of ctx.t.races.values()) {
+    let dirty = false;
+    for (const res of [r.results.first, r.results.runoff]) {
+      for (const c of res?.candidates ?? []) {
+        const next = renamed.get(c.person_id);
+        if (next && c.name !== next) {
+          c.name = next;
+          dirty = true;
+        }
+      }
+    }
+    if (dirty) ctx.save("races", r);
+  }
+  for (const c of ctx.t.candidacies.values()) {
+    const vice = c.campaign.vice;
+    const sup = c.campaign.suplentes ?? [];
+    const hit = (vice && renamed.has(vice.id)) || sup.some((s) => renamed.has(s.id));
+    if (!hit) continue;
+    if (vice && renamed.has(vice.id)) c.campaign.vice = { ...vice, name: renamed.get(vice.id)! };
+    if (sup.length) c.campaign.suplentes = sup.map((s) => (renamed.has(s.id) ? { ...s, name: renamed.get(s.id)! } : s));
+    ctx.save("candidacies", c);
+  }
+  NAMES.delete(ctx);
+  return renamed.size;
+}
 
 export function randomTraits(rng: Rng, base: Partial<Traits> = {}): Traits {
   return {
@@ -136,16 +211,17 @@ export function spawnProceduralCadre(
   ctx: Ctx,
   opts: { partyId: string; uf: string; municipality?: string; ideology: Ideology; roleLabel: string; ageRange?: [number, number]; reputation?: number; tier?: number },
 ): PersonRow {
-  const rng = ctx.rng("spawn", `${opts.partyId}:${opts.municipality || opts.uf}:${opts.roleLabel}`);
+  // sorteio próprio de cada pessoa: com a mesma semente, os eleitos sem nome de um partido na
+  // mesma disputa saíam iguais (nome, idade e profissão)
+  const id = ctx.id("per", opts.partyId, opts.municipality || opts.uf);
+  const rng = ctx.rng("spawn", `${id}:${opts.roleLabel}`);
   const [minAge, maxAge] = opts.ageRange ?? [28, 55];
   const age = rng.int(minAge, maxAge);
   const birthYear = Number(ctx.date.slice(0, 4)) - age;
   const prof = rng.pick(PROFESSIONS);
-  let name = generateName(rng);
-  const taken = new Set([...ctx.t.persons.values()].map((p) => p.name));
-  for (let i = 0; i < 5 && taken.has(name); i++) name = generateName(rng);
+  const name = newPersonName(ctx, rng);
   const { person, state } = buildPerson({
-    id: ctx.id("per", opts.partyId, opts.municipality || opts.uf),
+    id,
     kind: "FICTIONAL_GENERATED",
     name,
     birthYear,

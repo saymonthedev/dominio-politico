@@ -31,6 +31,36 @@ export function generateName(rng: Rng): string {
   return `${first} ${a}`;
 }
 
+/**
+ * O mesmo nome com um sobrenome do meio que o torne único no mundo: "Ana Pereira" vira, por
+ * exemplo, "Ana Rocha Pereira". Serve para desfazer nomes repetidos sem trocar a pessoa de cara.
+ */
+export function distinctName(name: string, taken: ReadonlySet<string>, rng: Rng): string {
+  const [first, ...rest] = name.split(" ");
+  const start = rng.int(0, LAST.length - 1);
+  for (let i = 0; i < LAST.length; i++) {
+    const mid = LAST[(start + i) % LAST.length];
+    if (rest.includes(mid)) continue;
+    const next = [first, mid, ...rest].join(" ");
+    if (!taken.has(next)) return next;
+  }
+  for (let i = 0; i < LAST.length * LAST.length; i++) {
+    const a = LAST[(start + i) % LAST.length];
+    const b = LAST[Math.floor(i / LAST.length)];
+    if (a === b || rest.includes(a) || rest.includes(b)) continue;
+    const next = [first, a, b, ...rest].join(" ");
+    if (!taken.has(next)) return next;
+  }
+  return `${name} ${start + 2}`;
+}
+
+/** Um nome que ainda ninguém usa no mundo (sorteia de novo e, se preciso, ganha um sobrenome do meio). */
+export function freshName(rng: Rng, taken: ReadonlySet<string>): string {
+  let name = generateName(rng);
+  for (let i = 0; i < 30 && taken.has(name); i++) name = generateName(rng);
+  return taken.has(name) ? distinctName(name, taken, rng) : name;
+}
+
 export const PROFESSIONS = [
   { id: "professor", label: "professor(a)", income: 6500, competence: 0.08, charisma: 0.03 },
   { id: "advogado", label: "advogado(a)", income: 12000, competence: 0.1, charisma: 0.04 },

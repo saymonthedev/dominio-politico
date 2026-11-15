@@ -21,6 +21,7 @@ import { monthlyFinances, monthlyPartyFinances } from "./finance";
 import { monthlyApproval } from "./approval";
 import { energyRecovery } from "./wellbeing";
 import { dailyPartyFormation, playerPartyRecruitment, processPartyInvites } from "./partyfounding";
+import { dedupeNames } from "./npc";
 import { partySwitchWindow, weeklyAgenda, yearlyRenewal } from "./npclife";
 import { creditPartyFunds, returnUnusedFunds } from "./partycampaign";
 import { checkAchievements } from "./achievements";
@@ -144,6 +145,12 @@ export function advanceDay(ctx: Ctx): void {
   ctx.beginTick();
   const d = w.game_date;
   step("coerência de candidaturas e filiações", d, () => tidyRetired(ctx));
+  // uma vez por mundo: desfaz nomes repetidos que o bug antigo deixou nos eleitos sem nome
+  if (!w.stats?.names_v1)
+    step("nomes repetidos", d, () => {
+      dedupeNames(ctx);
+      w.stats = { ...w.stats, names_v1: 1 };
+    });
 
   // Energia e renda dos jogadores
   step("energia dos jogadores", d, () => {

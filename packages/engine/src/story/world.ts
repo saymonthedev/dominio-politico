@@ -3,9 +3,9 @@ import { ageAt } from "../calendar";
 import { cityName } from "../cities";
 import { canonicalGeo, capitalId, isMunicipality, UF_BY_CODE } from "../geo";
 import { jitter, makeIdeology, type Ideology } from "../ideology";
-import { generateName, PROFESSIONS } from "../names";
+import { PROFESSIONS } from "../names";
 import { isReal } from "../news/policy";
-import { buildPerson, randomTraits } from "../npc";
+import { buildPerson, newPersonName, randomTraits } from "../npc";
 import type { Rng } from "../rng";
 import type { Ctx } from "../state";
 import type { PartyRow, PersonRow } from "../types";
@@ -119,9 +119,7 @@ export function spawnFigure(
   const rng = ctx.rng("story-figure", o.ref);
   const [a, b] = o.age ?? [30, 60];
   const age = rng.int(a, b);
-  let name = generateName(rng);
-  const taken = new Set([...ctx.t.persons.values()].map((x) => x.name));
-  for (let i = 0; i < 6 && taken.has(name); i++) name = generateName(rng);
+  const name = newPersonName(ctx, rng);
   const { person, state } = buildPerson({
     id: ctx.id("per", "story", o.ref),
     kind: "FICTIONAL_GENERATED",
