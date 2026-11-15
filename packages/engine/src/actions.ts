@@ -100,7 +100,8 @@ export interface ActionParam {
     | "player_campaign"
     | "coalition_party"
     | "running_mate"
-    | "ballot_number";
+    | "ballot_number"
+    | "family_added";
   options?: Array<{ value: string; label: string }>;
   /** valores de referência (R$ de 2026) para type "amount"; a tela corrige pela época */
   amounts?: number[];

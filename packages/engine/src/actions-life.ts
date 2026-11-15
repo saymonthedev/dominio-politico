@@ -29,7 +29,7 @@ import { partyLeader } from "./story/world";
 import type { PersonRow, PersonStateRow } from "./types";
 import { isReal } from "./news/policy";
 import { injure, INJURIES } from "./wellbeing";
-import { bondAll, FAMILY_ACTIONS, familyOf } from "./family";
+import { bondAll, FAMILY_ACTIONS, familyAddedOptions, familyOf } from "./family";
 import { ticketParamOptions } from "./ticket";
 
 /**
@@ -579,6 +579,8 @@ export function lifeParamOptions(ctx: Ctx, p: PersonRow, st: PersonStateRow, typ
       return bairroOptions(ctx, p);
     case "home_tier":
       return HOME_TIER_OPTIONS;
+    case "family_added":
+      return familyAddedOptions(ctx, p, st);
     case "car_model":
       return CAR_OPTIONS;
     case "pay":

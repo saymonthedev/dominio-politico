@@ -34,7 +34,8 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const kids = members.filter((m) => m.role === "FILHO" && now - m.born < 18).length;
   const statement = kids ? monthlyStatement(new Ctx(state, "view"), p, st) : null;
   const kidsCost = statement?.items.find((i) => i.kind === "FAMILIA")?.amount ?? 0;
-  const actions = actionsFor(state, me.person.id, ["VIDA"]).filter((a) => FAMILY_ACTION_IDS.has(a.id));
+  // "corrigir" só aparece para quem tem alguém a corrigir (casou ou teve filho pelo jogo)
+  const actions = actionsFor(state, me.person.id, ["VIDA"]).filter((a) => FAMILY_ACTION_IDS.has(a.id) && (a.id !== "acertar_familia" || !a.reason));
   const order = { CONJUGE: 0, FILHO: 1, MAE: 2, PAI: 3 } as const;
 
   return (

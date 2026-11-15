@@ -27,6 +27,8 @@ export interface FamilyMember {
   /** proximidade (0–100) */
   bond: number;
   female: boolean;
+  /** o jogador disse se é mulher ou homem (sem isso, o jogo deduz pelo nome) */
+  chosen?: boolean;
 }
 
 /** O que o jogador mudou na família (o resto vem da linha do tempo sorteada). */
@@ -49,6 +51,29 @@ export const roleLabel = (m: Pick<FamilyMember, "role" | "female">) =>
 const FEMALE = ["Ana", "Beatriz", "Camila", "Daniela", "Eduarda", "Fernanda", "Gabriela", "Helena", "Isabela", "Joana", "Karina", "Larissa", "Mariana", "Natália", "Patrícia", "Raquel", "Sabrina", "Tatiana", "Vanessa", "Yasmin", "Adriana", "Bruna", "Cláudia", "Débora", "Elaine", "Flávia", "Glória", "Lívia", "Antônia", "Cecília", "Francisca", "Luana", "Rosana", "Simone", "Valéria", "Zilda"];
 const MALE = ["André", "Bruno", "Carlos", "Diego", "Eduardo", "Fábio", "Gustavo", "Henrique", "Igor", "João", "Leonardo", "Marcelo", "Nelson", "Otávio", "Paulo", "Rafael", "Sérgio", "Thiago", "Vinícius", "Wagner", "Alexandre", "Caio", "Davi", "Emerson", "Felipe", "Hugo", "Júlio", "Lucas", "Mateus", "Rodrigo", "Benedito", "Raimundo"];
 const SURNAMES = ["Almeida", "Barbosa", "Cardoso", "Castro", "Costa", "Dias", "Farias", "Freitas", "Gomes", "Lima", "Lopes", "Martins", "Melo", "Moraes", "Moreira", "Nogueira", "Oliveira", "Pereira", "Ramos", "Ribeiro", "Rocha", "Santana", "Soares", "Teixeira", "Viana"];
+
+/** Nomes femininos comuns que não terminam em "a" (e masculinos que terminam), para deduzir pelo nome. */
+const FEMALE_EXTRA = new Set(
+  "alice aline beatriz carmem carmen cristiane daniele danielle denise elaine eliane eloise emily emilly ester esther evelyn gabriele gabrielle heloise ingrid ines iris irene isabel isabele isabelle isis ivone jaqueline jacqueline jasmin kelly kemilly lais laís liz lis louise lourdes luiza maite michele michelle miriam nathaly nathalie nicole raquel rachel rose rosane ruth rute sueli suely solange tais thais taís thaís tatiane viviane yasmin yasmim yara"
+    .split(" "),
+);
+const MALE_EXTRA = new Set("luca lucca joshua nicola juca zeca josua jonata".split(" "));
+const plain = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Mulher ou homem pelo primeiro nome escrito pelo jogador (quando ele não disse). Antes o jogo só
+ * conhecia uma lista curta de nomes femininos e qualquer outro (Maria, Júlia, Letícia...) virava
+ * "marido" ou "filho".
+ */
+export function looksFemale(name: string): boolean {
+  const first = name.trim().split(/\s+/)[0] ?? "";
+  if (FEMALE.includes(first)) return true;
+  if (MALE.includes(first)) return false;
+  const n = plain(first);
+  if (FEMALE_EXTRA.has(n)) return true;
+  if (MALE_EXTRA.has(n)) return false;
+  return n.endsWith("a");
+}
 
 const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 const yearOf = (d: ISODate) => Number(d.slice(0, 4));
@@ -95,7 +120,16 @@ export function familyOf(ctx: Pick<Ctx, "world" | "date">, p: PersonRow, st: Per
   const added = (f?.added ?? []).filter((m) => !gone.has(m.id));
   const hasAddedSpouse = added.some((m) => m.role === "CONJUGE");
   const list = [...base.filter((m) => !(hasAddedSpouse && m.role === "CONJUGE")), ...added];
-  return list.map(({ ...m }) => ({ id: m.id, role: m.role, name: m.name, born: m.born, female: m.female, bond: clamp(f?.bonds[m.id] ?? m.bond) }));
+  const mine = new Set(added.map((m) => m.id));
+  return list.map(({ ...m }) => ({
+    id: m.id,
+    role: m.role,
+    name: m.name,
+    born: m.born,
+    // quem o jogador trouxe para a família: o que ele disse ou, se não disse, a dedução pelo nome
+    female: mine.has(m.id) && !m.chosen ? looksFemale(m.name) : m.female,
+    bond: clamp(f?.bonds[m.id] ?? m.bond),
+  }));
 }
 
 function familyStateOf(st: PersonStateRow, p: PersonRow, date: ISODate): FamilyState {
@@ -266,6 +300,7 @@ const marry: ActionDef = {
   energy: 10,
   params: [
     { name: "nome", label: "Nome de quem você vai casar", type: "text" },
+    { name: "quem", label: "Vai ser sua esposa ou seu marido?", type: "choice", options: [{ value: "esposa", label: "Esposa" }, { value: "marido", label: "Marido" }] },
     { name: "festa", label: "Cerimônia", type: "choice", options: [{ value: "simples", label: "Só no cartório" }, { value: "festa", label: "Com festa" }] },
   ],
   costFn: (ctx) => price(ctx, WEDDING.simples),
@@ -282,7 +317,8 @@ const marry: ActionDef = {
     if (st.money < cost) return { ok: false, message: `${big ? "A festa" : "O cartório"} custa ${fmt(cost)}.` };
     const f = familyStateOf(st, p, ctx.date);
     const id = `conjuge-${ctx.date}`;
-    f.added.push({ id, role: "CONJUGE", name, born: p.birth_year + ctx.rng(`casar:${p.id}`).int(-4, 4), bond: 85, female: FEMALE.includes(name.split(" ")[0]) });
+    const said = params.quem === "esposa" || params.quem === "marido";
+    f.added.push({ id, role: "CONJUGE", name, born: p.birth_year + ctx.rng(`casar:${p.id}`).int(-4, 4), bond: 85, female: said ? params.quem === "esposa" : looksFemale(name), chosen: said });
     pay(ctx, p, st, cost, big ? "Casamento com festa" : "Casamento no cartório");
     if (big) p.reputation = clamp(p.reputation + 1);
     ctx.careerNews(p.id, `${p.name} se casa com ${name}`, big ? "A festa reuniu família, amigos e alguns aliados políticos." : "Cerimônia simples, no cartório, só para a família.");
@@ -296,7 +332,10 @@ const haveChild: ActionDef = {
   description: "Aumentar a família. O bebê chega na hora, e as despesas da casa sobem todo mês até os 18 anos.",
   category: "VIDA",
   energy: 10,
-  params: [{ name: "nome", label: "Nome do bebê", type: "text" }],
+  params: [
+    { name: "nome", label: "Nome do bebê", type: "text" },
+    { name: "sexo", label: "Menina ou menino?", type: "choice", options: [{ value: "menina", label: "Menina" }, { value: "menino", label: "Menino" }] },
+  ],
   costFn: (ctx) => price(ctx, 3_000),
   available: (ctx, p, st) => {
     if (!familyOf(ctx, p, st).some((m) => m.role === "CONJUGE")) return "Precisa ser casado(a).";
@@ -310,7 +349,8 @@ const haveChild: ActionDef = {
     if (first.length < 2) return { ok: false, message: "Escreva o nome do bebê." };
     const f = familyStateOf(st, p, ctx.date);
     const name = `${first} ${surnameOf(p)}`;
-    f.added.push({ id: `filho-${ctx.date}`, role: "FILHO", name, born: yearOf(ctx.date), bond: 90, female: FEMALE.includes(first) });
+    const said = params.sexo === "menina" || params.sexo === "menino";
+    f.added.push({ id: `filho-${ctx.date}`, role: "FILHO", name, born: yearOf(ctx.date), bond: 90, female: said ? params.sexo === "menina" : looksFemale(first), chosen: said });
     f.last_child = ctx.date;
     pay(ctx, p, st, price(ctx, 3_000), "Parto e enxoval");
     ctx.careerNews(p.id, `Nasce ${name}`, `${p.name} anuncia o nascimento de ${first}.`);
@@ -318,5 +358,35 @@ const haveChild: ActionDef = {
   },
 };
 
-export const FAMILY_ACTIONS: ActionDef[] = [...outingActions, marry, haveChild];
+/** Quem o jogador trouxe para a família (casamento e filhos), para corrigir mulher ou homem. */
+export function familyAddedOptions(ctx: Pick<Ctx, "world" | "date">, p: PersonRow, st: PersonStateRow): Array<{ value: string; label: string }> {
+  const mine = new Set((familyState(st)?.added ?? []).map((m) => m.id));
+  return familyOf(ctx, p, st)
+    .filter((m) => mine.has(m.id))
+    .map((m) => ({ value: m.id, label: `${m.name} (hoje: ${roleLabel(m).toLowerCase()})` }));
+}
+
+const fixGender: ActionDef = {
+  id: "acertar_familia",
+  label: "Corrigir esposa ou marido, filha ou filho",
+  description: "Se o jogo entendeu errado, pelo nome, se é mulher ou homem alguém que você trouxe para a família, acerte aqui. Não custa nada.",
+  category: "VIDA",
+  energy: 0,
+  params: [
+    { name: "pessoa", label: "Quem", type: "family_added" },
+    { name: "quem", label: "É", type: "choice", options: [{ value: "mulher", label: "Mulher (esposa ou filha)" }, { value: "homem", label: "Homem (marido ou filho)" }] },
+  ],
+  available: (ctx, p, st) => (familyAddedOptions(ctx, p, st).length ? null : "Só para quem você trouxe para a família (casamento ou filho)."),
+  run: ({ ctx, p, st, params }): ActionResult => {
+    const f = familyStateOf(st, p, ctx.date);
+    const m = f.added.find((x) => x.id === params.pessoa && !f.gone.includes(x.id));
+    if (!m) return { ok: false, message: "Essa pessoa não está mais na sua família." };
+    if (params.quem !== "mulher" && params.quem !== "homem") return { ok: false, message: "Escolha mulher ou homem." };
+    m.female = params.quem === "mulher";
+    m.chosen = true;
+    return { ok: true, message: `Pronto: ${m.name} aparece como ${roleLabel(m).toLowerCase()}.` };
+  },
+};
+
+export const FAMILY_ACTIONS: ActionDef[] = [...outingActions, marry, haveChild, fixGender];
 export const FAMILY_ACTION_IDS = new Set(FAMILY_ACTIONS.map((a) => a.id).concat("dia_familia"));
