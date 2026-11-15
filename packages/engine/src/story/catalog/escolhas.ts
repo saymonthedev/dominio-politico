@@ -3,6 +3,7 @@ import type { EventDef } from "../def";
 import { partyLeader } from "../world";
 import { AMIGOS, ev, NOMES } from "./cotidiano";
 import { brl, city, home, localPolitician } from "./util";
+import { presidesHouse } from "./mesa";
 
 /**
  * Escolhas de toda a carreira: a rua da campanha, o gabinete do mandato, a
@@ -777,7 +778,7 @@ const comissao = ev({
   tags: ["MANDATO", "BASTIDORES"],
   cooldown: 500,
   expires: 4,
-  when: (c) => (c.p.office_code && ["VEREADOR", "DEP_ESTADUAL", "DEP_FEDERAL", "SENADOR"].includes(c.p.office_code) && c.st.political_capital >= 20 ? { com: c.rng.pick(["de Saúde", "de Educação", "de Finanças", "de Constituição e Justiça"]) } : null),
+  when: (c) => (c.p.office_code && ["VEREADOR", "DEP_ESTADUAL", "DEP_FEDERAL", "SENADOR"].includes(c.p.office_code) && c.st.political_capital >= 20 && !presidesHouse(c) ? { com: c.rng.pick(["de Saúde", "de Educação", "de Finanças", "de Constituição e Justiça"]) } : null),
   title: (_c, b) => `A presidência da comissão ${b.com}`,
   text: (_c, b) => `A presidência da comissão ${b.com} está em disputa. Quem preside decide a pauta — e recebe visitas de muita gente importante.`,
   opts: [

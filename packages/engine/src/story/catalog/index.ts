@@ -12,6 +12,7 @@ import { GABINETE_EVENTS } from "./gabinete";
 import { MORE_EVENTS } from "./mais";
 import { LIFE_EVENTS } from "./vida";
 import { LIFE2_EVENTS } from "./vida2";
+import { MESA_EVENTS } from "./mesa";
 
 /** Todos os acontecimentos da carreira, por id. */
 export const STORY_DEFS: Record<string, EventDef> = Object.fromEntries(
@@ -29,11 +30,12 @@ export const STORY_DEFS: Record<string, EventDef> = Object.fromEntries(
     ...HOME_EVENTS,
     ...COMMAND_EVENTS,
     ...MORE_EVENTS,
+    ...MESA_EVENTS,
   ].map((d) => [d.id, d]),
 );
 
 /** Catálogos desta rodada: nenhum id pode repetir um que já existe (o último sobrescreveria o outro). */
-export const NEW_CATALOGS: EventDef[][] = [GABINETE_EVENTS, LIFE2_EVENTS, HOME_EVENTS, COMMAND_EVENTS, MORE_EVENTS];
+export const NEW_CATALOGS: EventDef[][] = [GABINETE_EVENTS, LIFE2_EVENTS, HOME_EVENTS, COMMAND_EVENTS, MORE_EVENTS, MESA_EVENTS];
 export const OLD_CATALOG_IDS: string[] = [BASE_EVENTS, PARTY_EVENTS, CAMPAIGN_EVENTS, MANDATE_EVENTS, BACKSTAGE_EVENTS, LIFE_EVENTS, DAILY_EVENTS, CHOICE_EVENTS].flat().map((d) => d.id);
 
 export { birthdayOf } from "./vida";

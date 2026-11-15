@@ -16,6 +16,7 @@ import type { StoryCtx } from "../context";
 import type { EventDef } from "../def";
 import type { Binding, Proposal } from "../types";
 import { brl, communityLeader } from "./util";
+import { presidesHouse } from "./mesa";
 
 /**
  * O gabinete: propostas chegam, o jogador decide, e cada etapa (comissão, plenário,
@@ -328,7 +329,9 @@ const gab_plenario: EventDef = {
     const p = prop(c, b)!;
     return {
       title: `Votação em plenário: ${p.title}`,
-      text: `Seu projeto entrou na pauta da ${house(c)}. A contagem de votos da sua equipe dá ${Math.round(p.support * 100)}% de chance. Dá para mexer nisso antes do painel abrir.`,
+      text: presidesHouse(c)
+        ? `Como presidente da ${house(c)}, a pauta é sua: o projeto entra quando você quiser, e a Mesa conduz a votação a seu favor (+15 pontos na chance). A contagem da sua equipe dá ${Math.round(Math.min(0.95, p.support + 0.15) * 100)}% de chance.`
+        : `Seu projeto entrou na pauta da ${house(c)}. A contagem de votos da sua equipe dá ${Math.round(p.support * 100)}% de chance. Dá para mexer nisso antes do painel abrir.`,
       choices: [
         { id: "negociar", label: "Negociar votos com outras bancadas", hint: "Apoio em troca de apoio (capital político)", tone: "neutral" as const },
         { id: "galeria", label: "Lotar a galeria com quem pediu o projeto", hint: "Pressão popular na hora do voto", tone: "bold" as const, cost: { energy: 15 } },
@@ -353,7 +356,7 @@ const gab_plenario: EventDef = {
       p.support = Math.min(0.95, p.support + 0.08);
       fx.approval(0.8, "Lotou a galeria com os apoiadores do projeto");
     }
-    if (c.roll(p.support)) {
+    if (c.roll(presidesHouse(c) ? Math.min(0.95, p.support + 0.15) : p.support)) {
       advanceProposal(p, c.date, "SANCAO", c.rng.int(7, 16), "Aprovado em plenário.");
       fx.reputation(1);
       fx.schedule("gab_sancao", diffDays(p.next!, c.date), { pid: p.id });

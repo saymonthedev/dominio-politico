@@ -61,6 +61,22 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     points: 40,
     check: (ctx, p) => [...ctx.t.parties.values()].some((x) => x.founder_id === p.id && x.status === "ATIVO"),
   },
+  {
+    id: "presidente_casa",
+    title: "Presidente da Casa",
+    text: "Venceu a eleição da Mesa e presidiu uma Casa legislativa.",
+    icon: "landmark",
+    points: 20,
+    check: (_c, _p, st) => !!st.story?.flags?.mesa_presidiu,
+  },
+  {
+    id: "presidente_congresso",
+    title: "Comando do Congresso",
+    text: "Presidiu a Câmara dos Deputados ou o Senado Federal.",
+    icon: "star",
+    points: 40,
+    check: (_c, _p, st) => !!st.story?.flags?.mesa_presidiu_federal,
+  },
   { id: "presidente_partido", title: "Dono da caneta", text: "Presidiu um partido.", icon: "key", points: 20, check: (ctx, p) => [...ctx.t.parties.values()].some((x) => x.president_id === p.id && x.status === "ATIVO") },
   { id: "reputacao", title: "Nome respeitado", text: "Chegou a 70 de reputação.", icon: "star", points: 15, check: (_c, p) => p.reputation >= 70 },
   {
