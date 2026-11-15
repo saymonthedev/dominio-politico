@@ -46,29 +46,41 @@ function Card({ s }: { s: AdminSuggestion }) {
           ))}
         </div>
       )}
-      <label className="adm-sug__note">
-        <span>Nota para o jogador</span>
-        <textarea
-          value={note}
-          maxLength={1000}
-          rows={2}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Concluída: o que mudou no jogo (vai no aviso para todos). Reprovada: o motivo (só o jogador vê)."
-        />
-      </label>
-      <div className="adm-sug__actions">
-        <Button type="button" tone="gold" size="sm" icon="check" loading={busy === "CONCLUIDA"} disabled={!!busy} onClick={() => run("CONCLUIDA")}>
-          {s.status === "CONCLUIDA" ? "Salvar como concluída" : "Concluir"}
-        </Button>
-        <Button type="button" tone="danger" size="sm" icon="x" loading={busy === "REPROVADA"} disabled={!!busy} onClick={() => run("REPROVADA")}>
-          {s.status === "REPROVADA" ? "Salvar como reprovada" : "Reprovar"}
-        </Button>
-        {s.status !== "NOVA" && (
-          <Button type="button" tone="ghost" size="sm" loading={busy === "NOVA"} disabled={!!busy} onClick={() => run("NOVA")}>
-            Voltar para nova
-          </Button>
-        )}
-      </div>
+      {s.status === "NOVA" ? (
+        <>
+          <label className="adm-sug__note">
+            <span>Nota para o jogador</span>
+            <textarea
+              value={note}
+              maxLength={1000}
+              rows={2}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Concluída: o que mudou no jogo (vai no aviso para todos). Reprovada: o motivo (só o jogador vê)."
+            />
+          </label>
+          <div className="adm-sug__actions">
+            <Button type="button" tone="gold" size="sm" icon="check" loading={busy === "CONCLUIDA"} disabled={!!busy} onClick={() => run("CONCLUIDA")}>
+              Concluir
+            </Button>
+            <Button type="button" tone="danger" size="sm" icon="x" loading={busy === "REPROVADA"} disabled={!!busy} onClick={() => run("REPROVADA")}>
+              Reprovar
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* já decidida: a nota é a que foi no aviso; reabrir serve para corrigir um engano */}
+          <div className="adm-sug__sent">
+            <span>{s.status === "CONCLUIDA" ? "Nota que foi no aviso para todos" : "Motivo enviado ao jogador"}</span>
+            <p>{s.admin_note || "Sem nota."}</p>
+          </div>
+          <div className="adm-sug__actions">
+            <Button type="button" tone="ghost" size="sm" loading={busy === "NOVA"} disabled={!!busy} onClick={() => run("NOVA")}>
+              Reabrir
+            </Button>
+          </div>
+        </>
+      )}
       {msg && (
         <p className={`adm-sug__msg${msg.ok ? "" : " is-err"}`} role="status">
           <Icon name={msg.ok ? "check" : "alert"} size={14} /> {msg.text}

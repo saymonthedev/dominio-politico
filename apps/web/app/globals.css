@@ -3070,6 +3070,9 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .adm-sug { display: grid; gap: 8px; padding: 16px; border-radius: 14px; border: 1px solid var(--linha); background: var(--cartao); }
 .adm-sug--nova { border-color: color-mix(in srgb, var(--faixa) 45%, var(--linha)); }
 .adm-sug__note { display: grid; gap: 4px; font-size: .78rem; font-weight: 600; color: var(--apagado); }
+.adm-sug__sent { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: var(--rebaixada); }
+.adm-sug__sent span { font-size: .78rem; font-weight: 600; color: var(--apagado); }
+.adm-sug__sent p { margin: 0; font-size: .9rem; line-height: 1.55; white-space: pre-wrap; }
 .adm-sug__note textarea { width: 100%; box-sizing: border-box; min-height: 58px; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--linha); background: var(--rebaixada); color: var(--tinta); font: inherit; font-size: .88rem; font-weight: 400; line-height: 1.5; resize: vertical; }
 .adm-sug__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .adm-sug__msg { display: flex; align-items: center; gap: 6px; margin: 0; font-size: .82rem; color: var(--mata); }
