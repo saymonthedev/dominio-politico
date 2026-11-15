@@ -1397,16 +1397,17 @@ export interface AdminWorldRow {
 }
 
 /** Detalhes que só valem a conta nos mundos compartilhados. */
+/** Números contados pelo motor (null até o mundo virar a rodada com a versão nova). */
 export interface AdminSharedWorld {
   id: string;
-  persons: number;
-  acts: number;
-  acts_discovered: number;
-  investigations_open: number;
-  investigations_closed: number;
-  convictions: number;
+  persons: number | null;
+  acts: number | null;
+  acts_discovered: number | null;
+  investigations_open: number | null;
+  investigations_closed: number | null;
+  convictions: number | null;
   news: number;
-  parties_player: number;
+  parties_player: number | null;
   economy: Array<{ month: string; selic: number; inflation: number; unemployment: number; gdp: number }>;
 }
 

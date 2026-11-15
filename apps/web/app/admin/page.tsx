@@ -14,6 +14,8 @@ export const dynamic = "force-dynamic";
 
 
 const mb = (b: number) => `${fmtDec(b / 1024 / 1024, 1)} MB`;
+/** número contado pelo motor do mundo; "—" até ele contar (na próxima virada da rodada) */
+const num = (v: number | null | undefined) => (v == null ? "—" : fmtNum(v));
 /** espaço de banco incluído no plano Pro do Supabase (desde 14/11/2026; antes, 500 MB no grátis) */
 const DB_LIMIT = 8 * 1024 * 1024 * 1024;
 /** o painel nunca fica carregando sem fim: passou disso, mostra o aviso */
@@ -56,11 +58,11 @@ function SharedWorld({ row, d, now }: { row: AdminWorldRow; d: AdminSharedWorld;
       <div className="kpis">
         <Kpi label="Jogadores" value={fmtNum(row.players)} note={`${row.players_24h} ativos em 24 h`} />
         <Kpi label="Ações em 24 h" value={fmtNum(row.actions_24h)} note={`${fmtNum(row.advances_24h)} dias avançados à mão`} />
-        <Kpi label="Pessoas no mundo" value={fmtNum(d.persons)} note={`${fmtNum(d.news)} notícias`} />
+        <Kpi label="Pessoas no mundo" value={num(d.persons)} note={d.persons == null ? `${num(d.news)} notícias · contagem na próxima virada` : `${num(d.news)} notícias`} />
         <Kpi label="Atraso do relógio" value={`${fmtNum(lag)} d`} note="dias a processar até agora" warn={lag > 30} />
-        <Kpi label="Condutas ilegais" value={fmtNum(d.acts)} note={`${d.acts_discovered} descobertas`} />
-        <Kpi label="Investigações" value={fmtNum(d.investigations_open)} note={`abertas · ${d.investigations_closed} encerradas · ${d.convictions} condenações`} />
-        <Kpi label="Partidos de jogadores" value={fmtNum(d.parties_player)} />
+        <Kpi label="Condutas ilegais" value={num(d.acts)} note={`${num(d.acts_discovered)} descobertas`} />
+        <Kpi label="Investigações" value={num(d.investigations_open)} note={`abertas · ${num(d.investigations_closed)} encerradas · ${num(d.convictions)} condenações`} />
+        <Kpi label="Partidos de jogadores" value={num(d.parties_player)} />
       </div>
       {last && (
         <div className="admin-econ">

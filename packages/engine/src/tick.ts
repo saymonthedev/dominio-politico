@@ -137,6 +137,38 @@ export function tidyRetired(ctx: Ctx): void {
   }
 }
 
+/**
+ * Números do mundo para o painel /admin, guardados no próprio mundo: o banco não precisa mais
+ * contar pessoas, crimes e investigações linha por linha a cada abertura (levava 4 a 5 s).
+ */
+export function worldCounts(ctx: Ctx): void {
+  let persons = 0;
+  for (const p of ctx.t.persons.values()) if (p.status === "ACTIVE") persons++;
+  let found = 0;
+  for (const a of ctx.t.illicit_acts.values()) if (a.discovered) found++;
+  let open = 0;
+  let closed = 0;
+  let convicted = 0;
+  for (const i of ctx.t.investigations.values()) {
+    if (i.outcome == null) open++;
+    else closed++;
+    if (i.outcome === "CONDENADO") convicted++;
+  }
+  let own = 0;
+  for (const p of ctx.t.parties.values()) if (p.founder_id && p.status !== "EXTINTO") own++;
+  const w = ctx.world;
+  w.stats = {
+    ...w.stats,
+    n_persons: persons,
+    n_acts: ctx.t.illicit_acts.size,
+    n_acts_found: found,
+    n_inv_open: open,
+    n_inv_closed: closed,
+    n_convictions: convicted,
+    n_parties_player: own,
+  };
+}
+
 export function advanceDay(ctx: Ctx): void {
   current = ctx;
   const w = ctx.world;
@@ -210,6 +242,8 @@ export function advanceDay(ctx: Ctx): void {
   step("conquistas", d, () => {
     for (const p of ctx.t.persons.values()) if (p.kind === "PLAYER" && p.status === "ACTIVE") checkAchievements(ctx, p);
   });
+  // números do painel: uma vez por semana do jogo (e logo no primeiro dia, se ainda não há)
+  if (weekday(d) === 1 || w.stats?.n_persons === undefined) step("números do painel", d, () => worldCounts(ctx));
   ctx.saveWorld();
 }
 
