@@ -2487,6 +2487,119 @@ html[data-kbd] .skip:focus-visible { top: 12px; box-shadow: 0 0 0 3px var(--plan
 .areplay__txt b { font-size: 1rem; line-height: 1.35; color: #fff; }
 @media (max-width: 560px) { .areplay { grid-template-columns: auto minmax(0, 1fr); } .areplay > .ui-btn { grid-column: 1 / -1; justify-content: center; } }
 
+/* ===================== Urna simbólica (sugestão do Rian Andrade) ===================== */
+.areplay--urna { border-color: color-mix(in srgb, #3fae74 60%, transparent); }
+.areplay__ghost { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.35); }
+.areplay__ghost:hover:not(:disabled) { border-color: #fff; }
+.urna-overlay { background: rgba(4, 10, 22, .8); }
+.urna:focus { outline: none; }
+.urna { width: min(940px, 100%); max-height: calc(100dvh - 32px); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: #0d1626; color: #fff; border-radius: 22px; overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.08); animation: ui-pop .25s ease-out; }
+.urna__head { position: relative; padding: 18px 22px 14px; background: linear-gradient(135deg, #0b1f3a, #163059); display: grid; gap: 6px; }
+.urna__kicker { display: flex; align-items: center; gap: 8px; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faixa); }
+.urna__step { padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.1); color: #fff; letter-spacing: .04em; }
+.urna__head h2 { margin: 0; font-size: clamp(1.1rem, 2.6vw, 1.45rem); letter-spacing: -.02em; color: #fff; }
+.urna__head p { margin: 0; font-size: .82rem; color: #c3cde0; }
+.urna__sound { margin-right: auto; padding: 5px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #c3cde0; font: 600 .72rem var(--f-ui); cursor: pointer; }
+.urna__sound[aria-pressed="false"] { color: #8c97ab; }
+.urna__sound:focus-visible { outline: 3px solid var(--faixa); outline-offset: 2px; }
+.urna__body { overflow-y: auto; padding: 16px 20px; display: grid; gap: 16px; align-content: start; }
+/* o aparelho: corpo bege, tela clara à esquerda, teclado à direita */
+.urna__device { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, 1fr); gap: 16px; padding: 16px; border-radius: 18px; background: linear-gradient(180deg, #ddd7c8, #c3bca9); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 10px 30px rgba(0,0,0,.35); }
+.urna__screen { min-height: 290px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; padding: 16px 18px; border-radius: 10px; border: 10px solid #1d1f22; background: #f2f3ee; color: #111; box-shadow: inset 0 2px 6px rgba(0,0,0,.18); }
+.urna__top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.urna__main { display: grid; gap: 8px; min-width: 0; }
+.urna__seu { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #333; }
+.urna__cargo { font-size: clamp(1.05rem, 2.6vw, 1.35rem); font-weight: 800; letter-spacing: .02em; text-transform: uppercase; color: #111; }
+.urna__digits { display: flex; flex-wrap: wrap; gap: 6px; }
+.urna__digit { width: 34px; height: 44px; display: grid; place-items: center; border: 2px solid #111; background: #fff; color: #111; font: 700 1.5rem var(--f-mono); }
+.urna__digit.is-cursor { animation: urna-cursor 1s steps(1) infinite; }
+@keyframes urna-cursor { 50% { background: #d4d4d0; } }
+.urna__info { margin: 2px 0 0; display: grid; gap: 3px; font-size: .9rem; }
+.urna__info div { display: flex; gap: 6px; min-width: 0; }
+.urna__info dt { color: #444; white-space: nowrap; }
+.urna__info dd { margin: 0; font-weight: 700; text-transform: uppercase; overflow-wrap: anywhere; }
+.urna__photo { display: grid; justify-items: center; gap: 4px; }
+.urna__photo .pavatar { border-radius: 4px; box-shadow: 0 0 0 1px #8d8d88; }
+.urna__photo small { max-width: 92px; font-size: .6rem; color: #555; text-align: center; }
+.urna__msg { display: grid; align-content: center; justify-items: center; gap: 4px; text-align: center; font-size: .86rem; color: #222; }
+.urna__msg b { font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.urna__big { font-size: clamp(1.4rem, 4vw, 2rem); }
+.urna__blink { animation: apu-blink 1.1s ease-in-out infinite; }
+.urna__hint { font-size: .8rem; color: #5c5c58; }
+.urna__you { padding: 3px 10px; border-radius: 999px; background: var(--faixa); color: var(--planalto); font-style: normal; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.urna__warn { max-width: 42ch; font-size: .8rem; font-weight: 600; color: #a3150b; }
+.urna__help { display: grid; gap: 2px; padding-top: 8px; border-top: 2px solid #111; font-size: .78rem; color: #222; }
+.urna__help .is-green { color: #17703a; }
+.urna__help .is-orange { color: #a84d12; }
+.urna__fim { grid-row: 1 / -1; display: grid; place-items: center; align-content: center; gap: 6px; }
+.urna__fim b { font-size: clamp(3.2rem, 12vw, 6rem); font-weight: 800; line-height: 1; letter-spacing: .08em; color: #111; }
+.urna__fim small { font-size: .9rem; font-weight: 700; letter-spacing: .3em; color: #555; }
+.urna__pad { display: grid; gap: 10px; align-content: start; padding: 12px; border-radius: 12px; background: #2a2c30; box-shadow: inset 0 2px 8px rgba(0,0,0,.5); }
+.urna__brand { font-size: .62rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #9aa0a8; text-align: center; }
+.urna__keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.urna__keys .urna__key:last-child { grid-column: 2; }
+.urna__key { height: 48px; border: 0; border-radius: 8px; background: linear-gradient(180deg, #33363b, #141518); color: #fff; font: 700 1.25rem var(--f-ui); box-shadow: 0 3px 0 #000, inset 0 1px 0 rgba(255,255,255,.12); cursor: pointer; }
+.urna__acts { display: grid; grid-template-columns: 1fr 1fr 1.15fr; gap: 8px; align-items: end; }
+.urna__act { height: 44px; border: 0; border-radius: 8px; color: #111; font: 800 .72rem var(--f-ui); letter-spacing: .04em; text-transform: uppercase; box-shadow: 0 3px 0 rgba(0,0,0,.55); cursor: pointer; }
+.urna__act.is-branco { background: #f4f4f2; }
+.urna__act.is-corrige { background: #e8822e; }
+.urna__act.is-confirma { height: 54px; background: #2fa452; }
+.urna__key:active:not(:disabled), .urna__act:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #000; }
+.urna__key:focus-visible, .urna__act:focus-visible { outline: 3px solid var(--faixa); outline-offset: 2px; }
+.urna__key:disabled, .urna__act:disabled { opacity: .5; cursor: default; }
+/* colinha e resumo */
+.urna__cola, .urna__sum { display: grid; gap: 10px; padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); }
+.urna__cola h3, .urna__sum h3 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faixa); }
+.urna__names, .urna__parties, .urna__sum ol { list-style: none; margin: 0; padding: 0; }
+.urna__names { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.urna__names button { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "n name you" "n party you"; column-gap: 10px; align-items: center; padding: 9px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #fff; font: inherit; text-align: left; cursor: pointer; }
+.urna__names button:hover, .urna__parties button:hover { border-color: var(--faixa); }
+.urna__names button:focus-visible, .urna__parties button:focus-visible, .urna__leave:focus-visible { outline: 3px solid var(--faixa); outline-offset: 2px; }
+.urna__names .mono { grid-area: n; font-size: 1.05rem; font-weight: 700; color: var(--faixa); }
+.urna__names b { grid-area: name; overflow: hidden; font-size: .88rem; text-overflow: ellipsis; white-space: nowrap; }
+.urna__names small { grid-area: party; font-size: .72rem; color: #9fb0cc; }
+.urna__names em { grid-area: you; padding: 3px 8px; border-radius: 999px; background: var(--faixa); color: var(--planalto); font-style: normal; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.urna__none, .urna__legend, .urna__sum p { margin: 0; font-size: .8rem; color: #9fb0cc; }
+.urna__parties { display: flex; flex-wrap: wrap; gap: 6px; }
+.urna__parties button { padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); color: #e6ebf5; font: 600 .76rem var(--f-ui); cursor: pointer; }
+.urna__parties .mono { margin-right: 2px; color: var(--faixa); }
+.urna__sum ol { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+.urna__sum li { display: grid; gap: 1px; padding: 8px 12px; border-radius: 10px; background: rgba(255,255,255,.05); }
+.urna__sum li small { font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: #9fb0cc; }
+.urna__sum li b { font-size: .92rem; }
+.urna__foot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 12px 20px 16px; border-top: 1px solid rgba(255,255,255,.08); }
+.urna__leave { padding: 8px; border: 0; background: none; color: #c3cde0; font: 600 .84rem var(--f-ui); text-decoration: underline; cursor: pointer; }
+/* apuração: o voto simbólico marcado */
+.apu__head .apu__myvote { display: inline-flex; align-items: center; gap: 6px; color: var(--faixa-suave); font-weight: 600; }
+.apu__tag--vote { background: rgba(244,213,141,.16); color: var(--faixa-suave); box-shadow: inset 0 0 0 1px rgba(244,213,141,.45); }
+@media (max-width: 760px) {
+  /* celular: tela da urna e teclado cabem juntos (números em 2 linhas de 5) */
+  .urna-overlay { padding: 0; place-items: stretch; }
+  .urna { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; border: 0; }
+  .urna__head { padding: 12px 14px 10px; gap: 4px; }
+  .urna__head h2 { font-size: 1.05rem; }
+  .urna__head p { font-size: .74rem; }
+  .urna__body { padding: 10px; gap: 12px; }
+  .urna__device { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 8px; border-radius: 14px; }
+  .urna__screen { min-height: 200px; gap: 6px; padding: 10px 12px; border-width: 6px; }
+  .urna__cargo { font-size: 1rem; }
+  .urna__digit { width: 30px; height: 38px; font-size: 1.3rem; }
+  .urna__info { font-size: .82rem; }
+  .urna__photo .pavatar { width: 56px !important; height: 70px !important; font-size: 1.2rem !important; }
+  .urna__msg { font-size: .78rem; }
+  .urna__help { padding-top: 6px; font-size: .7rem; }
+  .urna__pad { gap: 8px; padding: 8px; }
+  .urna__brand { display: none; }
+  .urna__keys { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .urna__keys .urna__key:last-child { grid-column: auto; }
+  .urna__key { height: 46px; font-size: 1.15rem; }
+  .urna__acts { gap: 6px; }
+  .urna__act { height: 46px; }
+  .urna__act.is-confirma { height: 50px; }
+  .urna__foot { padding: 8px 14px 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .urna__digit.is-cursor, .urna__blink { animation: none; } }
+
 /* ===================== Celular: revisão de UX ===================== */
 /* faixa de status (energia, caixa, reputação): só no celular, o menu lateral some */
 .gstat { display: none; }

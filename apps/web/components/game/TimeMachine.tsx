@@ -2,7 +2,7 @@
 import { InviteActions } from "./InviteActions";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Apuracao as ApuracaoData, DayDigest, StoryDelta, StoryEvent } from "@dp/engine";
+import type { Apuracao as ApuracaoData, DayDigest, StoryDelta, StoryEvent, Urna as UrnaData } from "@dp/engine";
 import { advanceDays, careerEndSummary, quickAction } from "@/app/jogo/actions";
 import { publishVitals } from "./live-vitals";
 import type { ActionView } from "@/lib/actions-view";
@@ -19,6 +19,7 @@ import { NEWS_CATEGORIES } from "./NewsList";
 import { Planner, type PlannedAction } from "./Planner";
 import { dayShort, KIND, TAG } from "./story-ui";
 import { useToast } from "./Toaster";
+import { Urna, urnaVotes } from "./Urna";
 
 const DAY = 86_400_000;
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -101,7 +102,7 @@ interface Decided {
   deltas?: StoryDelta[];
 }
 
-type Phase = "idle" | "loading" | "playing" | "counting" | "deciding" | "paused" | "summary" | "ended";
+type Phase = "idle" | "loading" | "playing" | "voting" | "counting" | "deciding" | "paused" | "summary" | "ended";
 
 /** Junta os pedaços do avanço (entre uma decisão e outra) num resumo só. */
 function mergeChunks(chunks: StepAdvanceResult[]): FastForwardResult | null {
@@ -149,6 +150,9 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
   // apuração do dia de votação: abre quando o diário chega nesse dia
   const [apu, setApu] = useState<ApuracaoData[] | null>(null);
   const apuSeen = useRef(new Set<string>());
+  // urna simbólica do dia de votação: abre antes da apuração (uma vez; quem já votou no Painel pula)
+  const [urna, setUrna] = useState<UrnaData | null>(null);
+  const urnaSeen = useRef(new Set<string>());
   const pause = (v: boolean) => {
     paused.current = v;
     setPauseAsked(v);
@@ -312,7 +316,16 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
     if (phase !== "playing") return;
     if (shown < diary.length) {
       const d = diary[shown];
-      // dia de votação: todas as apurações daquele dia, em sequência
+      // dia de votação: primeiro a urna, depois todas as apurações daquele dia, em sequência
+      const ballot = chunks.flatMap((c) => c.urnas ?? []).find((u) => u.date <= d.date && !urnaSeen.current.has(u.key));
+      if (ballot) {
+        urnaSeen.current.add(ballot.key);
+        if (!urnaVotes(ballot.key)) {
+          setUrna(ballot);
+          setPhase("voting");
+          return;
+        }
+      }
       const due = chunks.flatMap((c) => c.apuracoes ?? []).filter((a) => a.date <= d.date && !apuSeen.current.has(a.key));
       if (due.length) {
         for (const a of due) apuSeen.current.add(a.key);
@@ -383,7 +396,7 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
         </h2>
         {live ? (
           <p>
-            {phase === "loading" ? "O país está andando…" : phase === "counting" ? "Dia de votação: a apuração está saindo." : phase === "deciding" ? "O tempo parou: há uma decisão esperando você." : phase === "paused" ? `Pausado. Faltam ${remaining} dia(s).` : `${shown} de ${requested} dia(s)`}
+            {phase === "loading" ? "O país está andando…" : phase === "voting" ? "Dia de votação: sua vez na urna." : phase === "counting" ? "Dia de votação: a apuração está saindo." : phase === "deciding" ? "O tempo parou: há uma decisão esperando você." : phase === "paused" ? `Pausado. Faltam ${remaining} dia(s).` : `${shown} de ${requested} dia(s)`}
           </p>
         ) : (
           <p>
@@ -541,6 +554,16 @@ export function TimeMachine({ year, date, energy, next, pending = [], agenda = [
           onResolved={() => {
             setOpenWaiting(null);
             router.refresh();
+          }}
+        />
+      )}
+      {urna && phase === "voting" && (
+        <Urna
+          urna={urna}
+          doneLabel={chunks.some((c) => c.apuracoes?.some((a) => a.date === urna.date && !apuSeen.current.has(a.key))) ? "Ver a apuração" : "Continuar"}
+          onClose={() => {
+            setUrna(null);
+            setPhase("playing");
           }}
         />
       )}

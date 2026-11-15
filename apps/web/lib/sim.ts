@@ -40,6 +40,7 @@ import {
   START_YEARS,
   targetTick,
   type Apuracao,
+  type Urna,
   type CityBase,
   type CareerSummary,
   type DayDigest,
@@ -55,6 +56,7 @@ import { after } from "next/server";
 import { simSecret, SUPABASE_KEY, SUPABASE_URL } from "./env";
 import { dropSnapshot, readSnapshot, SNAPSHOTS, snapshotNewerThan, writeSnapshot } from "./snapshot";
 import { reportError } from "./report-error";
+import { urnasView } from "./urna";
 
 export const WORLD_VERSION = "v1";
 /** Compartilhado (todos jogam juntos), só do jogador com dados reais, ou só do jogador e fictício. */
@@ -69,7 +71,7 @@ export function worldIdFor(year: number, mode: WorldMode = "SHARED", userId?: st
 export const yearOfWorld = (id: string) => Number(id.slice(2, 6));
 export const modeOfWorld = (id: string): WorldMode => (id[6] === "f" ? "FICTIONAL" : id[6] === "p" ? "PRIVATE" : "SHARED");
 /** Quantos mundos próprios cabem no banco (cada um ocupa alguns MB). */
-export const MAX_PRIVATE_WORLDS = Number(process.env.MAX_PRIVATE_WORLDS ?? "30");
+export const MAX_PRIVATE_WORLDS = Number(process.env.MAX_PRIVATE_WORLDS ?? "200");
 export const isStartYear = (y: number): boolean => (START_YEARS as readonly number[]).includes(y);
 
 const MAX_CATCHUP = Number(process.env.WORLD_MAX_CATCHUP_TICKS ?? "45");
@@ -1127,6 +1129,8 @@ export interface StepAdvanceResult extends FastForwardResult {
   stopOn?: string;
   /** dia de votação no período: a apuração da disputa do jogador e das principais do dia */
   apuracoes?: Apuracao[];
+  /** urna simbólica dos dias de votação do período (abre antes da apuração) */
+  urnas?: Urna[];
   /** acontecimentos esperando resposta (os que seguram o tempo primeiro) */
   pending?: StoryEvent[];
   /** dias pedidos e dias que ainda faltam (o relógio retoma daí depois da decisão) */
@@ -1203,6 +1207,7 @@ export async function advanceStep(worldId: string, days: number, userId: string)
       stop: step.stop,
       stopOn: step.stopOn,
       apuracoes: manual > 0 ? electionNight(state, me.id, from, state.world.game_date) : undefined,
+      urnas: manual > 0 ? urnasView(state, me.id, from, state.world.game_date) : undefined,
       pending: pendingFor(state, me.id),
       requested: days,
       remaining: Math.max(0, days - manual),

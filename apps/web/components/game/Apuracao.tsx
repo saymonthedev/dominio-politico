@@ -4,6 +4,7 @@ import type { Apuracao as ApuracaoData } from "@dp/engine";
 import { useModal } from "../a11y";
 import { Button } from "../forms";
 import { Icon } from "../Icon";
+import { votesForRace, type UrnaVote } from "./Urna";
 
 const ROW = 58;
 
@@ -28,6 +29,12 @@ function Count({ data, step, total, next, onNext, onClose }: { data: ApuracaoDat
   const done = p >= 1;
   const skip = useRef(false);
   const parties = data.kind === "PARTIDOS";
+  // voto simbólico dado na urna deste mundo (guardado no aparelho)
+  const [ballot, setBallot] = useState<UrnaVote[]>([]);
+  useEffect(() => {
+    if (data.world) setBallot(votesForRace(data.world, data.key.slice(0, data.key.lastIndexOf(":")), data.round));
+  }, [data.world, data.key, data.round]);
+  const myVote = new Set(ballot.flatMap((v) => (v.kind === "CAND" && v.id ? [v.id] : v.kind === "LEGENDA" && parties && v.party ? [v.party] : [])));
   // a sua disputa demora mais (suspense); as outras, menos
   const duration = data.mine ? 14_000 : 8_000;
   useModal(box, true, () => done && (onNext ?? onClose)(), { lockScroll: true, initial: ".apu__skip" });
@@ -91,6 +98,11 @@ function Count({ data, step, total, next, onNext, onClose }: { data: ApuracaoDat
           <div className="apu__progress" aria-label={`${Math.round(p * 100)}% das urnas apuradas`}>
             <span style={{ width: `${p * 100}%` }} />
           </div>
+          {ballot.length > 0 && (
+            <small className="apu__myvote">
+              <Icon name="ballot" size={12} /> Seu voto na urna: {ballot.map((v) => v.label).join(" e ")}
+            </small>
+          )}
           <small className="mono">
             {(p * 100).toFixed(2).replace(".", ",")}% das urnas apuradas · {fmt(data.valid * p)} votos válidos
             {!data.majoritarian ? ` · ${data.seats} cadeira${data.seats > 1 ? "s" : ""}` : ""}
@@ -115,6 +127,7 @@ function Count({ data, step, total, next, onNext, onClose }: { data: ApuracaoDat
                     <b>
                       <span className="apu__name">{parties ? r.party : r.name}</span>
                       {r.me && <em>{parties ? "seu partido" : "você"}</em>}
+                      {myVote.has(r.id) && <span className="apu__tag apu__tag--vote">seu voto</span>}
                       {won && <span className="apu__tag apu__tag--won">{parties ? `${r.seats} cadeira${(r.seats ?? 0) > 1 ? "s" : ""}` : "eleito"}</span>}
                       {second && <span className="apu__tag apu__tag--run">2º turno</span>}
                     </b>

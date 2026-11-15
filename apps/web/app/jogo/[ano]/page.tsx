@@ -7,6 +7,7 @@ import { QuickAction } from "@/components/game/QuickAction";
 import { Onboarding, type OnboardingStep } from "@/components/game/Onboarding";
 import { actionsFor } from "@/lib/actions-view";
 import { ApuracaoReplay } from "@/components/game/ApuracaoReplay";
+import { UrnaCard } from "@/components/game/UrnaCard";
 import { TimeMachine, type RoundInfo } from "@/components/game/TimeMachine";
 import { StoryInbox } from "@/components/game/StoryCenter";
 import { Icon } from "@/components/Icon";
@@ -17,6 +18,7 @@ import { agenda, careerSteps, pending, type Step } from "@/lib/game-view";
 import { getSession, playerState, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
 import { worldClock } from "@/lib/sim";
+import { openUrnaView } from "@/lib/urna";
 import { Term } from "@/components/Term";
 
 function delta(now: number, prev: number | undefined, digits = 2, invert = false) {
@@ -142,6 +144,8 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
     .filter(({ d }) => d <= today && daysSince(d, today) <= 45)
     .sort((a, b) => b.d.localeCompare(a.d))[0];
   const replay = lastVote ? electionNight(state, me.person.id, addDays(lastVote.d, -1), lastVote.d) : [];
+  // semana da votação: a urna simbólica abre para o voto do jogador (sugestão do Rian Andrade)
+  const urna = openUrnaView(state, me.person.id, myDate);
 
   // o que cai hoje já começou: o próximo marco é o seguinte
   const nextMark = (() => {
@@ -164,6 +168,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
 
       {!tutorialOff && <Onboarding year={year} steps={onboarding} />}
 
+      {urna && <UrnaCard urna={urna} today={myDate} />}
       {replay.length > 0 && lastVote && <ApuracaoReplay list={replay} year={lastVote.e.year} />}
 
       <div id="tempo" className="mb">

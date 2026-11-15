@@ -24,6 +24,8 @@ export interface CountRow {
 /** Apuração de uma disputa no dia da votação. */
 export interface Apuracao {
   key: string;
+  /** mundo (a tela marca o voto simbólico do jogador na urna deste mundo) */
+  world: string;
   date: ISODate;
   title: string;
   round: 1 | 2;
@@ -91,7 +93,7 @@ function countOf(state: WorldState, race: RaceRow, round: 1 | 2, personId: strin
         party: party(mine.party_id)?.acronym ?? "",
       }
     : undefined;
-  const base = { key: `${race.id}:${round}`, date, title, round, majoritarian, valid: Math.round(res.valid), seats: race.seats, mine: !!mine, you };
+  const base = { key: `${race.id}:${round}`, world: state.world.id, date, title, round, majoritarian, valid: Math.round(res.valid), seats: race.seats, mine: !!mine, you };
 
   if (res.candidates.length) {
     const sorted = [...res.candidates].sort((a, b) => b.votes - a.votes);
