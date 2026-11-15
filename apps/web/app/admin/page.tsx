@@ -14,8 +14,8 @@ export const dynamic = "force-dynamic";
 
 
 const mb = (b: number) => `${fmtDec(b / 1024 / 1024, 1)} MB`;
-/** limite do banco no plano gratuito do Supabase */
-const DB_LIMIT = 500 * 1024 * 1024;
+/** espaço de banco incluído no plano Pro do Supabase (desde 14/11/2026; antes, 500 MB no grátis) */
+const DB_LIMIT = 8 * 1024 * 1024 * 1024;
 /** o painel nunca fica carregando sem fim: passou disso, mostra o aviso */
 const DEADLINE_MS = 25_000;
 
@@ -190,7 +190,7 @@ export default async function Page() {
         <div className="kpis">
           <Kpi label="Contas" value={fmtNum(o.accounts)} note={`${o.accounts_24h ?? "—"} em 24 h · ${o.accounts_7d} em 7 dias`} />
           <Kpi label="Sem confirmar e-mail" value={fmtNum(o.unconfirmed)} warn={o.unconfirmed > o.accounts / 2 && o.accounts > 4} />
-          <Kpi label="Banco de dados" value={mb(o.db_bytes)} note={`${Math.round((o.db_bytes / DB_LIMIT) * 100)}% de 500 MB`} warn={o.db_bytes > DB_LIMIT * 0.7} />
+          <Kpi label="Banco de dados" value={mb(o.db_bytes)} note={`${Math.round((o.db_bytes / DB_LIMIT) * 100)}% de 8 GB (plano Pro)`} warn={o.db_bytes > DB_LIMIT * 0.7} />
           <Kpi label="Mundos próprios" value={`${own} / ${MAX_PRIVATE_WORLDS}`} note={`${o.worlds.length} mundos no total`} warn={own >= MAX_PRIVATE_WORLDS} />
           <Kpi label="Erros em 24 h" value={fmtNum(o.errors_24h)} note={`${o.errors_7d} em 7 dias`} warn={o.errors_24h > 0} />
         </div>
