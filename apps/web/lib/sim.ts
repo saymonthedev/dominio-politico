@@ -515,6 +515,9 @@ async function fromSnapshot(worldId: string, rev: number): Promise<{ state: Worl
     return null;
   };
   if (snap.rev > rev) return skip(`revisão ${snap.rev} à frente do banco ${rev}`);
+  // cópia atrás do banco e mais velha que o registro de mudanças (3 h): o que mudou depois dela pode já
+  // ter saído do registro, e montar com um pedaço faltando devolve o jogador para um estado antigo
+  if (snap.rev < rev && Date.now() - snap.at > SNAP_LOG_MS) return skip(`de ${Math.round((Date.now() - snap.at) / 60_000)} min, mais velha que o registro de mudanças`);
   const d = await fetchDelta(worldId, snap.rev);
   if (!d || d.full || !d.world) return skip(`o banco já não tem as mudanças desde a revisão ${snap.rev}`);
   const was = snap.data.world;
@@ -533,6 +536,8 @@ async function fromSnapshot(worldId: string, rev: number): Promise<{ state: Worl
 const snapSaved = new Map<string, number>();
 /** Mundo com atividade tem a cópia renovada a cada 30 min (o registro de mudanças do banco cobre 3 h). */
 const SNAP_EVERY_MS = 30 * 60_000;
+/** Cópia atrás do banco só serve se for mais nova que isto (folga antes das 3 h do registro de mudanças). */
+const SNAP_LOG_MS = 150 * 60_000;
 
 /** Depois da resposta: o trabalho não atrasa a tela (fora de uma requisição, roda solto). */
 function inBackground(job: () => Promise<unknown>): void {
