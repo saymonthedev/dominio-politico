@@ -7,3 +7,6 @@ export const PRICE = 3.5;
 export const PERIOD_DAYS = 30;
 /** "R$ 3,50" */
 export const PRICE_LABEL = `R$ ${PRICE.toFixed(2).replace(".", ",")}`;
+/** Teste grátis de conta nova (o banco usa o mesmo valor em trial_start, migração 0032). */
+export const TRIAL_MINUTES = 60;
+export const TRIAL_LABEL = "1 hora";

@@ -22,7 +22,7 @@ export default function Page() {
               { icon: "lock", title: "Fica no jogo", text: "Nada é publicado em redes sociais reais." },
             ]}
           />
-          <UpdatedAt date="14/11/2026" version="1.3" />
+          <UpdatedAt date="14/11/2026" version="1.4" />
         </>
       }
       sections={[
@@ -101,6 +101,7 @@ export default function Page() {
                 confirmado.
               </p>
               <ul>
+                <li>Conta criada a partir de 13/11/2026 pode jogar 1 hora grátis, uma vez, contada a partir da primeira entrada no jogo. Depois dela, segue a assinatura.</li>
                 <li>Não há renovação automática: cada pagamento vale 30 dias. Renovando antes de vencer, os 30 dias somam ao que ainda falta.</li>
                 <li>
                   Com a assinatura vencida, as telas do jogo ficam bloqueadas até um novo pagamento. Os personagens ficam guardados; mundos só seus parados por 90 dias

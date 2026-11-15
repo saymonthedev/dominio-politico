@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { PartyRow, PersonRow, PersonStateRow, WorldRow, WorldState } from "@dp/engine";
 import { currentUser } from "./supabase/server";
 import { asPlayer, cachedState, isStartYear, modeOfWorld, worldIdFor, yearOfWorld, type WorldMode } from "./sim";
+import { TRIAL_MINUTES } from "./price";
 
 export type PublicWorld = Omit<WorldRow, "seed">;
 
@@ -51,13 +52,27 @@ export const myWorldId = cache(async (year: number): Promise<string> => {
 
 export const myWorldMode = async (year: number): Promise<WorldMode> => modeOfWorld(await myWorldId(year));
 
-/** Até quando a assinatura da conta vale (null: nunca assinou). */
-export const myPaidUntil = cache(async (): Promise<string | null> => {
+export interface MySubscription {
+  /** até quando a conta pode jogar */
+  until: string;
+  /** é o teste grátis de conta nova (nunca recebeu pagamento) */
+  trial: boolean;
+}
+
+/** Assinatura da conta (null: nunca assinou nem começou o teste grátis). */
+export const mySubscription = cache(async (): Promise<MySubscription | null> => {
   const { sb, user } = await getSession();
   if (!user) return null;
-  const { data } = await sb.from("subscriptions").select("paid_until").eq("user_id", user.id).maybeSingle();
-  return (data as { paid_until: string } | null)?.paid_until ?? null;
+  const { data } = await sb.from("subscriptions").select("paid_until, trial_at").eq("user_id", user.id).maybeSingle();
+  const row = data as { paid_until: string; trial_at: string | null } | null;
+  if (!row) return null;
+  // cada pagamento soma 30 dias: passou da hora do teste, é assinatura de verdade
+  const trial = !!row.trial_at && Date.parse(row.paid_until) <= Date.parse(row.trial_at) + (TRIAL_MINUTES + 1) * 60_000;
+  return { until: row.paid_until, trial };
 });
+
+/** Até quando a assinatura da conta vale (null: nunca assinou). */
+export const myPaidUntil = cache(async (): Promise<string | null> => (await mySubscription())?.until ?? null);
 
 export const getWorld = cache(async (year: number): Promise<PublicWorld | null> => {
   const { sb } = await getSession();

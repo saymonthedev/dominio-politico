@@ -15,9 +15,9 @@ import { SuggestionNews } from "@/components/game/SuggestionNews";
 import type { SuggestionPopups } from "@/lib/suggestions";
 import { LogoMark } from "@/components/Logo";
 import { STAGE_LABEL } from "@/components/ui";
-import { fmtDay, initials } from "@/lib/format";
+import { fmtDay, fmtHour, initials } from "@/lib/format";
 import { defaultAvatar, isAvatarCode } from "@/lib/avatar-code";
-import { getSession, getWorld, myPaidUntil, requireMe } from "@/lib/game";
+import { getSession, getWorld, mySubscription, requireMe } from "@/lib/game";
 import { isExempt, paywallOn, PRICE_LABEL } from "@/lib/payments";
 import { asPlayer, backgroundAdvance, citiesFor, ensureWorld, modeOfWorld } from "@/lib/sim";
 
@@ -36,20 +36,24 @@ export default async function GameLayout({ children, params }: { children: React
   const token = (await sb.auth.getSession()).data.session?.access_token;
   // mundo que não existe ou ficou pela metade (criação interrompida): monta ou completa agora
   if (!world || world.stats?.building) await asPlayer(token, () => ensureWorld(year, me.worldId));
-  const [unreadQ, recentQ, invitesQ, cities, paidUntil, popupsQ] = await Promise.all([
+  const [unreadQ, recentQ, invitesQ, cities, sub, popupsQ] = await Promise.all([
     sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("world_id", me.worldId).is("read_at", null),
     sb.from("notifications").select("*").eq("user_id", user!.id).eq("world_id", me.worldId).order("tick", { ascending: false }).limit(8),
     sb.from("affiliation_requests").select("id").eq("world_id", me.worldId).eq("person_id", me.person.id).eq("kind", "CONVITE").eq("status", "PENDENTE"),
     citiesFor(year),
-    myPaidUntil(),
+    mySubscription(),
     // sugestões que viraram atualização (para todos) e as reprovadas desta conta, para os avisos
     sb.rpc("suggestion_popups"),
   ]);
   const popups = (popupsQ.data as SuggestionPopups | null) ?? { news: [], mine: [] };
   // assinatura: a data vai para o agradecimento do menu; faltando 3 dias ou menos, aviso no topo
+  const paidUntil = sub?.until ?? null;
   const paidActive = !!paidUntil && Date.parse(paidUntil) > Date.now();
   const daysLeft = paidActive ? Math.ceil((Date.parse(paidUntil!) - Date.now()) / 86_400_000) : 0;
-  const renewSoon = paywallOn() && paidActive && daysLeft <= 3 && !!user && !isExempt(user.id);
+  const counted = paywallOn() && paidActive && !!user && !isExempt(user.id);
+  const renewSoon = counted && !sub?.trial && daysLeft <= 3;
+  // teste grátis de conta nova: quanto falta, no topo de todas as telas do jogo
+  const trialLeft = counted && sub?.trial ? Math.max(1, Math.ceil((Date.parse(paidUntil!) - Date.now()) / 60_000)) : 0;
   const unread = unreadQ.count ?? 0;
   // acontecimentos esperando resposta (os que seguram o tempo primeiro)
   const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
@@ -117,7 +121,7 @@ export default async function GameLayout({ children, params }: { children: React
         <GameSidebar
           year={year}
           badges={{ "/notificacoes": unread, "": invites.length }}
-          paidUntil={paidActive ? fmtDay(paidUntil!) : null}
+          paidUntil={paidActive && !sub?.trial ? fmtDay(paidUntil!) : null}
           profile={{
             name: me.person.name,
             stage: STAGE_LABEL[me.person.stage] ?? me.person.stage,
@@ -138,6 +142,15 @@ export default async function GameLayout({ children, params }: { children: React
           <KeyboardMode />
           <Announce />
           <SuggestionNews news={popups.news} mine={popups.mine} />
+          {trialLeft > 0 && (
+            <p className="paynote" role="note">
+              <Icon name="clock" size={16} />
+              <span>
+                Teste grátis até {fmtHour(paidUntil!)} ({trialLeft === 1 ? "falta 1 minuto" : `faltam ${trialLeft} minutos`}). Gostou? Assine por {PRICE_LABEL} por mês para continuar: seu personagem e seu mundo seguem do jeito que você deixar.
+              </span>
+              <a href="/assinar">Assinar</a>
+            </p>
+          )}
           {renewSoon && (
             <p className="paynote" role="note">
               <Icon name="clock" size={16} />

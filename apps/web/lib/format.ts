@@ -36,6 +36,12 @@ export function initials(name: string): string {
 }
 
 /** Dia de um instante no horário de Brasília, por extenso: "13 de dezembro de 2026" (assinatura). */
+/** Hora de Brasília de um instante: "22h47". */
+export function fmtHour(iso: string): string {
+  const [h, m] = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso)).split(":");
+  return `${Number(h)}h${m}`;
+}
+
 export function fmtDay(iso: string): string {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "numeric", month: "long", year: "numeric" }).format(new Date(iso));
 }

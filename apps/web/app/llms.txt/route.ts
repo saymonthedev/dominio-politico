@@ -1,5 +1,5 @@
 import { SITE_URL } from "@/lib/env";
-import { PERIOD_DAYS, PRICE_LABEL } from "@/lib/price";
+import { PERIOD_DAYS, PRICE_LABEL, TRIAL_LABEL } from "@/lib/price";
 import { START_POINTS } from "@/lib/startpoints";
 
 /**
@@ -14,7 +14,7 @@ export function GET() {
 
 > Jogo de política brasileira online, no navegador do computador e do celular. O jogador cria um político, começa como cidadão no dia seguinte a uma eleição presidencial real (de ${years[0]} a ${years[years.length - 1]}) e constrói a carreira até a Presidência, num país simulado a partir de dados oficiais.
 
-- Preço: assinatura de ${PRICE_LABEL} por mês, paga por Pix, sem renovação automática (cada pagamento libera ${PERIOD_DAYS} dias de jogo).
+- Preço: conta nova joga ${TRIAL_LABEL} grátis, contada da primeira entrada no jogo; depois, assinatura de ${PRICE_LABEL} por mês, paga por Pix, sem renovação automática (cada pagamento libera ${PERIOD_DAYS} dias de jogo).
 - Modos: mundos compartilhados com outros jogadores (o tempo anda em rodadas de 2 horas) ou um mundo só do jogador, no ritmo dele.
 - Carreira: cidadão, ativista, filiado, pré-candidato e candidato; eleições para vereador, prefeito, deputado, senador, governador e presidente, com convenções, campanha, pesquisas e apuração.
 - Dados reais no ponto de partida: partidos e eleitos (TSE), economia (Banco Central) e o mapa dos 27 estados e 5.570 municípios. Daí em diante a história é simulada.

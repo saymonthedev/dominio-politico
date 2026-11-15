@@ -5,6 +5,7 @@ import { SignUpForm } from "@/components/AuthForms";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 import { START_POINTS } from "@/lib/startpoints";
 import { paywallOn, PRICE_LABEL } from "@/lib/payments";
+import { TRIAL_LABEL } from "@/lib/price";
 
 export const metadata: Metadata = pageMeta({ title: "Criar conta", path: "/cadastro", description: "Crie sua conta no Domínio Político e comece como cidadão num Brasil real, de 2002 a 2026, rumo ao Planalto." });
 
@@ -18,7 +19,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
       <AuthShell
         title="Criar conta"
         sub={sp ? <>Você vai começar no Brasil de {sp.year}, logo depois da vitória de {sp.winner}. Primeiro, sua conta.</> : "E-mail e senha. Depois você escolhe o ano em que sua história começa."}
-        aside={{ title: <>Comece como cidadão. <em>Chegue ao Planalto</em>.</>, text: `Milite, filie-se, dispute convenções e eleições num país com partidos, eleitos e economia reais no ponto de partida.${paywallOn() ? ` Assinatura de ${PRICE_LABEL} por mês, por Pix.` : ""}` }}
+        aside={{ title: <>Comece como cidadão. <em>Chegue ao Planalto</em>.</>, text: `Milite, filie-se, dispute convenções e eleições num país com partidos, eleitos e economia reais no ponto de partida.${paywallOn() ? ` ${TRIAL_LABEL} grátis para experimentar; depois, ${PRICE_LABEL} por mês, por Pix.` : ""}` }}
         footer={
           <>
             Já tem conta? <a href={`/entrar?next=${encodeURIComponent(target)}`}>Entrar</a>

@@ -5,7 +5,7 @@ import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
 import { StartTrack } from "@/components/StartTrack";
 import { ThanksCard } from "@/components/Thanks";
 import { STAGE_LABEL } from "@/components/ui";
-import { getSession, myCharacters, myPaidUntil } from "@/lib/game";
+import { getSession, myCharacters, mySubscription } from "@/lib/game";
 import { fmtDate, fmtDay, initials } from "@/lib/format";
 import { modeOfWorld, worldIdFor, yearOfWorld } from "@/lib/sim";
 import { START_POINTS } from "@/lib/startpoints";
@@ -14,7 +14,8 @@ export const metadata: Metadata = { title: "Seus mundos" };
 
 export default async function Page() {
   const { sb } = await getSession();
-  const [chars, paidUntil] = await Promise.all([myCharacters(), myPaidUntil()]);
+  const [chars, sub] = await Promise.all([myCharacters(), mySubscription()]);
+  const paidUntil = sub && !sub.trial ? sub.until : null;
   const details = await Promise.all(
     chars.map(async (c) => {
       const [{ data: p }, { data: w }] = await Promise.all([

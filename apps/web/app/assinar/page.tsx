@@ -3,9 +3,10 @@ import { Checkout } from "@/components/Checkout";
 import { ContentPage } from "@/components/ContentPage";
 import { Icon } from "@/components/Icon";
 import { AUTHOR } from "@/lib/author";
-import { fmtDay } from "@/lib/format";
-import { getSession, myPaidUntil } from "@/lib/game";
+import { fmtDay, fmtHour } from "@/lib/format";
+import { getSession, mySubscription } from "@/lib/game";
 import { isExempt, paywallOn, PERIOD_DAYS, PRICE, PRICE_LABEL } from "@/lib/payments";
+import { TRIAL_LABEL } from "@/lib/price";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,9 @@ export default async function Page() {
   if (!user) redirect("/entrar?next=/assinar");
   const on = paywallOn();
   const exempt = isExempt(user.id);
-  const paidUntil = await myPaidUntil();
+  const sub = await mySubscription();
+  const paidUntil = sub?.until ?? null;
+  const trial = !!sub?.trial;
   const active = !!paidUntil && Date.parse(paidUntil) > Date.now();
 
   return (
@@ -35,7 +38,17 @@ export default async function Page() {
     >
       <section className="pay">
         <div className="pay__main">
-          {active ? (
+          {active && trial ? (
+            <p className="pay__state is-ok">
+              <Icon name="clock" size={18} />
+              <span>
+                Você está no teste grátis até <b>{fmtHour(paidUntil!)}</b>. Gostou?
+                Assine agora e continue jogando sem parar quando ele acabar: os{" "}
+                {PERIOD_DAYS} dias começam a contar no fim do teste.{" "}
+                <a href="/jogo">Voltar para o jogo</a>
+              </span>
+            </p>
+          ) : active ? (
             <p className="pay__state is-ok">
               <Icon name="check" size={18} />
               <span>
@@ -66,9 +79,11 @@ export default async function Page() {
             <p className="pay__state">
               <Icon name="lock" size={18} />
               <span>
-                {paidUntil
-                  ? `Sua assinatura venceu em ${fmtDay(paidUntil)}.`
-                  : "O jogo agora é por assinatura."}{" "}
+                {trial
+                  ? `Seu teste grátis de ${TRIAL_LABEL} acabou.`
+                  : paidUntil
+                    ? `Sua assinatura venceu em ${fmtDay(paidUntil)}.`
+                    : "O jogo agora é por assinatura."}{" "}
                 Para continuar jogando, assine por {PRICE_LABEL} por mês. Seus
                 personagens e mundos continuam guardados e voltam do jeito que
                 você deixou.
@@ -76,7 +91,7 @@ export default async function Page() {
             </p>
           )}
 
-          {on && <Checkout price={PRICE} days={PERIOD_DAYS} renew={active} />}
+          {on && <Checkout price={PRICE} days={PERIOD_DAYS} renew={active && !trial} />}
         </div>
 
         <aside className="pay__side" aria-labelledby="pay-side-title">

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { PRICE_LABEL } from "./price";
+import { PRICE_LABEL, TRIAL_LABEL } from "./price";
 
 export const SITE_NAME = "Domínio Político";
 export const SITE_TITLE = "Domínio Político — jogo de política brasileira online, do bairro ao Planalto";
 /** Até ~155 caracteres: o Google corta o resto na busca. */
-export const SITE_DESCRIPTION = `Jogo de política brasileira online: crie seu político num Brasil real (2002 a 2026), dispute eleições e chegue à Presidência. No celular e no PC, por ${PRICE_LABEL}/mês.`;
+export const SITE_DESCRIPTION = `Jogo de política brasileira online: crie seu político, dispute eleições e chegue à Presidência num Brasil real. ${TRIAL_LABEL} grátis, depois ${PRICE_LABEL}/mês.`;
 
 const OG_BASE = { type: "website", locale: "pt_BR", siteName: SITE_NAME } as const;
 /** Imagem de compartilhamento do site (app/opengraph-image); páginas com imagem própria a substituem. */

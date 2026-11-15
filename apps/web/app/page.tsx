@@ -11,6 +11,7 @@ import { brazilUfPaths } from "@/lib/geo-paths";
 import { paywallOn, PERIOD_DAYS, PRICE, PRICE_LABEL } from "@/lib/payments";
 import { homeMeta } from "@/lib/seo";
 import { START_POINTS } from "@/lib/startpoints";
+import { TRIAL_LABEL } from "@/lib/price";
 
 const pct = (v: number) => v.toFixed(2).replace(".", ",");
 
@@ -52,7 +53,7 @@ const FAQ = [
   },
   {
     q: "Quanto custa?",
-    a: `O jogo é por assinatura: ${PRICE_LABEL} por mês, pagos por Pix, sem renovação automática. Cada pagamento libera ${PERIOD_DAYS} dias de jogo.`,
+    a: `Conta nova joga ${TRIAL_LABEL} de graça para experimentar, contada da primeira vez que entra no jogo. Depois, a assinatura é ${PRICE_LABEL} por mês, paga por Pix, sem renovação automática: cada pagamento libera ${PERIOD_DAYS} dias de jogo.`,
   },
   {
     q: "Dá para jogar no celular?",
@@ -123,7 +124,7 @@ const JSON_LD = [
     playMode: ["SinglePlayer", "MultiPlayer"],
     isAccessibleForFree: !paywallOn(),
     offers: paywallOn()
-      ? { "@type": "Offer", price: PRICE.toFixed(2), priceCurrency: "BRL", description: `Assinatura de ${PRICE_LABEL} por ${PERIOD_DAYS} dias de jogo, paga por Pix, sem renovação automática` }
+      ? { "@type": "Offer", price: PRICE.toFixed(2), priceCurrency: "BRL", description: `Conta nova joga ${TRIAL_LABEL} grátis; depois, assinatura de ${PRICE_LABEL} por ${PERIOD_DAYS} dias de jogo, paga por Pix, sem renovação automática` }
       : { "@type": "Offer", price: "0", priceCurrency: "BRL" },
     image: SHARE_IMAGE,
     screenshot: SHARE_IMAGE,
@@ -181,7 +182,7 @@ export default function Home() {
             </div>
             {paywallOn() && (
               <p className="hero-price">
-                Assinatura de <b>{PRICE_LABEL} por mês</b>, paga por Pix, sem renovação automática. 16+.
+                Experimente <b>{TRIAL_LABEL} grátis</b>. Depois, <b>{PRICE_LABEL} por mês</b>, por Pix, sem renovação automática. 16+.
               </p>
             )}
             <div className="hero-facts">
@@ -288,7 +289,7 @@ export default function Home() {
         <div className="cta-band">
           <div>
             <h2>A próxima eleição já está no calendário.</h2>
-            <p>Crie sua conta, escolha o ano e comece como cidadão. {paywallOn() ? `Assinatura de ${PRICE_LABEL} por mês, por Pix` : "Gratuito"}, 16+.</p>
+            <p>Crie sua conta, escolha o ano e comece como cidadão. {paywallOn() ? `${TRIAL_LABEL} grátis, depois ${PRICE_LABEL} por mês, por Pix` : "Gratuito"}, 16+.</p>
           </div>
           <AuthLink className="btn" href={startHref()} authHref={playHref()} authChildren="Ir para meus mundos">
             Criar conta

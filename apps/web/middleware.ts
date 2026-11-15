@@ -44,7 +44,7 @@ async function readSession(request: NextRequest): Promise<Reading> {
 }
 
 /*
- * Assinatura (R$ 3 por mês): só as telas e os dados do jogo exigem; a conta, o admin e a página de
+ * Assinatura (R$ 3,50 por mês, com 1 hora grátis para conta nova): só as telas e os dados do jogo exigem; a conta, o admin e a página de
  * assinar ficam abertos. Liga só com a chave do Mercado Pago (sem ela, ninguém teria como pagar) e
  * não vale para as contas do admin. Quem pagou recebe um cookie assinado com a data até quando a
  * assinatura vale: as próximas visitas passam sem ir ao banco até essa data (ou por 7 dias).
@@ -76,7 +76,13 @@ async function access(request: NextRequest, sb: Supabase, uid: string): Promise<
   const { data, error } = await sb.from("subscriptions").select("paid_until").eq("user_id", uid).maybeSingle();
   // banco fora do ar: deixa passar (melhor do que trancar quem pagou)
   if (error) return { ok: true };
-  const until = data ? Date.parse((data as { paid_until: string }).paid_until) : 0;
+  let until = data ? Date.parse((data as { paid_until: string }).paid_until) : 0;
+  // sem assinatura: conta nova começa o teste grátis de 1 hora (uma vez por conta; o banco decide quem tem direito)
+  if (!data) {
+    const t = await sb.rpc("trial_start");
+    if (t.error) return { ok: true };
+    until = t.data ? Date.parse(t.data as string) : 0;
+  }
   if (!(until > Date.now())) return { ok: false };
   const payload = `${uid}.${until}`;
   return { ok: true, pass: { value: `${payload}.${await sign(payload)}`, maxAge: Math.max(60, Math.min(7 * 86_400, Math.floor((until - Date.now()) / 1000))) } };
