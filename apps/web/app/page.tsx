@@ -81,6 +81,31 @@ const FAQ = [
   },
 ];
 
+/** Telas do jogo (personagem e notícias fictícias): aparecem na página e nos dados para buscadores. */
+const SHOTS = [
+  {
+    src: "/imagens/tela-painel.webp",
+    width: 1600,
+    height: 1000,
+    alt: "Tela do Domínio Político no computador: o painel de uma vereadora, com o relógio para passar o tempo, a trilha da carreira, as manchetes e os acontecimentos",
+    caption: "O painel: passe o tempo, acompanhe a carreira, as manchetes e o que espera sua resposta.",
+  },
+  {
+    src: "/imagens/tela-celular.webp",
+    width: 720,
+    height: 1226,
+    alt: "Domínio Político no celular: o mesmo painel do jogo no navegador, sem instalar nada",
+    caption: "No celular, o mesmo jogo, sem instalar nada.",
+  },
+  {
+    src: "/imagens/tela-decisao.webp",
+    width: 1600,
+    height: 1000,
+    alt: "Tela de decisão do Domínio Político: disputar a presidência de uma comissão, apoiar um aliado ou ficar de fora",
+    caption: "Decisões com consequência: o tempo para até você escolher.",
+  },
+];
+
 export const metadata: Metadata = homeMeta;
 
 /** Imagem oficial do site (a mesma das prévias de link): buscadores e assistentes usam esta, e não outra da página. */
@@ -126,8 +151,8 @@ const JSON_LD = [
     offers: paywallOn()
       ? { "@type": "Offer", price: PRICE.toFixed(2), priceCurrency: "BRL", description: `Conta nova joga ${TRIAL_LABEL} grátis; depois, assinatura de ${PRICE_LABEL} por ${PERIOD_DAYS} dias de jogo, paga por Pix, sem renovação automática` }
       : { "@type": "Offer", price: "0", priceCurrency: "BRL" },
-    image: SHARE_IMAGE,
-    screenshot: SHARE_IMAGE,
+    image: [SHARE_IMAGE, { "@type": "ImageObject", url: `${SITE_URL}${SHOTS[0].src}`, width: SHOTS[0].width, height: SHOTS[0].height, caption: SHOTS[0].alt }],
+    screenshot: SHOTS.map((x) => ({ "@type": "ImageObject", url: `${SITE_URL}${x.src}`, width: x.width, height: x.height, caption: x.alt })),
     author: { "@type": "Person", name: AUTHOR.name, url: AUTHOR.site, sameAs: [AUTHOR.site, AUTHOR.instagram] },
     creator: { "@type": "Person", name: AUTHOR.name, url: AUTHOR.site },
   },
@@ -201,6 +226,32 @@ export default function Home() {
             </div>
           </div>
           <ElectionMap paths={paths} years={years} initial={latest.year} ufNames={Object.fromEntries(UFS.map((u) => [u.code, u.name]))} />
+        </div>
+      </section>
+
+      <section className="home-section home-shots" aria-labelledby="shots-title">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">Por dentro do jogo</div>
+            <h2 id="shots-title">Veja como é jogar o Domínio Político</h2>
+            <p>Telas reais do jogo, com uma personagem fictícia: a vereadora Ana Ribeiro, no mundo de 2026.</p>
+          </div>
+          <div className="shots">
+            {SHOTS.map((x, i) => (
+              <figure key={x.src} className={`shots__item shots__item--${i}`}>
+                <img src={x.src} alt={x.alt} width={x.width} height={x.height} loading="lazy" decoding="async" />
+                <figcaption>{x.caption}</figcaption>
+              </figure>
+            ))}
+            <div className="shots__cta">
+              <div className="section-kicker">Experimente</div>
+              <h3>{paywallOn() ? `${TRIAL_LABEL} grátis` : "Jogue agora"}</h3>
+              <p>{paywallOn() ? `Crie a conta e jogue ${TRIAL_LABEL} de graça. Depois, ${PRICE_LABEL} por mês, por Pix.` : "Crie a conta e comece como cidadão."}</p>
+              <AuthLink className="btn gold" href={startHref()} authHref={playHref()} authChildren="Ir para meus mundos">
+                Criar conta
+              </AuthLink>
+            </div>
+          </div>
         </div>
       </section>
 

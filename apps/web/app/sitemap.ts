@@ -11,5 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: BUILT,
     changeFrequency: "weekly",
     priority: p === "" ? 1 : p.startsWith("/partida") ? 0.8 : 0.6,
+    // telas do jogo, para a busca de imagens associar ao nome do jogo
+    ...(p === "" ? { images: ["tela-painel", "tela-celular", "tela-decisao"].map((n) => `${SITE_URL}/imagens/${n}.webp`) } : {}),
   }));
 }
