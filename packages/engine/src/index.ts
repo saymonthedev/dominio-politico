@@ -48,3 +48,5 @@ export * from "./wellbeing";
 export * from "./story";
 export * from "./ticket";
 export * from "./urna";
+export * from "./vacancies";
+export * from "./padrinho";

@@ -381,6 +381,10 @@ export interface CampaignState {
   vice?: { id: string; name: string; party_id: string | null } | null;
   /** 1º e 2º suplentes (senador) */
   suplentes?: Array<{ id: string; name: string; party_id: string | null }>;
+  /** padrinho político (vereador e deputado): a liderança que apoia a campanha e o bônus na lista */
+  padrinho?: { id: string; name: string; role: string; bonus: number; on: string } | null;
+  /** lideranças que recusaram apadrinhar esta candidatura (não são chamadas de novo) */
+  padrinho_refused?: string[];
   /** personalidade da campanha (NPCs): agressiva, populista, técnica, veterana */
   persona?: "AGRESSIVA" | "POPULISTA" | "TECNICA" | "VETERANA";
 }

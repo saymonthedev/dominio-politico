@@ -13,6 +13,7 @@ import type { Ctx, WorldState } from "./state";
 import { ufShares, type Contender } from "./support";
 import type { CampaignState, CandidacyRow, CandidateResult, DebateRow, ElectionRow, PartyListResult, PartyRow, PersonRow, RaceRow, VoterSegmentRow } from "./types";
 import { ballotNumber } from "./ticket";
+import type { StoredSuplente } from "./vacancies";
 
 export const emptyCampaign = (): CampaignState => ({
   budget: 0, spent: 0, fefc: 0, donations: 0, volunteers: 0, team: {}, momentum: 0, debate_score: 0, proposals: [], rumor_damage: 0,
@@ -213,6 +214,8 @@ export function playerListStrength(ctx: Ctx, race: RaceRow, c: CandidacyRow, noi
       c.campaign.rumor_damage / 60 +
       // mandato bem avaliado ajuda a se reeleger na lista; mal avaliado atrapalha
       (p.office_code && st.story?.approval != null ? 0.6 * ((st.story.approval - 50) / 50) : 0) +
+      // padrinho político: o apoio de uma liderança maior (vale enquanto ela segue na vida pública)
+      (c.campaign.padrinho && ctx.person(c.campaign.padrinho.id)?.status === "ACTIVE" ? c.campaign.padrinho.bonus : 0) +
       noise,
   );
 }
@@ -878,6 +881,22 @@ function finalizeMajoritarian(ctx: Ctx, e: ElectionRow, race: RaceRow, results: 
     afterElection(ctx, p, won, race);
     if (c.is_player) ctx.notify(p.id, won ? "VOCÊ FOI ELEITO(A)!" : "Não foi desta vez", `${OFFICES[race.office_code].name} em ${geoName(race.geo, ctx.s)}: ${r.share.toFixed(2)}% dos votos válidos.`, "/jogo/carreira");
   }
+  if (race.office_code === "SENADOR") {
+    // as cadeiras de cada partido e os suplentes da chapa: assumem se o senador sair (vacancies.ts)
+    const won = winnerIds.map((id) => ctx.t.candidacies.get(id)!);
+    const key = `SENADOR:${race.geo}`;
+    const seats = (e.summary.listSeats as Record<string, Record<string, number>> | undefined) ?? {};
+    seats[key] = {};
+    for (const c of won) seats[key][c.party_id] = (seats[key][c.party_id] ?? 0) + 1;
+    e.summary.listSeats = seats;
+    const sup = won.flatMap((c) => (c.campaign.suplentes ?? []).map((s) => ({ id: s.id, party: s.party_id, of: c.person_id })));
+    if (sup.length) {
+      const stored = (e.summary.suplentes as Record<string, StoredSuplente[]> | undefined) ?? {};
+      stored[key] = sup;
+      e.summary.suplentes = stored;
+    }
+    ctx.save("elections", e);
+  }
   const w = results.find((r) => winnerIds.includes(r.candidacy_id))!;
   const ru = results.find((r) => !winnerIds.includes(r.candidacy_id));
   if (race.office_code !== "SENADOR" || winnerIds[0] === w.candidacy_id) {
@@ -1028,7 +1047,10 @@ export function runProportional(ctx: Ctx, e: ElectionRow, race: RaceRow): void {
       ...named.map((n) => ({ ...n, votes: (pv * 0.92 * n.strength) / totalStrength })),
       ...abstract.map((s, i) => ({ id: `abs_${i}`, strength: s, isPlayer: false, candidacy: undefined, votes: (pv * 0.92 * s) / totalStrength })),
     ].sort((a, b) => b.votes - a.votes);
-    const minIndividual = e.year >= 2016 ? qe * 0.1 : 0;
+    // votação mínima individual (10% do quociente); se o partido não tem nomes que bastem para as
+    // cadeiras que conquistou, elas ficam com os mais votados dele (antes ficavam vazias: o Ceará
+    // chegou a ter 21 deputados federais eleitos para 22 cadeiras)
+    const minIndividual = e.year >= 2016 && all.filter((x) => x.votes >= qe * 0.1).length >= won ? qe * 0.1 : 0;
     let filled = 0;
     for (const entry of all) {
       const winsSeat = filled < won && entry.votes >= minIndividual;
@@ -1077,6 +1099,13 @@ export function runProportional(ctx: Ctx, e: ElectionRow, race: RaceRow): void {
   const summary = (e.summary.pendingSeats as Record<string, Record<string, number>> | undefined) ?? {};
   summary[`${race.office_code}:${race.geo}`] = Object.fromEntries(partyResults.filter((r) => r.seats > 0).map((r) => [r.party_id, r.seats]));
   e.summary.pendingSeats = summary;
+  // jogadores suplentes, do mais votado ao menos: assumem a cadeira do partido que vagar (vacancies.ts)
+  const suplentes = playerCands.filter((c) => c.status === "SUPLENTE").sort((a, b) => b.votes - a.votes);
+  if (suplentes.length) {
+    const stored = (e.summary.suplentes as Record<string, StoredSuplente[]> | undefined) ?? {};
+    stored[`${race.office_code}:${race.geo}`] = suplentes.map((c) => ({ id: c.person_id, party: c.party_id, votes: c.votes }));
+    e.summary.suplentes = stored;
+  }
   ctx.save("elections", e);
   if (race.office_code === "DEP_FEDERAL" && ["SP", "MG", "RJ", "BA"].includes(uf)) {
     const top = partyResults[0];

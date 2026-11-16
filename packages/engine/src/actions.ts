@@ -63,6 +63,7 @@ import { eraRules, OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
 import type { CandidacyRow, EntryCulture, ElectionRow, PersonRow, PersonStateRow, RaceRow } from "./types";
 import { BALLOT_DIGITS, ballotChoices, ballotNumber, coalitionAccepts, coalitionChoices, coalitionOf, MAX_COALITION, runningMateChoices, WITH_VICE } from "./ticket";
+import { askPatron, patronBlocked } from "./padrinho";
 
 export type ActionCategory = "BASE" | "PARTIDO" | "MEU_PARTIDO" | "CAMPANHA" | "MANDATO" | "INVESTIGACAO" | "ESQUEMA" | "FINANCAS" | "VIDA" | "BENS" | "COMANDO";
 
@@ -108,7 +109,8 @@ export interface ActionParam {
     | "running_mate"
     | "ballot_number"
     | "family_added"
-    | "lawyer";
+    | "lawyer"
+    | "patron";
   options?: Array<{ value: string; label: string }>;
   /** valores de referência (R$ de 2026) para type "amount"; a tela corrige pela época */
   amounts?: number[];
@@ -752,6 +754,17 @@ export const ACTIONS: ActionDef[] = [
       const names = coalitionOf(c).map((id) => ctx.t.parties.get(id)?.acronym ?? "?").join(", ");
       return { ok: true, message: `O ${pick.party.acronym} fechou com você. A coligação agora tem ${coalitionOf(c).length} partidos (${names}), e a força deles nas urnas soma à sua.` };
     },
+  },
+  {
+    id: "pedir_padrinho",
+    label: "Pedir um padrinho político",
+    description:
+      "Vereador e deputado crescem com o apoio público de uma liderança maior (a dobradinha): presidente, governador, senador, deputado ou prefeito do seu partido, ou quem disputa cargo majoritário pelo partido ou pela coligação. Se aceitar, sua força na lista sobe conforme a popularidade dela no estado; em troca, parte dos seus voluntários vai para a campanha dela e você pede voto para ela.",
+    category: "CAMPANHA",
+    energy: 8,
+    params: [{ name: "padrinho", label: "Liderança", type: "patron" }],
+    available: (ctx, p) => patronBlocked(ctx, p),
+    run: ({ ctx, p, st, params }) => askPatron(ctx, p, st, params.padrinho),
   },
   {
     id: "escolher_vice",

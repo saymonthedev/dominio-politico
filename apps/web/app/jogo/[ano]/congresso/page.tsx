@@ -1,4 +1,4 @@
-import { UF_BY_CODE, type MandateRow, type PersonRow } from "@dp/engine";
+import { isSubstitute, UF_BY_CODE, type MandateRow, type PersonRow } from "@dp/engine";
 import { Empty, GameHeader, Panel, Pill } from "@/components/game/Page";
 import { NavSelect } from "@/components/NavSelect";
 import { PersonAvatar } from "@/components/PersonAvatar";
@@ -135,7 +135,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                   <div>
                     <b>{p.name}</b>
                     <span>
-                      {party?.acronym ?? "sem partido"} · {UF_BY_CODE[m.geo]?.name ?? m.geo} · {future ? `posse em ${fmtDate(m.start_on)}` : `até ${m.end_on.slice(0, 4)}`}
+                      {party?.acronym ?? "sem partido"} · {UF_BY_CODE[m.geo]?.name ?? m.geo} · {future ? `posse em ${fmtDate(m.start_on)}` : isSubstitute(m) ? `suplente, assumiu em ${fmtDate(m.start_on)} · até ${m.end_on.slice(0, 4)}` : `até ${m.end_on.slice(0, 4)}`}
                     </span>
                     {p.kind === "PLAYER" && <Pill tone="gold">{p.id === me.person.id ? "você" : "jogador(a)"}</Pill>}
                   </div>

@@ -31,6 +31,7 @@ import { isReal } from "./news/policy";
 import { injure, INJURIES } from "./wellbeing";
 import { bondAll, FAMILY_ACTIONS, familyAddedOptions, familyOf } from "./family";
 import { ticketParamOptions } from "./ticket";
+import { patronOptions } from "./padrinho";
 import { LAWYERS } from "./crime";
 
 /**
@@ -582,6 +583,8 @@ export function lifeParamOptions(ctx: Ctx, p: PersonRow, st: PersonStateRow, typ
       return HOME_TIER_OPTIONS;
     case "family_added":
       return familyAddedOptions(ctx, p, st);
+    case "patron":
+      return patronOptions(ctx, p);
     case "lawyer":
       return (Object.entries(LAWYERS) as Array<[string, { label: string; cost: number }]>).map(([value, l]) => ({
         value,

@@ -23,6 +23,7 @@ import { monthlyApproval } from "./approval";
 import { energyRecovery } from "./wellbeing";
 import { dailyPartyFormation, playerPartyRecruitment, processPartyInvites } from "./partyfounding";
 import { dedupeNames } from "./npc";
+import { fillVacancies } from "./vacancies";
 import { partySwitchWindow, weeklyAgenda, yearlyRenewal } from "./npclife";
 import { creditPartyFunds, returnUnusedFunds } from "./partycampaign";
 import { checkAchievements } from "./achievements";
@@ -241,6 +242,9 @@ export function advanceDay(ctx: Ctx): void {
   if (month(d) === 1 && day(d) === 2) step("renovação do ano", d, () => yearlyRenewal(ctx));
   // a vida de cada jogador: saúde, prazos, continuações e (para quem está vivendo os dias) o acaso
   step("vida dos jogadores", d, () => dailyStory(ctx));
+  // cadeiras do Legislativo de quem saiu (cassação, condenação, aposentadoria, morte): assume o suplente.
+  // Uma vez por semana e nos dias de posse (a conta passa por todos os mandatos do mundo)
+  if (weekday(d) === 1 || d.endsWith("-01-01") || d.endsWith("-02-01")) step("suplentes", d, () => fillVacancies(ctx));
   step("conquistas", d, () => {
     for (const p of ctx.t.persons.values()) if (p.kind === "PLAYER" && p.status === "ACTIVE") checkAchievements(ctx, p);
   });

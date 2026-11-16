@@ -605,7 +605,16 @@ function createSnapshotElection(ctx: Ctx, snap: Snapshot, people: Map<string, Pe
   const Y = snap.meta.year;
   const el = scheduledElection(ctx.world.id, Y);
   el.status = "ENCERRADA";
-  el.summary = { factual: true, source_id: snap.meta.result_source_id };
+  // cadeiras de cada partido na legislatura eleita: a vaga de quem sair fica com o partido (vacancies.ts)
+  const listSeats: Record<string, Record<string, number>> = {};
+  for (const m of ctx.t.mandates.values()) {
+    if (m.election_id !== el.id || !(m.office_code === "SENADOR" || m.office_code === "DEP_FEDERAL" || m.office_code === "DEP_ESTADUAL")) continue;
+    const party = ctx.person(m.person_id)?.party_id;
+    if (!party) continue;
+    const seats = (listSeats[`${m.office_code}:${m.geo}`] ??= {});
+    seats[party] = (seats[party] ?? 0) + 1;
+  }
+  el.summary = { factual: true, source_id: snap.meta.result_source_id, listSeats };
   ctx.save("elections", el);
   const keyOf = (name: string, uf: string) => `${normName(name)}|${uf}`;
   const findPerson = (c: SnapshotCandidate, geo: string): PersonRow | undefined =>
