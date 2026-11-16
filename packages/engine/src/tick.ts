@@ -8,6 +8,7 @@ import {
   createRaces,
   dailyCampaign,
   processMandates,
+  closeStalePre,
   runConventions,
   runDebates,
   runFirstRound,
@@ -177,6 +178,7 @@ export function advanceDay(ctx: Ctx): void {
   ctx.beginTick();
   const d = w.game_date;
   step("coerência de candidaturas e filiações", d, () => tidyRetired(ctx));
+  step("pré-candidaturas sem convenção", d, () => closeStalePre(ctx));
   // uma vez por mundo: desfaz nomes repetidos que o bug antigo deixou nos eleitos sem nome
   if (!w.stats?.names_v1)
     step("nomes repetidos", d, () => {

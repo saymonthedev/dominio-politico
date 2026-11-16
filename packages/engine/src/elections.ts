@@ -464,6 +464,36 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
   }
 }
 
+/**
+ * Pré-candidatura que nenhuma convenção vai avaliar. Lançada no último dia das convenções, depois
+ * de o partido já ter fechado a chapa, ela ficava "aguardando convenção" para sempre: o jogador via
+ * a projeção de votos, achava que tinha disputado e seguia como pré-candidato depois da eleição.
+ * Fecha com o motivo e um aviso; e quem ficou sem candidatura viva (também quem a convenção recusou)
+ * volta a ser quadro do partido.
+ */
+export function closeStalePre(ctx: Ctx): void {
+  for (const c of ctx.t.candidacies.values()) {
+    if (c.status !== "PRE") continue;
+    const e = ctx.t.elections.get(c.election_id);
+    if (!e || (e.status !== "ENCERRADA" && ctx.date <= e.calendar.conventionEnd)) continue;
+    c.status = "INDEFERIDA";
+    c.note = "A pré-candidatura foi lançada depois de o partido fechar a chapa na convenção e não chegou a ser avaliada.";
+    ctx.save("candidacies", c);
+    if (c.is_player) ctx.notify(c.person_id, "Pré-candidatura encerrada", `${c.note} Na próxima eleição, lance até a véspera do fim das convenções.`, "/jogo/campanha");
+  }
+  const pre = [...ctx.t.persons.values()].filter((p) => p.kind === "PLAYER" && p.status === "ACTIVE" && p.stage === "PRE_CANDIDATO");
+  if (!pre.length) return;
+  const live = new Set<string>();
+  for (const c of ctx.t.candidacies.values()) {
+    if ((c.status === "PRE" || c.status === "HOMOLOGADA" || c.status === "SEGUNDO_TURNO") && ctx.t.elections.get(c.election_id)?.status !== "ENCERRADA") live.add(c.person_id);
+  }
+  for (const p of pre) {
+    if (live.has(p.id)) continue;
+    p.stage = p.party_id ? "QUADRO" : "CIDADAO";
+    ctx.save("persons", p);
+  }
+}
+
 /** Fatia do FEFC de um partido (Lei 9.504, art. 16-D: 2% iguais, 35% por votos, 48% pela Câmara e 15% pelo Senado; aproximação do jogo). */
 export function fefcPartyShare(party: PartyRow, camaraTotal: number): number {
   return 0.02 / 30 + 0.48 * ((party.seats.camara ?? 0) / camaraTotal) + (0.35 * nationalStrength(party)) / 4 + 0.15 * ((party.seats.senado ?? 0) / 81);

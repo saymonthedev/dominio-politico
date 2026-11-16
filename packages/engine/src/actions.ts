@@ -678,7 +678,8 @@ export const ACTIONS: ActionDef[] = [
       if (activeCandidacy(ctx, p.id)) return "Você já tem uma pré-candidatura/candidatura.";
       const e = currentElection(ctx);
       if (!e || e.status === "SEGUNDO_TURNO" || e.status === "CAMPANHA") return "Fora do período de pré-campanha.";
-      if (ctx.date > e.calendar.conventionEnd) return "As convenções já terminaram.";
+      // a convenção roda no último dia: daí em diante uma pré-candidatura nova não seria avaliada
+      if (ctx.date >= e.calendar.conventionEnd) return "As convenções já terminaram.";
       return null;
     },
     run: ({ ctx, p, params }) => {
