@@ -3,7 +3,7 @@ import type { EventDef } from "../def";
 import { vary } from "../def";
 import { nextSaturday } from "../time";
 import { companyName, findFigure, localOutlet, partyLeader, partyPeople } from "../world";
-import { actor, bairro, bestContact, brl, city, communityLeader, dayLabel, first, home, localPolitician, partiesNear, partyOf, relWith } from "./util";
+import { actor, bairro, bestContact, brl, city, cityMayor, communityLeader, dayLabel, first, home, localPolitician, partiesNear, partyOf, relWith } from "./util";
 
 /**
  * Vida comum, comunidade, trabalho e imprensa local: o começo de tudo.
@@ -386,7 +386,7 @@ const entrevista_radio: EventDef = {
       fx.reach(0.005);
       return "Uma ouvinte perguntou um dado que você não sabia. Você saiu pela tangente — e o apresentador notou.";
     }
-    const mayor = localPolitician(c, { office: "PREFEITO" });
+    const mayor = cityMayor(c);
     if (mayor) fx.rel(mayor.id, -8);
     fx.reach(0.015);
     fx.visibility(4);
@@ -757,7 +757,7 @@ const crise_bairro: EventDef = {
       fx.energy(-10);
       fx.visibility(3);
       fx.reach(0.008);
-      const mayor = localPolitician(c, { office: "PREFEITO" });
+      const mayor = cityMayor(c);
       if (mayor) fx.rel(mayor.id, -6);
       if (c.cand) fx.momentum(0.02, `cobrança pública no ${b.h}`);
       return "Sua cobrança foi reproduzida por dois portais locais. A prefeitura prometeu solução \"em breve\".";

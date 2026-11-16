@@ -1,4 +1,5 @@
 import {
+  addDays,
   AUTHORITY_LABEL,
   CHANNEL_LABEL,
   chargeLabel,
@@ -50,6 +51,12 @@ function CaseCard({ inv, year, people, pm, mine }: { inv: InvestigationRow; year
     .sort((a, b) => b.on.localeCompare(a.on))
     .slice(0, 7);
   const lawYear = Number(inv.opened_on.slice(0, 4));
+  // julgamento com defesa: data marcada, sentença e recurso
+  const trial = inv.measures.some((m) => m.kind === "JULGAMENTO");
+  const verdict = inv.measures.find((m) => m.kind === "SENTENCA");
+  const appeal = inv.measures.some((m) => m.kind === "RECURSO");
+  const second = inv.measures.some((m) => m.kind === "SEGUNDA_INSTANCIA");
+  const defense = inv.measures.filter((m) => m.kind === "DEFESA");
   return (
     <article className={`case2${mine ? " is-mine" : ""}`}>
       <div className="case2__head">
@@ -111,9 +118,39 @@ function CaseCard({ inv, year, people, pm, mine }: { inv: InvestigationRow; year
           <MeterRow label="Provas" value={inv.evidence * 100} tone="bad" />
           <MeterRow label="Defesa" value={inv.defense * 100} tone="ok" />
           <p className="muted small">
-            Chance estimada de condenação: <b>{pct(convictionChance(inv))}</b> · próxima etapa por volta de {fmtDate(inv.next_step_on)}
+            Chance estimada de condenação: <b>{pct(convictionChance(inv))}</b> ·{" "}
+            {trial && inv.stage === "PROCESSO" ? (
+              <>
+                julgamento em <b>{fmtDate(inv.next_step_on)}</b>
+              </>
+            ) : (
+              <>próxima etapa por volta de {fmtDate(inv.next_step_on)}</>
+            )}
           </p>
+          {mine && trial && inv.stage === "PROCESSO" && (
+            <p className="case2__trial">
+              <Icon name="scale" size={14} />
+              <span>
+                {defense.length
+                  ? `Sua defesa até aqui: ${defense.map((m) => m.text.replace(/^Defesa constituída: /, "")).map((t) => t.charAt(0).toLowerCase() + t.slice(1)).join("; ")}.`
+                  : "Você ainda não preparou a defesa."}{" "}
+                Advogado, provas, testemunhas e pedido de nulidade estão nas ações desta tela, até o dia do julgamento.
+              </span>
+            </p>
+          )}
         </div>
+      )}
+      {mine && inv.outcome === "CONDENADO" && verdict && !appeal && (
+        <p className="case2__trial">
+          <Icon name="scale" size={14} />
+          <span>Dá para recorrer à 2ª instância até {fmtDate(addDays(verdict.on, 30))}, nas ações desta tela.</span>
+        </p>
+      )}
+      {appeal && !second && (
+        <p className="case2__trial">
+          <Icon name="scale" size={14} />
+          <span>Recurso em andamento: a 2ª instância julga em {fmtDate(inv.next_step_on)}.</span>
+        </p>
       )}
       {inv.sentence && (
         <div className="case2__sentence">

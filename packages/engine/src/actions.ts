@@ -8,6 +8,7 @@ import { addFatigue, injuryBlocks } from "./wellbeing";
 import { affiliationCooldown, infidelityRisk, joinParty, leaveParty, loseMandateForInfidelity, relKey, requestAffiliation } from "./affiliation";
 import { addDays, formatDatePt } from "./calendar";
 import {
+  appealableCase,
   canBeTargeted,
   commitCrime,
   createIllicitAct,
@@ -19,6 +20,11 @@ import {
   partyLedBy,
   respondToOffer,
   stopScheme,
+  trialCaseOf,
+  defenseDone,
+  lawyerOf,
+  LAWYERS,
+  type LawyerTier,
   type SchemeResult,
 } from "./crime";
 import { CRIMES, type IllicitKind } from "./crimes";
@@ -101,7 +107,8 @@ export interface ActionParam {
     | "coalition_party"
     | "running_mate"
     | "ballot_number"
-    | "family_added";
+    | "family_added"
+    | "lawyer";
   options?: Array<{ value: string; label: string }>;
   /** valores de referência (R$ de 2026) para type "amount"; a tela corrige pela época */
   amounts?: number[];
@@ -1364,23 +1371,145 @@ export const ACTIONS: ActionDef[] = [
   },
   {
     id: "contratar_defesa",
-    label: "Contratar defesa jurídica",
-    description: "Bons advogados reduzem a chance de condenação em casos abertos contra você.",
+    label: "Escolher o advogado de defesa",
+    description: "Defensoria pública (de graça), um escritório de advocacia ou um nome renomado. Quanto melhor a defesa, menor a chance de condenação nos casos abertos contra você.",
     category: "INVESTIGACAO",
     energy: 5,
-    costFn: (ctx) => scaledAmount(ctx, 50_000),
-    available: (ctx, p, st) => (![...ctx.t.investigations.values()].some((i) => i.person_id === p.id && !i.outcome) ? "Não há investigação aberta contra você." : st.money < scaledAmount(ctx, 50_000) ? `Custa ${fmtMoney(scaledAmount(ctx, 50_000))}.` : null),
-    run: ({ ctx, p, st }) => {
-      const cost = scaledAmount(ctx, 50_000);
-      st.money -= cost;
+    params: [{ name: "advogado", label: "Quem faz sua defesa", type: "lawyer" }],
+    available: (ctx, p) => ([...ctx.t.investigations.values()].some((i) => i.person_id === p.id && !i.outcome) ? null : "Não há investigação aberta contra você."),
+    run: ({ ctx, p, st, params }) => {
+      const tier = (params.advogado in LAWYERS ? params.advogado : "escritorio") as LawyerTier;
+      const law = LAWYERS[tier];
+      const cost = law.cost ? scaledAmount(ctx, law.cost) : 0;
+      if (st.money < cost) return { ok: false, message: `${law.label}: ${fmtMoney(cost)}.` };
+      let cases = 0;
       for (const inv of ctx.t.investigations.values()) {
-        if (inv.person_id === p.id && !inv.outcome) {
-          inv.defense = Math.min(1, inv.defense + 0.15);
-          ctx.save("investigations", inv);
-        }
+        if (inv.person_id !== p.id || inv.outcome) continue;
+        const now = lawyerOf(inv);
+        const gain = law.defense - (now ? LAWYERS[now].defense : 0);
+        if (gain <= 0) continue;
+        inv.defense = Math.min(1, inv.defense + gain);
+        inv.measures.push({ on: ctx.date, kind: "DEFESA", tag: `advogado:${tier}`, text: `Defesa constituída: ${law.label.toLowerCase()}` });
+        ctx.save("investigations", inv);
+        cases++;
       }
-      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "DESPESA", amount: -cost, declared: true, game_date: ctx.date, description: "Honorários advocatícios" });
-      return { ok: true, message: "Escritório contratado. Sua defesa ficou mais robusta." };
+      if (!cases) return { ok: false, message: "Seus casos já têm essa defesa ou uma melhor." };
+      if (cost) {
+        st.money -= cost;
+        ctx.insert("finance_transactions", { id: ctx.id("fin", p.id), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "DESPESA", amount: -cost, declared: true, game_date: ctx.date, description: "Honorários advocatícios" });
+      }
+      return { ok: true, message: `${law.label} assumiu ${cases === 1 ? "o seu caso" : `os seus ${cases} casos`}. A defesa ficou mais forte.` };
+    },
+  },
+  {
+    id: "juntar_provas",
+    label: "Juntar provas e documentos",
+    description: "Para o julgamento: a defesa apresenta documentos, perícias e registros que contestam a acusação. Pesa muito para quem não fez o que é acusado; para quem fez, os papéis podem até ajudar a acusação.",
+    category: "INVESTIGACAO",
+    energy: 10,
+    costFn: (ctx) => scaledAmount(ctx, 5_000),
+    available: (ctx, p, st) => {
+      const inv = trialCaseOf(ctx, p.id);
+      if (!inv) return "Só para quem é réu com julgamento marcado.";
+      if (defenseDone(inv, "provas")) return "A defesa já juntou as provas neste caso.";
+      return st.money < scaledAmount(ctx, 5_000) ? `A perícia custa ${fmtMoney(scaledAmount(ctx, 5_000))}.` : null;
+    },
+    run: ({ ctx, p, st, rng }) => {
+      const inv = trialCaseOf(ctx, p.id)!;
+      const cost = scaledAmount(ctx, 5_000);
+      st.money -= cost;
+      const guilty = inv.act_ids.length > 0;
+      let text: string;
+      if (!guilty) {
+        inv.defense = Math.min(1, inv.defense + 0.2);
+        text = "Defesa junta documentos que contradizem a acusação";
+      } else if (rng.chance(0.75)) {
+        inv.defense = Math.min(1, inv.defense + 0.06);
+        text = "Defesa junta documentos; a acusação contesta cada um";
+      } else {
+        inv.evidence = Math.min(1, inv.evidence + 0.05);
+        text = "Documentos da defesa acabam reforçando a acusação";
+      }
+      inv.measures.push({ on: ctx.date, kind: "DEFESA", tag: "provas", text });
+      ctx.save("investigations", inv);
+      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "DESPESA", amount: -cost, declared: true, game_date: ctx.date, description: "Perícia da defesa" });
+      return { ok: true, message: `${text}.` };
+    },
+  },
+  {
+    id: "arrolar_testemunhas",
+    label: "Arrolar testemunhas de defesa",
+    description: "Para o julgamento: gente que conhece seu trabalho fala ao juiz. Uma testemunha de peso, alguém próximo de você, conta mais.",
+    category: "INVESTIGACAO",
+    energy: 10,
+    available: (ctx, p) => {
+      const inv = trialCaseOf(ctx, p.id);
+      if (!inv) return "Só para quem é réu com julgamento marcado.";
+      return defenseDone(inv, "testemunhas") ? "Suas testemunhas já foram arroladas neste caso." : null;
+    },
+    run: ({ ctx, p }) => {
+      const inv = trialCaseOf(ctx, p.id)!;
+      // a testemunha de peso: o contato mais próximo (personagem do jogo)
+      let best: { id: string; score: number } | null = null;
+      for (const r of ctx.t.relationships.values()) {
+        if (r.a_id !== p.id || r.score < 50 || (best && r.score <= best.score)) continue;
+        const who = ctx.person(r.b_id);
+        if (who?.kind === "FICTIONAL_GENERATED" && who.status === "ACTIVE") best = { id: who.id, score: r.score };
+      }
+      const strong = best ? ctx.person(best.id) : undefined;
+      inv.defense = Math.min(1, inv.defense + (strong ? 0.12 : 0.08));
+      const text = strong ? `Testemunhas de defesa ouvidas, entre elas ${strong.name}` : "Testemunhas de defesa ouvidas";
+      inv.measures.push({ on: ctx.date, kind: "DEFESA", tag: "testemunhas", text });
+      ctx.save("investigations", inv);
+      return { ok: true, message: `${text}.` };
+    },
+  },
+  {
+    id: "pedir_nulidade",
+    label: "Pedir a nulidade de provas",
+    description: "Para o julgamento: se a investigação passou do limite (grampo sem ordem judicial, busca sem mandado), as provas podem cair. O juiz nem sempre aceita; um advogado renomado aumenta a chance.",
+    category: "INVESTIGACAO",
+    energy: 5,
+    costFn: (ctx) => scaledAmount(ctx, 20_000),
+    available: (ctx, p, st) => {
+      const inv = trialCaseOf(ctx, p.id);
+      if (!inv) return "Só para quem é réu com julgamento marcado.";
+      if (defenseDone(inv, "nulidade")) return "O pedido de nulidade já foi feito neste caso.";
+      return st.money < scaledAmount(ctx, 20_000) ? `O pedido custa ${fmtMoney(scaledAmount(ctx, 20_000))}.` : null;
+    },
+    run: ({ ctx, p, st, rng }) => {
+      const inv = trialCaseOf(ctx, p.id)!;
+      const cost = scaledAmount(ctx, 20_000);
+      st.money -= cost;
+      const ok = rng.chance(lawyerOf(inv) === "renomado" ? 0.4 : 0.3);
+      if (ok) inv.evidence = Math.max(0, inv.evidence - 0.15);
+      const text = ok ? "O juiz anula parte das provas por irregularidade na investigação" : "Pedido de nulidade das provas negado";
+      inv.measures.push({ on: ctx.date, kind: "DEFESA", tag: "nulidade", text });
+      ctx.save("investigations", inv);
+      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "DESPESA", amount: -cost, declared: true, game_date: ctx.date, description: "Pedido de nulidade" });
+      return { ok: true, message: `${text}.` };
+    },
+  },
+  {
+    id: "recorrer",
+    label: "Recorrer à 2ª instância",
+    description: "Depois de uma condenação, por até 30 dias: um tribunal revê as provas e a defesa. Pode manter a condenação ou absolver, e aí a pena é desfeita (o mandato cassado não volta).",
+    category: "INVESTIGACAO",
+    energy: 5,
+    costFn: (ctx) => scaledAmount(ctx, 30_000),
+    available: (ctx, p, st) => {
+      if (!appealableCase(ctx, p.id)) return "Só depois de uma condenação, por até 30 dias.";
+      return st.money < scaledAmount(ctx, 30_000) ? `O recurso custa ${fmtMoney(scaledAmount(ctx, 30_000))}.` : null;
+    },
+    run: ({ ctx, p, st, rng }) => {
+      const inv = appealableCase(ctx, p.id)!;
+      const cost = scaledAmount(ctx, 30_000);
+      st.money -= cost;
+      inv.next_step_on = addDays(ctx.date, rng.int(45, 90));
+      inv.measures.push({ on: ctx.date, kind: "RECURSO", text: `Recurso à 2ª instância; julgamento em ${formatDatePt(inv.next_step_on)}` });
+      ctx.save("investigations", inv);
+      ctx.insert("finance_transactions", { id: ctx.id("fin", p.id), world_id: ctx.world.id, person_id: p.id, candidacy_id: null, kind: "DESPESA", amount: -cost, declared: true, game_date: ctx.date, description: "Recurso à 2ª instância" });
+      return { ok: true, message: `Recurso protocolado. A 2ª instância julga em ${formatDatePt(inv.next_step_on)}.` };
     },
   },
   {
@@ -2091,7 +2220,8 @@ function recordUse(st: PersonStateRow, key: string, tick: number): void {
 }
 
 /** Preso em regime fechado, só dá para cuidar da defesa e das finanças. */
-const JAIL_ALLOWED = new Set(["contratar_defesa", "colaborar", "nota_publica", "quitar_divida", "responder_convite", "decidir_filiacao"]);
+// preso(a), a pessoa ainda se defende: advogado, provas, testemunhas, nulidade e recurso
+const JAIL_ALLOWED = new Set(["contratar_defesa", "juntar_provas", "arrolar_testemunhas", "pedir_nulidade", "recorrer", "colaborar", "nota_publica", "quitar_divida", "responder_convite", "decidir_filiacao"]);
 
 function jailReason(ctx: Ctx, st: PersonStateRow, id: string): string | null {
   if (!isJailed(st, ctx.date) || JAIL_ALLOWED.has(id)) return null;

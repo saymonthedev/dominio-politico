@@ -31,6 +31,7 @@ import { isReal } from "./news/policy";
 import { injure, INJURIES } from "./wellbeing";
 import { bondAll, FAMILY_ACTIONS, familyAddedOptions, familyOf } from "./family";
 import { ticketParamOptions } from "./ticket";
+import { LAWYERS } from "./crime";
 
 /**
  * Ações de vida (descanso, esporte, família), de bens (casa e carro) e de comando
@@ -581,6 +582,11 @@ export function lifeParamOptions(ctx: Ctx, p: PersonRow, st: PersonStateRow, typ
       return HOME_TIER_OPTIONS;
     case "family_added":
       return familyAddedOptions(ctx, p, st);
+    case "lawyer":
+      return (Object.entries(LAWYERS) as Array<[string, { label: string; cost: number }]>).map(([value, l]) => ({
+        value,
+        label: l.cost ? `${l.label} (${fmt(Math.round((l.cost * worldPriceLevel(ctx.world)) / 1000) * 1000)})` : `${l.label} (de graça)`,
+      }));
     case "car_model":
       return CAR_OPTIONS;
     case "pay":

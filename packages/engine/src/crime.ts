@@ -1,4 +1,4 @@
-import { addDays, addMonths, diffDays } from "./calendar";
+import { addDays, addMonths, diffDays, formatDatePt } from "./calendar";
 import {
   CHANNEL_LABEL,
   chargeLabel,
@@ -681,14 +681,117 @@ export function dailyCrime(ctx: Ctx): void {
   }
 
   for (const inv of ctx.t.investigations.values()) {
+    // recurso à 2ª instância: julgado na data marcada
+    if (inv.outcome === "CONDENADO" && inv.next_step_on <= ctx.date && inv.measures.some((m) => m.kind === "RECURSO") && !inv.measures.some((m) => m.kind === "SEGUNDA_INSTANCIA")) {
+      judgeAppeal(ctx, inv);
+      continue;
+    }
     if (inv.outcome || inv.next_step_on > ctx.date) continue;
     progressInvestigation(ctx, inv);
   }
 }
 
+// ---------------------------------------------------------------------------
+// Julgamento com ampla defesa (sugestão do jogador Igor Rodrigues): o jogador réu tem data de
+// julgamento, escolhe o advogado, junta provas, arrola testemunhas, pode pedir a nulidade de provas,
+// ouve a sentença com o peso de cada lado e pode recorrer à 2ª instância.
+// ---------------------------------------------------------------------------
+
+/** Quem faz a defesa e quanto ela pesa. Custos em R$ de 2026 (corrigidos pela época). */
+export const LAWYERS = {
+  defensoria: { label: "Defensoria pública", cost: 0, defense: 0.05 },
+  escritorio: { label: "Escritório de advocacia", cost: 50_000, defense: 0.15 },
+  renomado: { label: "Advogado(a) renomado(a)", cost: 250_000, defense: 0.3 },
+} as const;
+export type LawyerTier = keyof typeof LAWYERS;
+
+/** O advogado que está no caso (o último constituído). */
+export function lawyerOf(inv: InvestigationRow): LawyerTier | null {
+  for (let i = inv.measures.length - 1; i >= 0; i--) {
+    const tag = inv.measures[i].tag;
+    if (tag?.startsWith("advogado:")) return tag.slice(9) as LawyerTier;
+  }
+  return null;
+}
+
+/** Ato da defesa já feito neste caso. */
+export const defenseDone = (inv: InvestigationRow, tag: string): boolean => inv.measures.some((m) => m.tag === tag);
+
+/** O caso em que o jogador é réu com julgamento marcado (o mais próximo). */
+export function trialCaseOf(ctx: Ctx, personId: string): InvestigationRow | undefined {
+  return [...ctx.t.investigations.values()]
+    .filter((i) => i.person_id === personId && !i.outcome && i.stage === "PROCESSO" && i.measures.some((m) => m.kind === "JULGAMENTO"))
+    .sort((a, b) => a.next_step_on.localeCompare(b.next_step_on))[0];
+}
+
+/** Condenação de até 30 dias que ainda pode ir à 2ª instância. */
+export function appealableCase(ctx: Ctx, personId: string): InvestigationRow | undefined {
+  return [...ctx.t.investigations.values()].find((i) => {
+    if (i.person_id !== personId || i.outcome !== "CONDENADO" || i.measures.some((m) => m.kind === "RECURSO")) return false;
+    const s = i.measures.find((m) => m.kind === "SENTENCA");
+    return !!s && diffDays(ctx.date, s.on) <= 30;
+  });
+}
+
+const pctOf = (v: number) => `${Math.round(v * 100)}%`;
+
+/** Réu jogador: o julgamento ganha data, e a defesa tem até lá para agir. */
+function scheduleTrial(ctx: Ctx, inv: InvestigationRow, target: PersonRow): void {
+  const hearing = addDays(ctx.date, ctx.rng("julgamento", inv.id).int(45, 75));
+  inv.next_step_on = hearing;
+  inv.measures.push({ on: ctx.date, kind: "JULGAMENTO", text: `Julgamento marcado para ${formatDatePt(hearing)}` });
+  ctx.notify(
+    target.id,
+    "Seu julgamento foi marcado",
+    `Você é réu e vai a julgamento em ${formatDatePt(hearing)}. Até lá, na tela de Investigações, escolha o advogado, junte provas, arrole testemunhas e, se houve irregularidade, peça a nulidade das provas.`,
+    "/jogo/investigacoes",
+  );
+}
+
+/** 2ª instância: o tribunal revê as provas e a defesa; mantém a condenação ou absolve. */
+function judgeAppeal(ctx: Ctx, inv: InvestigationRow): void {
+  const target = ctx.person(inv.person_id);
+  const score = inv.evidence - (inv.defense + 0.1) * 0.35 + ctx.rng("recurso", inv.id).normal(0, 0.12);
+  if (score > 0.6) {
+    inv.measures.push({ on: ctx.date, kind: "SEGUNDA_INSTANCIA", text: "O tribunal mantém a condenação em 2ª instância" });
+    ctx.save("investigations", inv);
+    if (target) ctx.notify(target.id, "Recurso negado", "A 2ª instância manteve a condenação. A pena segue valendo.", "/jogo/investigacoes");
+    return;
+  }
+  const s = inv.sentence;
+  inv.outcome = "ABSOLVIDO";
+  inv.sentence = null;
+  inv.measures.push({ on: ctx.date, kind: "SEGUNDA_INSTANCIA", text: "O tribunal reforma a sentença: absolvição em 2ª instância" });
+  ctx.save("investigations", inv);
+  if (!target) return;
+  const st = ctx.pstate(target.id);
+  if (st) {
+    if (s?.ineligible_until && st.ineligible_until === s.ineligible_until) st.ineligible_until = null;
+    st.jailed_until = null;
+    if (st.sentence && s && st.sentence.years === s.years && st.sentence.ineligible_until === s.ineligible_until) st.sentence = null;
+    if (s?.fine) st.money += s.fine;
+    st.scandal = Math.max(0, st.scandal - 15);
+    ctx.save("person_states", st);
+  }
+  target.reputation = Math.min(100, Math.round(target.reputation + 6));
+  ctx.save("persons", target);
+  ctx.notify(
+    target.id,
+    "Absolvido(a) em 2ª instância",
+    `O tribunal reformou a sentença: a pena foi desfeita${s?.fine ? " e a multa, devolvida" : ""}${s?.cassation ? ". O mandato cassado, porém, não volta" : ""}.`,
+    "/jogo/investigacoes",
+  );
+}
+
 function progressInvestigation(ctx: Ctx, inv: InvestigationRow): void {
   const target = ctx.person(inv.person_id);
   if (inv.target_type === "PESSOA" && !target) return;
+  // jogador réu sem julgamento marcado (casos de antes do julgamento com defesa): marca agora
+  if (inv.stage === "PROCESSO" && target?.kind === "PLAYER" && !inv.measures.some((m) => m.kind === "JULGAMENTO")) {
+    scheduleTrial(ctx, inv, target);
+    ctx.save("investigations", inv);
+    return;
+  }
   const party = inv.party_id ? ctx.t.parties.get(inv.party_id) : undefined;
   const rng = ctx.rng("inv", inv.id);
   const year = Number(ctx.date.slice(0, 4));
@@ -726,9 +829,20 @@ function progressInvestigation(ctx: Ctx, inv: InvestigationRow): void {
   if (next === "DESFECHO" && !inv.outcome) {
     const score = inv.evidence - inv.defense * 0.35 + rng.normal(0, 0.1);
     inv.outcome = score > 0.55 ? "CONDENADO" : "ABSOLVIDO";
+    // julgamento com defesa: a sentença diz o peso de cada lado
+    if (target?.kind === "PLAYER" && inv.measures.some((m) => m.kind === "JULGAMENTO")) {
+      const lawyer = lawyerOf(inv);
+      inv.measures.push({
+        on: ctx.date,
+        kind: "SENTENCA",
+        text: `Sentença de ${inv.outcome === "CONDENADO" ? "condenação" : "absolvição"}: o juiz pesou as provas da acusação (${pctOf(inv.evidence)}) e a defesa (${pctOf(inv.defense)}${lawyer ? `, com ${LAWYERS[lawyer].label.toLowerCase()}` : ", sem advogado constituído"})`,
+      });
+    }
   }
   inv.stage = next;
   inv.next_step_on = addDays(ctx.date, rng.int(20, 60));
+  // virou réu: o julgamento ganha data e a defesa, prazo
+  if (inv.stage === "PROCESSO" && target?.kind === "PLAYER") scheduleTrial(ctx, inv, target);
   const totalAmount = acts.reduce((s, a) => s + a.amount, 0);
 
   // Medidas da investigação
@@ -780,7 +894,15 @@ function progressInvestigation(ctx: Ctx, inv: InvestigationRow): void {
   const ev = ctx.emit("INVESTIGATION_STAGE", { actors: target ? [target.id] : [], geography: target?.uf ?? "BR", payload: { stage: inv.stage, outcome: inv.outcome, evidence: inv.evidence, party: inv.party_id } });
   publishScandal(ctx, inv, ev.id);
   const label = `${STAGE_LABEL[inv.stage]}${inv.outcome ? `: ${inv.outcome.toLowerCase()}` : ""}`;
-  if (target) ctx.notify(target.id, `Investigação: ${label}`, inv.outcome ? outcomeText(inv) : `O caso avançou para "${STAGE_LABEL[inv.stage]}". ${inv.measures.length ? `Última medida: ${inv.measures[inv.measures.length - 1].text.toLowerCase()}.` : ""}`, "/jogo/investigacoes");
+  if (target)
+    ctx.notify(
+      target.id,
+      `Investigação: ${label}`,
+      inv.outcome
+        ? `${outcomeText(inv)}${inv.outcome === "CONDENADO" && target.kind === "PLAYER" ? " Você pode recorrer à 2ª instância em até 30 dias, na tela de Investigações." : ""}`
+        : `O caso avançou para "${STAGE_LABEL[inv.stage]}". ${inv.measures.length ? `Última medida: ${inv.measures[inv.measures.length - 1].text.toLowerCase()}.` : ""}`,
+      "/jogo/investigacoes",
+    );
   else if (party?.president_id) ctx.notify(party.president_id, `Caso do ${party.acronym}: ${label}`, inv.outcome ? outcomeText(inv) : "A apuração sobre o partido avançou.", "/jogo/investigacoes");
   if (inv.opened_by) ctx.notify(inv.opened_by, `Caso ${target?.name ?? party?.acronym ?? ""}: ${label}`, inv.outcome ? outcomeText(inv) : "O caso que você denunciou avançou.", "/jogo/investigacoes");
 

@@ -24,6 +24,7 @@ export {
   segmentStandings,
   strongSegments,
   weakSegments,
+  type ListMember,
   type ListProjection,
   type RivalView,
   type SegmentStanding,

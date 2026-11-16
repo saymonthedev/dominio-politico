@@ -197,6 +197,18 @@ export function afterPolls(ctx: Ctx, races: RaceRow[]): void {
 // Projeção para cargos proporcionais (vereador, deputados)
 // ---------------------------------------------------------------------------
 
+/** Um nome da chapa na projeção (você, outro jogador ou quem tenta a reeleição). */
+export interface ListMember {
+  id: string;
+  name: string;
+  kind: "VOCE" | "JOGADOR" | "MANDATO";
+  /** posição na lista inteira da legenda (contando os nomes sem destaque) */
+  rank: number;
+  votes: number;
+  /** dentro das cadeiras projetadas da legenda */
+  in: boolean;
+}
+
 export interface ListProjection {
   low: number;
   high: number;
@@ -207,6 +219,20 @@ export interface ListProjection {
   /** posição estimada na lista do partido */
   position: number;
   chance: "alta" | "média" | "baixa" | "remota";
+  /** votos projetados da legenda: os nomes da chapa somados e o voto só no partido */
+  partyVotes: number;
+  /** quociente eleitoral projetado (votos válidos ÷ cadeiras em disputa) */
+  quotient: number;
+  /** quantos quocientes a legenda faz (2,4 = duas cadeiras pelo quociente e uma sobra) */
+  quotients: number;
+  /** votos que faltam para a legenda completar mais um quociente */
+  toNextQuotient: number;
+  /** a chapa (nominata), do mais votado ao menos: você, outros jogadores e quem tenta a reeleição */
+  list: ListMember[];
+  /** demais nomes da chapa, sem destaque, somados */
+  rest: { count: number; votes: number; in: number };
+  /** puxando a chapa (sozinho(a), vale meio quociente ou mais), brigando por vaga ou longe */
+  role: "PUXADOR" | "VAGA" | "LONGE";
 }
 
 export function projectList(ctx: Ctx, cand: CandidacyRow): ListProjection | null {
@@ -236,19 +262,58 @@ export function projectList(ctx: Ctx, cand: CandidacyRow): ListProjection | null
   const partyVotes = valid * (res.shares.get(cand.party_id) ?? 0);
   const qe = valid / Math.max(1, race.seats);
   const partySeats = Math.max(0, Math.round(partyVotes / qe - 0.25));
-  const mine = playerListStrength(ctx, race, cand, 0);
-  const incumbents = [...ctx.t.persons.values()].filter((p) => p.party_id === cand.party_id && p.office_code === race.office_code && p.office_geo === race.geo && p.status === "ACTIVE" && p.id !== cand.person_id);
-  const others = incumbents.map((p) => Math.exp(-0.2 + 2.2 * (ctx.pstate(p.id)?.reach[uf] ?? 0.2)));
+  // a chapa: você, os outros jogadores do partido na disputa e quem tenta a reeleição; o resto da
+  // lista são nomes sem destaque (como na apuração)
+  const mates = [...ctx.t.candidacies.values()].filter((c) => c.race_id === race.id && c.party_id === cand.party_id && c.id !== cand.id && (c.status === "PRE" || c.status === "HOMOLOGADA"));
+  const mateIds = new Set(mates.map((c) => c.person_id));
+  const incumbents = [...ctx.t.persons.values()].filter(
+    (p) => p.party_id === cand.party_id && p.office_code === race.office_code && p.office_geo === race.geo && p.status === "ACTIVE" && p.id !== cand.person_id && !mateIds.has(p.id),
+  );
+  type Entry = { id: string; name: string; kind: ListMember["kind"] | "OUTRO"; s: number };
+  const entries: Entry[] = [
+    { id: cand.person_id, name: ctx.person(cand.person_id)?.name ?? "Você", kind: "VOCE", s: playerListStrength(ctx, race, cand, 0) },
+    ...mates.map((c): Entry => ({ id: c.person_id, name: ctx.person(c.person_id)?.name ?? "?", kind: "JOGADOR", s: playerListStrength(ctx, race, c, 0) })),
+    ...incumbents.map((p): Entry => ({ id: p.id, name: p.name, kind: "MANDATO", s: Math.exp(-0.2 + 2.2 * (ctx.pstate(p.id)?.reach[uf] ?? 0.2)) })),
+  ];
   const listSize = Math.max(partySeats + 1, Math.min(race.seats + 1, Math.round(partySeats * 2.5 + 3)));
-  while (others.length < listSize - 1) others.push(Math.exp(0.32));
-  const total = mine + others.reduce((a, b) => a + b, 0);
-  const mid = (partyVotes * 0.92 * mine) / (total || 1);
-  const ranked = [...others.map((v) => (partyVotes * 0.92 * v) / total), mid].sort((a, b) => b - a);
-  const position = ranked.indexOf(mid) + 1;
-  const cutoff = partySeats > 0 ? ranked[Math.min(partySeats, ranked.length) - 1] : qe;
+  for (let k = 0; entries.length < listSize; k++) entries.push({ id: `outro_${k}`, name: "", kind: "OUTRO", s: Math.exp(0.32) });
+  const total = entries.reduce((a, e) => a + e.s, 0) || 1;
+  const ranked = entries.map((e) => ({ ...e, votes: (partyVotes * 0.92 * e.s) / total })).sort((a, b) => b.votes - a.votes || Number(b.kind === "VOCE") - Number(a.kind === "VOCE"));
+  const meAt = ranked.findIndex((e) => e.kind === "VOCE");
+  const mid = ranked[meAt].votes;
+  const position = meAt + 1;
+  const cutoff = partySeats > 0 ? ranked[Math.min(partySeats, ranked.length) - 1].votes : qe;
   const ratio = mid / (cutoff || 1);
   const chance = partySeats === 0 ? "remota" : ratio >= 1.25 ? "alta" : ratio >= 0.9 ? "média" : ratio >= 0.6 ? "baixa" : "remota";
-  return { low: Math.round(mid * 0.75), high: Math.round(mid * 1.25), mid: Math.round(mid), partySeats, cutoff: Math.round(cutoff), position, chance };
+  const quotients = partyVotes / (qe || 1);
+  const list: ListMember[] = [];
+  const rest = { count: 0, votes: 0, in: 0 };
+  ranked.forEach((e, i) => {
+    const inside = i < partySeats;
+    if (e.kind === "OUTRO") {
+      rest.count++;
+      rest.votes += e.votes;
+      if (inside) rest.in++;
+    } else list.push({ id: e.id, name: e.name, kind: e.kind, rank: i + 1, votes: Math.round(e.votes), in: inside });
+  });
+  rest.votes = Math.round(rest.votes);
+  const role: ListProjection["role"] = mid >= qe * 0.5 ? "PUXADOR" : partySeats > 0 && ratio >= 0.6 ? "VAGA" : "LONGE";
+  return {
+    low: Math.round(mid * 0.75),
+    high: Math.round(mid * 1.25),
+    mid: Math.round(mid),
+    partySeats,
+    cutoff: Math.round(cutoff),
+    position,
+    chance,
+    partyVotes: Math.round(partyVotes),
+    quotient: Math.round(qe),
+    quotients: Math.round(quotients * 100) / 100,
+    toNextQuotient: Math.max(0, Math.ceil((Math.floor(quotients) + 1) * qe - partyVotes)),
+    list,
+    rest,
+    role,
+  };
 }
 
 // ---------------------------------------------------------------------------

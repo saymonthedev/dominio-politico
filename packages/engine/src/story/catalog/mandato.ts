@@ -4,7 +4,7 @@ import { segLabel } from "../campaign";
 import type { StoryCtx } from "../context";
 import type { EventDef } from "../def";
 import { companyName, localOutlet } from "../world";
-import { actor, bairro, brl, city, first, localPolitician, partyOf } from "./util";
+import { actor, bairro, brl, city, cityMayor, first, partyOf } from "./util";
 
 /**
  * O mandato: posse, gabinete, promessas cobradas, emendas, votações que
@@ -163,7 +163,7 @@ const pedido_emenda: EventDef = {
   expires: 10,
   when: (c) => {
     if (!c.p.office_code || !LEGISLATIVE.includes(c.p.office_code)) return null;
-    const mayor = c.p.office_code === "VEREADOR" ? undefined : localPolitician(c, { office: "PREFEITO" });
+    const mayor = c.p.office_code === "VEREADOR" ? undefined : cityMayor(c);
     const what = c.rng.pick(["a reforma de uma UBS", "a pavimentação de uma estrada", "equipamentos para o hospital regional", "a cobertura da quadra da escola"]);
     return { mayor: mayor?.id ?? "", what, v: c.money(c.p.office_code === "VEREADOR" ? 80_000 : 500_000), hood: bairro(c, `emenda:${c.date.slice(0, 7)}`) };
   },

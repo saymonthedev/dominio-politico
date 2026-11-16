@@ -180,8 +180,10 @@ export function cityNow(s: WorldState, id: string, opts: { parties?: Map<string,
       const council = new Map<string, number>();
       const councilRace = s.t.races.get(`${e.id}:VEREADOR:${id}`);
       for (const pr of councilRace?.results.first?.parties ?? []) if (pr.seats > 0) council.set(pr.party_id, pr.seats);
+      // eleito(a) que já saiu da memória do mundo (deixou a vida pública): o nome e o partido do
+      // resultado, e não o prefeito anterior (o mapa mostrava outro nome que não o eleito)
       next = {
-        mayor: w ? { name: w.name, partyId: res?.party_id ?? w.party_id, partyLabel: "", personId: w.id, terms: 1, electedIn: e.year, simulated: false } : state.mayor,
+        mayor: w || res ? { name: w?.name ?? res!.name, partyId: res?.party_id ?? w?.party_id ?? null, partyLabel: "", personId: w?.id ?? null, terms: 1, electedIn: e.year, simulated: false } : state.mayor,
         council: council.size ? council : state.council,
       };
     } else if (!mayorRace) {

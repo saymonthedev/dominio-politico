@@ -487,8 +487,24 @@ export type Authority = "PF" | "MP" | "MP_ELEITORAL" | "CPI" | "IMPRENSA" | "TRI
 
 export interface InvestigationMeasure {
   on: ISODate;
-  kind: "BUSCA" | "QUEBRA_SIGILO" | "BLOQUEIO_BENS" | "PRISAO_PREVENTIVA" | "AFASTAMENTO" | "DENUNCIA_ACEITA" | "DEPOIMENTO" | "ACORDO";
+  kind:
+    | "BUSCA"
+    | "QUEBRA_SIGILO"
+    | "BLOQUEIO_BENS"
+    | "PRISAO_PREVENTIVA"
+    | "AFASTAMENTO"
+    | "DENUNCIA_ACEITA"
+    | "DEPOIMENTO"
+    | "ACORDO"
+    // julgamento com ampla defesa (jogadores réus)
+    | "JULGAMENTO"
+    | "DEFESA"
+    | "SENTENCA"
+    | "RECURSO"
+    | "SEGUNDA_INSTANCIA";
   text: string;
+  /** ato da defesa (advogado:escritorio, provas, testemunhas, nulidade): cada um uma vez por caso */
+  tag?: string;
 }
 
 export interface InvestigationRow {

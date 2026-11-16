@@ -2,7 +2,7 @@ import type { StoryCtx } from "../context";
 import type { EventDef } from "../def";
 import { partyLeader } from "../world";
 import { AMIGOS, ev, NOMES } from "./cotidiano";
-import { brl, city, home, localPolitician } from "./util";
+import { brl, city, cityMayor, home, localPolitician } from "./util";
 import { presidesHouse } from "./mesa";
 
 /**
@@ -525,7 +525,7 @@ const emenda_destino = ev({
     } },
     { id: "estrada", label: "Asfaltar a estrada do interior", tone: "neutral", run: (c, _b, fx) => {
       fx.reputation(1);
-      const prefeito = localPolitician(c, { office: "PREFEITO" });
+      const prefeito = cityMayor(c);
       if (prefeito) fx.rel(prefeito.id, 6);
       return "Os produtores rurais agradeceram — e o prefeito também, com foto na inauguração.";
     } },
@@ -750,7 +750,7 @@ const obra_parada = ev({
   opts: [
     { id: "cobrar", label: "Cobrar o governo publicamente", tone: "bold", run: (c, _b, fx) => {
       fx.visibility(1.5);
-      const prefeito = localPolitician(c, { office: "PREFEITO" });
+      const prefeito = cityMayor(c);
       if (prefeito) fx.rel(prefeito.id, -5);
       fx.reputation(c.roll(0.55) ? 1.5 : 0.3);
       return "Você fez barulho até a obra voltar ao cronograma. Ou quase.";

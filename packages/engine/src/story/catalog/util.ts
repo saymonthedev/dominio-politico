@@ -1,3 +1,4 @@
+import { cityNow } from "../../cities";
 import { canonicalGeo } from "../../geo";
 import { homeCityOf } from "../../housing";
 import { rngFor } from "../../rng";
@@ -5,7 +6,7 @@ import { OFFICES } from "../../ruleset";
 import type { PartyRow, PersonRow } from "../../types";
 import type { StoryCtx } from "../context";
 import { brl } from "../def";
-import { canAct, cityLabel, cityOf, findFigure, neighborhood, partyLeader, rel } from "../world";
+import { canAct, cityLabel, cityOf, findFigure, neighborhood, partyLeader, rel, spawnFigure } from "../world";
 
 export { brl };
 
@@ -85,6 +86,30 @@ export function localPolitician(c: StoryCtx, opts: { office?: string; partyId?: 
   const party = opts.partyId ? c.ctx.t.parties.get(opts.partyId) : partiesNear(c)[0];
   if (!party) return undefined;
   return partyLeader(c.ctx, c.p, party);
+}
+
+/**
+ * O(a) prefeito(a) da cidade do personagem, o mesmo do mapa. Antes as histórias pegavam qualquer
+ * político da cidade quando ninguém tinha o cargo na memória e o chamavam de prefeito(a), e o nome
+ * não batia com o eleito (relato do jogador Gabriel do Valle). Agora: a pessoa eleita no jogo, se
+ * estiver em atividade; nas cidades com resultado calculado (só nome e partido), uma figura
+ * fictícia com esse nome e partido, a mesma até a próxima eleição. Prefeito(a) real e eleito(a) que
+ * saiu da vida pública não entram nas histórias: o acontecimento segue sem prefeito(a) com nome.
+ */
+export function cityMayor(c: StoryCtx): PersonRow | undefined {
+  const city = cityOf(c.p);
+  const now = cityNow(c.ctx.s, city);
+  const m = now?.mayor;
+  if (!now || !m) return undefined;
+  if (m.personId) {
+    const p = c.ctx.t.persons.get(m.personId);
+    return canAct(p) ? p : undefined;
+  }
+  if (!m.simulated) return undefined;
+  const ref = `story:prefeito:${city}:${m.electedIn}`;
+  const known = [...c.ctx.t.persons.values()].find((x) => x.external_ref === ref);
+  if (known) return canAct(known) ? known : undefined;
+  return spawnFigure(c.ctx, { ref, roleLabel: `prefeito(a) de ${now.name}`, uf: c.p.uf, municipality: city, partyId: m.partyId, name: m.name, age: [38, 66], reputation: 50 });
 }
 
 /** Liderança comunitária recorrente de um bairro (a mesma pessoa volta nas histórias). */

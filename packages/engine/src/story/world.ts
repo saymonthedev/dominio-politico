@@ -114,12 +114,13 @@ export function findFigure(
 
 export function spawnFigure(
   ctx: Ctx,
-  o: { ref: string; roleLabel: string; uf: string; municipality: string; partyId?: string | null; ideology?: Ideology; age?: [number, number]; reputation?: number },
+  o: { ref: string; roleLabel: string; uf: string; municipality: string; partyId?: string | null; ideology?: Ideology; age?: [number, number]; reputation?: number; name?: string },
 ): PersonRow {
   const rng = ctx.rng("story-figure", o.ref);
   const [a, b] = o.age ?? [30, 60];
   const age = rng.int(a, b);
-  const name = newPersonName(ctx, rng);
+  // nome dado: a figura é alguém que o mundo já mostra (ex.: o prefeito calculado de uma cidade)
+  const name = o.name ?? newPersonName(ctx, rng);
   const { person, state } = buildPerson({
     id: ctx.id("per", "story", o.ref),
     kind: "FICTIONAL_GENERATED",

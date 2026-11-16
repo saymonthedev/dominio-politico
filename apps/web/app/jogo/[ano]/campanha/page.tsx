@@ -1,5 +1,6 @@
 import { Ctx, explainShift, geoName, mainRival, OFFICES, PERSONA_LABEL, projectList, segmentStandings, type CandidacyRow, type DebateRow, type ElectionRow, type PollRow } from "@dp/engine";
 import { CampaignMoney, Electorate, Momentum, Promises, ScoreBoard, type WarRoomProps } from "@/components/game/WarRoom";
+import { Nominata } from "@/components/game/Nominata";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { Icon } from "@/components/Icon";
@@ -173,6 +174,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
           <Panel title="Ações de campanha" icon="play">
             <ActionPanel year={year} actions={campaignActions} empty="As ações de campanha liberam com a candidatura homologada e a campanha oficial aberta." />
           </Panel>
+          {war?.projection && <Nominata p={war.projection} party={state.t.parties.get(war.cand.party_id)?.acronym ?? "partido"} />}
           {war && <Electorate {...war} />}
         </div>
 
