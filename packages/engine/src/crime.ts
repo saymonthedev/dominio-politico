@@ -827,6 +827,8 @@ function progressInvestigation(ctx: Ctx, inv: InvestigationRow): void {
     inv.outcome = "ARQUIVADO";
   }
   if (next === "DESFECHO" && !inv.outcome) {
+    // réu fictício que chegou ao processo antes da defesa existir também é defendido
+    if (target?.kind === "FICTIONAL_GENERATED" && inv.defense === 0) inv.defense = npcDefense(ctx, target, rng);
     const score = inv.evidence - inv.defense * 0.35 + rng.normal(0, 0.1);
     inv.outcome = score > 0.55 ? "CONDENADO" : "ABSOLVIDO";
     // julgamento com defesa: a sentença diz o peso de cada lado
@@ -843,6 +845,9 @@ function progressInvestigation(ctx: Ctx, inv: InvestigationRow): void {
   inv.next_step_on = addDays(ctx.date, rng.int(20, 60));
   // virou réu: o julgamento ganha data e a defesa, prazo
   if (inv.stage === "PROCESSO" && target?.kind === "PLAYER") scheduleTrial(ctx, inv, target);
+  // personagem fictício réu também se defende: contrata advogado conforme o dinheiro que tem (antes
+  // ninguém o defendia, e 71% dos casos terminavam em condenação)
+  if (inv.stage === "PROCESSO" && target?.kind === "FICTIONAL_GENERATED" && inv.defense === 0) inv.defense = npcDefense(ctx, target, rng);
   const totalAmount = acts.reduce((s, a) => s + a.amount, 0);
 
   // Medidas da investigação
@@ -936,6 +941,13 @@ function progressInvestigation(ctx: Ctx, inv: InvestigationRow): void {
       ctx.save("persons", reporter);
     }
   }
+}
+
+/** Defesa de personagem fictício réu: defensoria, escritório ou advogado renomado, conforme o dinheiro. */
+function npcDefense(ctx: Ctx, target: PersonRow, rng: Rng): number {
+  const money = (ctx.pstate(target.id)?.money ?? 0) + (ctx.pstate(target.id)?.dirty_money ?? 0);
+  const rich = Math.min(1, money / (800_000 * worldPriceLevel(ctx.world)));
+  return Math.round(Math.min(0.9, 0.25 + 0.45 * rich + rng.range(0, 0.15)) * 100) / 100;
 }
 
 function outcomeText(inv: InvestigationRow): string {
@@ -1061,6 +1073,10 @@ function npcWeight(ctx: Ctx, p: PersonRow, kind: IllicitKind): number {
 }
 
 const NPC_KINDS = (Object.keys(CRIMES) as IllicitKind[]).filter((k) => k !== "OBSTRUCAO_JUSTICA" && k !== "ENRIQUECIMENTO_ILICITO");
+/** Chance mensal de um personagem fictício cometer crime (antes dos traços, do cargo e do partido). */
+const NPC_CRIME_BASE = 0.0055;
+/** Teto do peso do partido (integridade baixa e esquemas em andamento) no crime dos personagens. */
+const NPC_CONTAGION_CAP = 1.5;
 
 export function monthlyCrime(ctx: Ctx): void {
   const dirtyByParty = new Map<string, number>();
@@ -1099,7 +1115,10 @@ export function monthlyCrime(ctx: Ctx): void {
 
     if (p.kind === "FICTIONAL_GENERATED" && (p.party_id || p.office_code)) {
       const rng = ctx.rng("npc-crime", p.id);
-      const prob = 0.018 * st.traits.riskTolerance * st.traits.ambition * opportunity * contagion;
+      // calibrado em simulação: com 0,018 e o contágio sem teto (até 3x, e ele se alimenta sozinho: crime
+      // derruba a integridade do partido, que gera mais crime), 18 a 20% dos parlamentares fictícios eram
+      // condenados por ano, e no mundo compartilhado 14 dos 21 deputados federais do Ceará eleitos em 2046
+      const prob = NPC_CRIME_BASE * st.traits.riskTolerance * st.traits.ambition * opportunity * Math.min(NPC_CONTAGION_CAP, contagion);
       if (rng.chance(prob)) {
         const options = NPC_KINDS.filter((k) => crimeOpportunity(ctx, p, k) === null);
         if (options.length) {
