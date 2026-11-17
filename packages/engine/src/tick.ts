@@ -24,6 +24,7 @@ import { energyRecovery } from "./wellbeing";
 import { dailyPartyFormation, playerPartyRecruitment, processPartyInvites } from "./partyfounding";
 import { dedupeNames } from "./npc";
 import { fillVacancies } from "./vacancies";
+import { settleEndorsements, weeklySupportRequests } from "./apoio";
 import { partySwitchWindow, weeklyAgenda, yearlyRenewal } from "./npclife";
 import { creditPartyFunds, returnUnusedFunds } from "./partycampaign";
 import { checkAchievements } from "./achievements";
@@ -93,10 +94,12 @@ function electionCalendarDay(ctx: Ctx, e: ElectionRow): void {
     runFirstRound(ctx, e);
     updateTerritoryFromResults(ctx, e);
     afterVote(ctx, e, 1);
+    settleEndorsements(ctx, e);
   }
   if (d === e.runoff && e.status === "SEGUNDO_TURNO") {
     runRunoff(ctx, e);
     afterVote(ctx, e, 2);
+    settleEndorsements(ctx, e);
   }
 }
 
@@ -231,6 +234,7 @@ export function advanceDay(ctx: Ctx): void {
     step("convites da semana", d, () => partyInvitations(ctx));
     step("recrutamento de jogadores", d, () => playerPartyRecruitment(ctx));
     step("agenda da semana", d, () => weeklyAgenda(ctx));
+    step("pedidos de apoio", d, () => weeklySupportRequests(ctx));
   }
   if (day(d) === 1) {
     step("economia do mês", d, () => monthlyEconomy(ctx));

@@ -93,7 +93,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               <h2>
                 {OFFICES[current.office_code].name} · {geoName(current.geo, { cities })}
               </h2>
-              {(current.campaign.coalition?.length || current.campaign.vice || current.campaign.suplentes?.length || current.campaign.padrinho) && (
+              {(current.campaign.coalition?.length || current.campaign.vice || current.campaign.suplentes?.length || current.campaign.padrinho || current.campaign.apoios?.length) && (
                 <p className="ehero__ticket">
                   {current.campaign.coalition?.length ? (
                     <>
@@ -112,7 +112,12 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                   ) : null}
                   {current.campaign.padrinho ? (
                     <>
-                      Padrinho político: <b>{current.campaign.padrinho.name}</b> ({current.campaign.padrinho.role}), +{Math.round((Math.exp(current.campaign.padrinho.bonus) - 1) * 100)}% de força na lista.
+                      Padrinho político: <b>{current.campaign.padrinho.name}</b> ({current.campaign.padrinho.role}), +{Math.round((Math.exp(current.campaign.padrinho.bonus) - 1) * 100)}% de força na lista.{" "}
+                    </>
+                  ) : null}
+                  {current.campaign.apoios?.length ? (
+                    <>
+                      Apoios: <b>{current.campaign.apoios.map((a) => `${a.name}${a.kind === "SUCESSOR" ? " (indicou você como sucessor)" : ""}`).join(", ")}</b>.
                     </>
                   ) : null}
                 </p>

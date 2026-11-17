@@ -9,6 +9,7 @@ import { loadBairros, loadCities, loadSnapshot } from "@dp/data";
 import { liveVitals, type LiveVitals } from "./vitals";
 import {
   careerSummary,
+  heirOptions,
   electionNight,
   Changes,
   clearPlayerData,
@@ -1328,7 +1329,13 @@ export async function decideStory(worldId: string, userId: string, eventId: stri
   return { ...r, pending: personId ? pendingFor(state, personId) : [], ended: !!st?.story?.ended, stage, vitals: liveVitals(state, personId) };
 }
 
-export type CareerEndView = CareerSummary & { personId: string };
+export type CareerEndView = CareerSummary & {
+  personId: string;
+  /** quem da família pode continuar a carreira (clã político), se o jogador ainda não escolheu */
+  heirs: Array<{ value: string; label: string }>;
+  /** quem já continuou a carreira */
+  heir: string | null;
+};
 
 /**
  * Balanço de uma carreira encerrada. Mandatos, candidaturas e filiações antigas
@@ -1352,8 +1359,16 @@ export async function careerEnd(worldId: string, personId: string): Promise<Care
     ...state,
     t: { ...state.t, candidacies: merged("candidacies", cands.data), memberships: merged("memberships", mems.data), mandates: merged("mandates", mands.data) },
   };
-  const sum = careerSummary(new Ctx(view, "read"), personId);
-  return sum ? { ...sum, personId } : null;
+  const rctx = new Ctx(view, "read");
+  const sum = careerSummary(rctx, personId);
+  if (!sum) return null;
+  // clã político: herdeiros da família (só se o jogador ainda não tem outro personagem neste mundo)
+  const p = state.t.persons.get(personId)!;
+  const st = state.t.person_states.get(personId);
+  const heirId = st?.story?.ended?.heir ?? null;
+  const active = [...state.t.persons.values()].some((x) => x.user_id === p.user_id && x.status === "ACTIVE");
+  const heirs = !heirId && !active && st ? heirOptions(rctx, p, st) : [];
+  return { ...sum, personId, heirs, heir: heirId ? state.t.persons.get(heirId)?.name ?? null : null };
 }
 
 /** Exclusão de conta: o motor limpa os dados do jogador em cada mundo antes de o banco anonimizar o personagem. */

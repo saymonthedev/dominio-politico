@@ -1,6 +1,7 @@
 "use client";
 import { useRef } from "react";
 import type { CareerEndView } from "@/lib/sim";
+import { continueWithHeir } from "@/app/jogo/actions";
 import { useModal } from "../a11y";
 import { Icon } from "../Icon";
 import { dateLong, TAG } from "./story-ui";
@@ -19,7 +20,7 @@ const monthYear = (iso: string) => {
  */
 export function CareerEndModal({ summary: s, year, standalone }: { summary: CareerEndView; year: number; standalone?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
-  useModal(box, true, () => undefined, { lockScroll: !standalone, initial: ".obit__foot .ui-btn--gold" });
+  useModal(box, true, () => undefined, { lockScroll: !standalone, initial: ".obit__heirs .ui-btn--gold, .obit__foot .ui-btn--gold" });
   const death = s.end.cause === "MORTE";
   const won = s.elections.filter((e) => e.won).length;
   const topAchievements = [...s.achievements].sort((a, b) => b.points - a.points).slice(0, 8);
@@ -232,13 +233,36 @@ export function CareerEndModal({ summary: s, year, standalone }: { summary: Care
           </div>
         </div>
 
+        {s.heirs.length > 0 && (
+          <form className="obit__heirs" action={continueWithHeir}>
+            <input type="hidden" name="year" value={year} />
+            <input type="hidden" name="person" value={s.personId} />
+            <h3>
+              <Icon name="users" size={14} /> O legado continua
+            </h3>
+            <p className="small">Continue jogando com alguém da família: o herdeiro leva cerca de 35% do nome e da reputação, os aliados mais próximos, o partido e a herança.</p>
+            <div className="obit__heir-list">
+              {s.heirs.map((h) => (
+                <button key={h.value} type="submit" name="member" value={h.value} className="ui-btn ui-btn--gold">
+                  <Icon name="play" size={14} /> <span>Continuar com {h.label}</span>
+                </button>
+              ))}
+            </div>
+          </form>
+        )}
         <footer className="obit__foot">
           <a className="ui-btn ui-btn--ghost" href="/jogo">
             <span>Seus mundos</span>
           </a>
-          <a className="ui-btn ui-btn--gold" href={`/jogo/novo?ano=${year}`}>
-            <Icon name="play" size={16} /> <span>Começar uma nova trajetória</span>
-          </a>
+          {s.heir ? (
+            <a className="ui-btn ui-btn--gold" href={`/jogo/${year}`}>
+              <Icon name="play" size={16} /> <span>O legado continua com {s.heir}</span>
+            </a>
+          ) : (
+            <a className={`ui-btn ${s.heirs.length ? "ui-btn--ghost" : "ui-btn--gold"}`} href={`/jogo/novo?ano=${year}`}>
+              <Icon name="play" size={16} /> <span>Começar uma nova trajetória</span>
+            </a>
+          )}
         </footer>
       </article>
     </div>

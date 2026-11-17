@@ -95,7 +95,7 @@ export function endCareer(c: StoryCtx, cause: CareerEnd["cause"], detail: string
   const { ctx, p, st, s } = c;
   if (s.ended) return;
   const age = ageAt(p.birth_year, ctx.date);
-  s.ended = { on: ctx.date, age, cause, detail };
+  s.ended = { on: ctx.date, age, cause, detail, party: p.party_id };
   s.pending = [];
   s.queue = [];
   st.offers = [];

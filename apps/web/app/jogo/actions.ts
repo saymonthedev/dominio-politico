@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { dropUserPhotos } from "@/lib/suggestions";
 import { redirect } from "next/navigation";
-import { createCharacter, performAction, type ActionResult, type WorldState } from "@dp/engine";
+import { createCharacter, createHeir, performAction, type ActionResult, type WorldState } from "@dp/engine";
 import { activePersonId, getSession, myActiveCharacters, myCharacters, myWorldId } from "@/lib/game";
 import { supabaseServer } from "@/lib/supabase/server";
 import { isAvatarCode } from "@/lib/avatar-code";
@@ -304,6 +304,35 @@ export async function answerEvent(year: number, eventId: string, choiceId: strin
     await logError("action", `responder ${eventId} ${year}`, e);
     return { ok: false, message: e instanceof Error ? e.message : "Erro ao registrar a decisão." };
   }
+}
+
+/**
+ * Continuar com um herdeiro (clã político): o filho(a) ou o cônjuge da carreira encerrada vira o
+ * novo personagem do jogador no mesmo mundo, com parte do nome, o partido, a herança e os aliados.
+ */
+export async function continueWithHeir(form: FormData): Promise<void> {
+  const { sb, user } = await getSession();
+  if (!user) redirect("/entrar");
+  const year = Number(form.get("year"));
+  const personId = String(form.get("person") ?? "");
+  const memberId = String(form.get("member") ?? "");
+  if (!isStartYear(year) || !personId || !memberId) redirect("/jogo");
+  const worldId = (await myCharacters()).find((c) => c.person_id === personId)?.world_id;
+  if (!worldId || yearOfWorld(worldId) !== year) redirect("/jogo");
+  let ok = false;
+  try {
+    const { result } = await asPlayer(await tokenOf(sb), () =>
+      withWorld(worldId, (state, mk) => {
+        if (state.t.persons.get(personId)?.user_id !== user.id) return { ok: false, error: "Personagem não pertence a esta conta." };
+        return createHeir(mk(`herdeiro-${user.id}`), { userId: user.id, titularId: personId, memberId });
+      }),
+    );
+    ok = !!result?.ok;
+  } catch (e) {
+    await logError("action", `herdeiro ${worldId}`, e);
+  }
+  revalidatePath("/jogo", "layout");
+  redirect(ok ? `/jogo/${year}` : `/jogo/fim/${year}?p=${encodeURIComponent(personId)}`);
 }
 
 /** Balanço da carreira que acabou de terminar neste mundo (para o pop-up final). */

@@ -12,16 +12,14 @@ export interface Release {
 
 /** Com a assinatura ligada (chave do Mercado Pago na Vercel). */
 export const RELEASE: Release = {
-  id: "2026-11-14-sugestoes",
-  date: "14 de novembro de 2026",
+  id: "2026-11-17-condenacoes",
+  date: "17 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "Agora você pode mandar ideias para o jogo, e o topo das telas ficou de cara nova.",
+  lede: "O mundo ficou menos corrupto: os personagens do jogo cometem menos crimes e se defendem na Justiça.",
   items: [
-    { icon: "sparkle", text: "Nova aba Sugestões, em Bastidores: mande ideias para o jogo, com até 3 fotos. Se a sua virar atualização, todos os jogadores recebem um aviso com o seu nome." },
-    { icon: "chat", text: "Toda sugestão é lida e respondida. Se não der para fazer agora, só você recebe a resposta, com o motivo." },
-    { icon: "calendar", text: "Topo do jogo renovado: o ano e o tipo do mundo num selo, a data com calendário e os botões mais limpos. No computador, as telas agora ficam centralizadas e o Painel ficou mais bem distribuído." },
-    { icon: "check", text: "Corrigido: o que você fazia nos últimos minutos antes de sair (como entrar num partido ou virar pré-candidato) podia sumir quando você voltava horas depois. Não acontece mais." },
-    { icon: "heart", text: "O jogo segue por assinatura mensal, por Pix. Obrigado por apoiar!" },
+    { icon: "check", text: "Os personagens do jogo eram condenados demais: até 1 em cada 5 parlamentares por ano, e em 4 anos a bancada de um estado perdia mais da metade dos deputados. Agora são cerca de 3% por ano, e ainda há escândalos e operações da polícia." },
+    { icon: "gavel", text: "Personagem que vira réu contrata advogado conforme o dinheiro que tem, como você já podia fazer. O risco das suas próprias escolhas não mudou." },
+    { icon: "heart", text: "As novidades sugeridas pelos jogadores chegam com o aviso de Concluída, com o nome de quem sugeriu. Obrigado por apoiar o jogo!" },
   ],
 };
 

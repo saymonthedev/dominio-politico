@@ -42,6 +42,10 @@ export interface FamilyState {
   last_child?: ISODate | null;
   /** último mês em que a cobrança por ausência foi avisada */
   warned?: string | null;
+  /** familiares lançados na política (cla.ts): membro da família → pessoa no mundo */
+  politicos?: Record<string, string>;
+  /** família de quem herdou o legado (cla.ts): substitui a sorteada (pais, cônjuge, filhos do titular) */
+  origin?: FamilyMember[];
 }
 
 export const ROLE_LABEL: Record<FamilyRole, string> = { CONJUGE: "Cônjuge", FILHO: "Filho", PAI: "Pai", MAE: "Mãe" };
@@ -115,7 +119,9 @@ export function familyOf(ctx: Pick<Ctx, "world" | "date">, p: PersonRow, st: Per
   const year = yearOf(ctx.date);
   const f = familyState(st);
   const gone = new Set(f?.gone ?? []);
-  const base = timeline(p, ctx.world.seed).filter((m) => m.from <= year && m.born <= year && !outlived(m, year) && !gone.has(m.id));
+  // herdeiro(a): a família é a do titular (cla.ts), não uma sorteada
+  const origin = f?.origin?.map((m) => ({ ...m, from: 0 }));
+  const base = (origin ?? timeline(p, ctx.world.seed)).filter((m) => m.from <= year && m.born <= year && !outlived(m, year) && !gone.has(m.id));
   // quem casou pela ação do jogo não tem também o cônjuge sorteado (e vice-versa)
   const added = (f?.added ?? []).filter((m) => !gone.has(m.id));
   const hasAddedSpouse = added.some((m) => m.role === "CONJUGE");
@@ -132,7 +138,7 @@ export function familyOf(ctx: Pick<Ctx, "world" | "date">, p: PersonRow, st: Per
   }));
 }
 
-function familyStateOf(st: PersonStateRow, p: PersonRow, date: ISODate): FamilyState {
+export function familyStateOf(st: PersonStateRow, p: PersonRow, date: ISODate): FamilyState {
   const s = storyOf(st, p, date) as ReturnType<typeof storyOf> & { family?: FamilyState };
   s.family ??= { bonds: {}, added: [], gone: [] };
   s.family.bonds ??= {};
@@ -389,4 +395,4 @@ const fixGender: ActionDef = {
 };
 
 export const FAMILY_ACTIONS: ActionDef[] = [...outingActions, marry, haveChild, fixGender];
-export const FAMILY_ACTION_IDS = new Set(FAMILY_ACTIONS.map((a) => a.id).concat("dia_familia"));
+export const FAMILY_ACTION_IDS = new Set(FAMILY_ACTIONS.map((a) => a.id).concat("dia_familia", "lancar_familiar", "passar_bastao"));

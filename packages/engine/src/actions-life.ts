@@ -32,6 +32,8 @@ import { injure, INJURIES } from "./wellbeing";
 import { bondAll, FAMILY_ACTIONS, familyAddedOptions, familyOf } from "./family";
 import { ticketParamOptions } from "./ticket";
 import { patronOptions } from "./padrinho";
+import { endorseOptions, requestOptions, successorOptions } from "./apoio";
+import { familyCandidateOptions, heirOptions, relativeOfficeOptions } from "./cla";
 import { LAWYERS } from "./crime";
 
 /**
@@ -585,6 +587,18 @@ export function lifeParamOptions(ctx: Ctx, p: PersonRow, st: PersonStateRow, typ
       return familyAddedOptions(ctx, p, st);
     case "patron":
       return patronOptions(ctx, p);
+    case "endorse_target":
+      return endorseOptions(ctx, p);
+    case "support_request":
+      return requestOptions(ctx, p, st);
+    case "successor":
+      return successorOptions(ctx, p);
+    case "family_candidate":
+      return familyCandidateOptions(ctx, p, st);
+    case "relative_office":
+      return relativeOfficeOptions(ctx, p);
+    case "heir":
+      return heirOptions(ctx, p, st);
     case "lawyer":
       return (Object.entries(LAWYERS) as Array<[string, { label: string; cost: number }]>).map(([value, l]) => ({
         value,

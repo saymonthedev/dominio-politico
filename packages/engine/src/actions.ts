@@ -64,6 +64,8 @@ import type { Ctx } from "./state";
 import type { CandidacyRow, EntryCulture, ElectionRow, PersonRow, PersonStateRow, RaceRow } from "./types";
 import { BALLOT_DIGITS, ballotChoices, ballotNumber, coalitionAccepts, coalitionChoices, coalitionOf, MAX_COALITION, runningMateChoices, WITH_VICE } from "./ticket";
 import { askPatron, patronBlocked } from "./padrinho";
+import { answerSupportRequest, declareSupport, endorseBlocked, indicateSuccessor, requestOptions, successorBlocked } from "./apoio";
+import { heirChoices, launchBlocked, launchRelative, passBaton } from "./cla";
 
 export type ActionCategory = "BASE" | "PARTIDO" | "MEU_PARTIDO" | "CAMPANHA" | "MANDATO" | "INVESTIGACAO" | "ESQUEMA" | "FINANCAS" | "VIDA" | "BENS" | "COMANDO";
 
@@ -110,7 +112,13 @@ export interface ActionParam {
     | "ballot_number"
     | "family_added"
     | "lawyer"
-    | "patron";
+    | "patron"
+    | "endorse_target"
+    | "support_request"
+    | "successor"
+    | "family_candidate"
+    | "relative_office"
+    | "heir";
   options?: Array<{ value: string; label: string }>;
   /** valores de referência (R$ de 2026) para type "amount"; a tela corrige pela época */
   amounts?: number[];
@@ -765,6 +773,66 @@ export const ACTIONS: ActionDef[] = [
     params: [{ name: "padrinho", label: "Liderança", type: "patron" }],
     available: (ctx, p) => patronBlocked(ctx, p),
     run: ({ ctx, p, st, params }) => askPatron(ctx, p, st, params.padrinho),
+  },
+  {
+    id: "declarar_apoio",
+    label: "Declarar apoio a uma candidatura",
+    description:
+      "Apoiar publicamente quem disputa na sua cidade, no seu estado ou a Presidência (jogadores ou personagens do jogo). O apoio soma na votação conforme a sua popularidade na região; se o candidato vencer, você ganha prestígio, e se perder, paga um preço. Apoiar o rival de quem o seu partido lançou desagrada a direção. Até 6 apoios por eleição, um por disputa.",
+    category: "PARTIDO",
+    energy: 6,
+    params: [{ name: "candidatura", label: "Candidatura", type: "endorse_target" }],
+    available: (ctx, p, st) => endorseBlocked(ctx, p, st),
+    run: ({ ctx, p, st, params }) => declareSupport(ctx, p, st, params.candidatura),
+  },
+  {
+    id: "responder_pedido_apoio",
+    label: "Responder pedido de apoio",
+    description: "Candidatos da sua região procuram quem tem mandato ou nome conhecido para pedir apoio. Aceitar declara o apoio (com o risco e o prestígio de quem apoia); recusar esfria a relação.",
+    category: "PARTIDO",
+    energy: 2,
+    params: [
+      { name: "pedido", label: "Pedido", type: "support_request" },
+      { name: "resposta", label: "Resposta", type: "choice", options: [{ value: "aceitar", label: "Aceitar e declarar apoio" }, { value: "recusar", label: "Recusar" }] },
+    ],
+    available: (ctx, p, st) => (requestOptions(ctx, p, st).length ? null : "Nenhum pedido de apoio esperando resposta."),
+    run: ({ ctx, p, st, params }) => answerSupportRequest(ctx, p, st, params.pedido, params.resposta === "aceitar"),
+  },
+  {
+    id: "indicar_sucessor",
+    label: "Indicar sucessor(a)",
+    description:
+      "Quem tem mandato e não vai disputar o mesmo cargo indica quem o grupo vai lançar: alguém do seu partido na região (ou um jogador que já disputa o cargo). Na convenção, a indicação de quem tem o cargo pesa muito; na campanha, a sua aprovação e o seu nome somam na votação. Se o sucessor vencer, o seu legado cresce; se perder, você paga o preço.",
+    category: "MANDATO",
+    energy: 8,
+    params: [{ name: "pessoa", label: "Sucessor(a)", type: "successor" }],
+    available: (ctx, p) => successorBlocked(ctx, p),
+    run: ({ ctx, p, st, params }) => indicateSuccessor(ctx, p, st, params.pessoa),
+  },
+  {
+    id: "lancar_familiar",
+    label: "Lançar alguém da família na política",
+    description:
+      "O clã político: o cônjuge ou um filho(a) adulto(a) se filia ao seu partido e lança pré-candidatura, herdando cerca de 35% do seu nome e da sua reputação e somando votos na legenda. Pela Constituição (art. 14, § 7º), parente de prefeito, governador ou presidente não disputa cargo no território de quem governa, salvo a reeleição.",
+    category: "VIDA",
+    energy: 10,
+    params: [
+      { name: "familiar", label: "Quem da família", type: "family_candidate" },
+      { name: "cargo", label: "Cargo", type: "relative_office" },
+    ],
+    available: (ctx, p, st) => launchBlocked(ctx, p, st),
+    run: ({ ctx, p, st, params }) => launchRelative(ctx, p, st, params.familiar, params.cargo),
+  },
+  {
+    id: "passar_bastao",
+    confirm: "A carreira deste personagem termina agora e você passa a jogar com o herdeiro escolhido, que leva parte do nome, os aliados, o partido e uma doação de 30% do dinheiro. Não dá para desfazer.",
+    label: "Passar o bastão a um herdeiro",
+    description: "Encerrar a carreira e continuar jogando com o filho(a) ou o cônjuge adulto(a). O herdeiro leva cerca de 35% do seu nome e da sua reputação, os aliados mais próximos e o partido; quem já está na política continua com o cargo e a candidatura que tem.",
+    category: "VIDA",
+    energy: 0,
+    params: [{ name: "herdeiro", label: "Herdeiro(a)", type: "heir" }],
+    available: (ctx, p, st) => (heirChoices(ctx, p, st).length ? null : "Ninguém da família pode herdar agora: precisa ser o cônjuge ou um filho(a) com 18 anos ou mais."),
+    run: ({ ctx, p, params }) => passBaton(ctx, p, params.herdeiro),
   },
   {
     id: "escolher_vice",

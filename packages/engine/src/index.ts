@@ -50,3 +50,6 @@ export * from "./ticket";
 export * from "./urna";
 export * from "./vacancies";
 export * from "./padrinho";
+export * from "./apoio";
+export * from "./cla";
+export * from "./kin";

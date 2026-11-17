@@ -116,6 +116,10 @@ export interface CareerEnd {
   cause: "MORTE" | "APOSENTADORIA";
   /** texto respeitoso da causa (ex.: "complicações cardíacas") */
   detail: string;
+  /** partido no fim da carreira (o herdeiro pode seguir nele) */
+  party?: string | null;
+  /** herdeiro(a) que continuou a carreira (cla.ts) */
+  heir?: string | null;
 }
 
 export interface StoryState {
@@ -158,6 +162,12 @@ export interface StoryState {
   avatar?: string;
   /** o que o jogador mudou na família (proximidade, casamento, filhos, separação) */
   family?: import("../family").FamilyState;
+  /** pedidos de apoio de candidaturas fictícias, à espera de resposta (apoio.ts) */
+  apoio_pedidos?: Array<{ id: string; cand: string; from: string; on: ISODate; until: ISODate }>;
+  /** candidaturas que já pediram apoio e foram recusadas (não pedem de novo) */
+  apoio_recusados?: string[];
+  /** clã político (cla.ts): o titular que começou a família na política e de quem este personagem herdou */
+  cla?: { id: string; de?: string; nome_de?: string } | null;
   /**
    * Mundo compartilhado nas rodadas: o dia em que o jogador está (já viveu até ele nesta rodada).
    * Vale enquanto estiver à frente do mundo; na virada da rodada o mundo alcança e ele some.

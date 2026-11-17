@@ -1,4 +1,4 @@
-import { Ctx, FAMILY_ACTION_IDS, familyOf, monthlyStatement, roleLabel, type FamilyMember } from "@dp/engine";
+import { Ctx, FAMILY_ACTION_IDS, familyOf, geoName, monthlyStatement, OFFICES, politicosOf, roleLabel, type FamilyMember } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { AvatarSvg } from "@/components/Avatar";
 import { GameHeader, Panel } from "@/components/game/Page";
@@ -37,6 +37,18 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   // "corrigir" só aparece para quem tem alguém a corrigir (casou ou teve filho pelo jogo)
   const actions = actionsFor(state, me.person.id, ["VIDA"]).filter((a) => FAMILY_ACTION_IDS.has(a.id) && (a.id !== "acertar_familia" || !a.reason));
   const order = { CONJUGE: 0, FILHO: 1, MAE: 2, PAI: 3 } as const;
+  // clã político: quem da família o jogador lançou (cargo, candidatura ou só a filiação)
+  const politicos = politicosOf(st);
+  const inPolitics = (m: FamilyMember): { id: string; text: string } | null => {
+    const x = politicos[m.id] ? state.t.persons.get(politicos[m.id]) : undefined;
+    if (!x) return null;
+    if (x.status !== "ACTIVE") return { id: x.id, text: "saiu da vida pública" };
+    const party = x.party_id ? state.t.parties.get(x.party_id)?.acronym : null;
+    if (x.office_code) return { id: x.id, text: `${OFFICES[x.office_code].name}${x.office_geo && x.office_geo !== "BR" ? ` (${geoName(x.office_geo, state)})` : ""}${party ? ` · ${party}` : ""}` };
+    const c = [...state.t.candidacies.values()].find((k) => k.person_id === x.id && ["PRE", "HOMOLOGADA", "SEGUNDO_TURNO"].includes(k.status));
+    if (c) return { id: x.id, text: `${c.status === "PRE" ? "pré-candidatura" : "candidatura"} a ${OFFICES[c.office_code].name.toLowerCase()}${party ? ` pelo ${party}` : ""}` };
+    return { id: x.id, text: party ? `filiado(a) ao ${party}` : "na política" };
+  };
 
   return (
     <>
@@ -61,6 +73,14 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                           <span>
                             {roleLabel(m)} · {age <= 0 ? "recém-nascido(a)" : `${age} ${age === 1 ? "ano" : "anos"}`}
                           </span>
+                          {(() => {
+                            const pol = inPolitics(m);
+                            return pol ? (
+                              <a className="fam__pol small" href={`/jogo/${year}/pessoa/${pol.id}`}>
+                                Na política: {pol.text}
+                              </a>
+                            ) : null;
+                          })()}
                           <div className={`fam__bond is-${tone}`} title={`Proximidade ${Math.round(m.bond)} de 100`}>
                             <i>
                               <em style={{ width: `${Math.max(4, m.bond)}%` }} />
@@ -92,6 +112,8 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               <li>Família próxima ajuda a descansar no fechamento do mês; distante, aumenta o cansaço.</li>
               <li>Se a relação com o cônjuge chegar a zero, vocês se separam.</li>
               <li>Cada filho menor de idade entra nas despesas do mês até os 18 anos.</li>
+              <li>Clã político: o cônjuge ou um filho adulto pode entrar no seu partido e disputar eleição, herdando parte do seu nome. Parente de prefeito, governador ou presidente não disputa cargo no território de quem governa, salvo a reeleição.</li>
+              <li>Quando a carreira acabar, ou se você passar o bastão, dá para continuar jogando com um herdeiro da família.</li>
             </ul>
           </Panel>
         </div>

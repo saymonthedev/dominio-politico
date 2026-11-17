@@ -14,6 +14,7 @@ import { ufShares, type Contender } from "./support";
 import type { CampaignState, CandidacyRow, CandidateResult, DebateRow, ElectionRow, PartyListResult, PartyRow, PersonRow, RaceRow, VoterSegmentRow } from "./types";
 import { ballotNumber } from "./ticket";
 import type { StoredSuplente } from "./vacancies";
+import { reflexBlock } from "./kin";
 
 export const emptyCampaign = (): CampaignState => ({
   budget: 0, spent: 0, fefc: 0, donations: 0, volunteers: 0, team: {}, momentum: 0, debate_score: 0, proposals: [], rumor_damage: 0,
@@ -147,6 +148,9 @@ export function checkEligibility(ctx: Ctx, person: PersonRow, office: OfficeCode
     if (!hasMunicipalElections(person.uf)) reasons.push("O Distrito Federal não tem eleições municipais.");
     else if (person.kind === "PLAYER" && canonicalGeo(person.municipality) !== canonicalGeo(geo)) reasons.push("Domicílio eleitoral em outro município.");
   }
+  // parente de prefeito, governador ou presidente no território (clã político)
+  const reflex = reflexBlock(ctx, person, office, geo);
+  if (reflex) reasons.push(reflex);
   return { ok: reasons.length === 0, reasons };
 }
 
@@ -158,6 +162,13 @@ function latentNoise(ctx: Ctx, candidacyId: string, uf: string): number {
   const base = rngFor(ctx.world.seed, "latent", 0, candidacyId).normal(0, 0.3);
   const local = rngFor(ctx.world.seed, "latent-uf", 0, `${candidacyId}:${uf}`).normal(0, 0.15);
   return base + local;
+}
+
+/** Apoios declarados à candidatura que ainda valem (quem apoia segue na vida pública), com teto. */
+export function endorsementBonus(ctx: Ctx, c: CandidacyRow): number {
+  let sum = 0;
+  for (const a of c.campaign.apoios ?? []) if (ctx.person(a.id)?.status === "ACTIVE") sum += a.bonus;
+  return Math.min(0.45, sum);
 }
 
 export function contenderFor(ctx: Ctx, c: CandidacyRow, uf: string): Contender {
@@ -179,7 +190,8 @@ export function contenderFor(ctx: Ctx, c: CandidacyRow, uf: string): Contender {
     partyStrength: Math.min(0.7, (party ? party.territory[uf] ?? 0 : 0) + 0.45 * allied),
     govAlignment: party?.gov_alignment ?? 0,
     incumbent: officeIncumbent,
-    momentum: c.campaign.momentum + c.campaign.debate_score,
+    // apoios declarados (lideranças e jogadores) somam no fôlego da campanha
+    momentum: c.campaign.momentum + c.campaign.debate_score + endorsementBonus(ctx, c),
     scandal: (st?.scandal ?? 0) + c.campaign.rumor_damage,
     noise: latentNoise(ctx, c.id, uf),
     seg: c.campaign.seg,
@@ -216,6 +228,8 @@ export function playerListStrength(ctx: Ctx, race: RaceRow, c: CandidacyRow, noi
       (p.office_code && st.story?.approval != null ? 0.6 * ((st.story.approval - 50) / 50) : 0) +
       // padrinho político: o apoio de uma liderança maior (vale enquanto ela segue na vida pública)
       (c.campaign.padrinho && ctx.person(c.campaign.padrinho.id)?.status === "ACTIVE" ? c.campaign.padrinho.bonus : 0) +
+      // apoios declarados por jogadores (e o sucessor indicado por quem tem o cargo)
+      endorsementBonus(ctx, c) +
       noise,
   );
 }
@@ -380,7 +394,10 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
         }
         // no partido de jogador: a pré-candidatura do presidente vem primeiro, depois outros jogadores, depois as indicações
         const priority = led ? (p.id === party.president_id ? 1000 : p.kind === "PLAYER" ? 500 : 0) : pick === p.id ? 300 : 0;
-        scored.push({ p, s: priority + candidateScore(ctx, p, race.office_code, race.geo, rng) + (ctx.pstate(p.id)?.party_standing ?? 0) * 0.25 });
+        // sucessor indicado por quem tem o cargo e apoios declarados (apoio.ts) pesam na convenção
+        const backing = (pc.campaign.apoios ?? []).filter((a) => ctx.person(a.id)?.status === "ACTIVE");
+        const endorsed = Math.min(400, backing.reduce((sum, a) => sum + (a.kind === "SUCESSOR" ? 250 : 40), 0));
+        scored.push({ p, s: priority + endorsed + candidateScore(ctx, p, race.office_code, race.geo, rng) + (ctx.pstate(p.id)?.party_standing ?? 0) * 0.25 });
       }
       scored.sort((a, b) => b.s - a.s);
       let chosen = scored[0]?.p;

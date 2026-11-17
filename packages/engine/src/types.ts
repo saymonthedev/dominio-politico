@@ -385,8 +385,26 @@ export interface CampaignState {
   padrinho?: { id: string; name: string; role: string; bonus: number; on: string } | null;
   /** lideranças que recusaram apadrinhar esta candidatura (não são chamadas de novo) */
   padrinho_refused?: string[];
+  /** apoios declarados à candidatura (jogadores e lideranças): somam na votação enquanto quem apoia segue na vida pública */
+  apoios?: Endorsement[];
   /** personalidade da campanha (NPCs): agressiva, populista, técnica, veterana */
   persona?: "AGRESSIVA" | "POPULISTA" | "TECNICA" | "VETERANA";
+}
+
+/** Apoio declarado a uma candidatura (apoio.ts). */
+export interface Endorsement {
+  /** quem apoia */
+  id: string;
+  name: string;
+  /** "prefeito(a) (Fortaleza)", "deputado(a) federal (Ceará)", "jogador(a)" */
+  role: string;
+  /** soma na votação: no fôlego da campanha (majoritária) ou na força da lista (proporcional) */
+  bonus: number;
+  on: string;
+  /** apoio comum ou indicação de sucessor (quem tem o cargo e não concorre a ele) */
+  kind: "APOIO" | "SUCESSOR";
+  /** já acertado depois da votação (prestígio ou desgaste de quem apoiou) */
+  settled?: boolean;
 }
 
 export interface CandidacyRow {
