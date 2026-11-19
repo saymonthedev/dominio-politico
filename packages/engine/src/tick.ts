@@ -22,7 +22,7 @@ import { monthlyFinances, monthlyPartyFinances } from "./finance";
 import { monthlyApproval } from "./approval";
 import { energyRecovery } from "./wellbeing";
 import { dailyPartyFormation, playerPartyRecruitment, processPartyInvites } from "./partyfounding";
-import { dedupeNames } from "./npc";
+import { dedupeNames, ensureState } from "./npc";
 import { fillVacancies } from "./vacancies";
 import { settleEndorsements, weeklySupportRequests } from "./apoio";
 import { partySwitchWindow, weeklyAgenda, yearlyRenewal } from "./npclife";
@@ -143,6 +143,22 @@ export function tidyRetired(ctx: Ctx): void {
 }
 
 /**
+ * Personagens ativos sem a ficha interna (a gravação de um dia cortada no meio, no incidente de
+ * 18 e 19/11, gravou a pessoa e não a ficha). Na janela partidária, a troca de partido de um deles
+ * quebrava e o dia inteiro do calendário eleitoral era pulado. Roda no começo do dia: as etapas
+ * seguintes já encontram todo mundo com ficha, e a ficha nova é gravada no banco.
+ */
+export function tidyStates(ctx: Ctx): number {
+  let n = 0;
+  for (const p of ctx.t.persons.values()) {
+    if (p.kind === "PLAYER" || p.status !== "ACTIVE" || ctx.t.person_states.has(p.id)) continue;
+    ensureState(ctx, p);
+    n++;
+  }
+  return n;
+}
+
+/**
  * Números do mundo para o painel /admin, guardados no próprio mundo: o banco não precisa mais
  * contar pessoas, crimes e investigações linha por linha a cada abertura (levava 4 a 5 s).
  */
@@ -182,6 +198,7 @@ export function advanceDay(ctx: Ctx): void {
   ctx.beginTick();
   const d = w.game_date;
   step("coerência de candidaturas e filiações", d, () => tidyRetired(ctx));
+  step("fichas que faltavam", d, () => tidyStates(ctx));
   step("pré-candidaturas sem convenção", d, () => closeStalePre(ctx));
   // uma vez por mundo: desfaz nomes repetidos que o bug antigo deixou nos eleitos sem nome
   if (!w.stats?.names_v1)

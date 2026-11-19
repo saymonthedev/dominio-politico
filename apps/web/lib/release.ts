@@ -20,6 +20,7 @@ export const RELEASE: Release = {
     { icon: "zap", text: "Cada servidor novo lia o mundo inteiro do banco de dados, e no pico de jogadores o banco engasgou: as telas travavam no Continuar e o login demorava. Agora o mundo vem de uma cópia guardada fora do banco, só o que mudou é lido, e só um servidor por vez monta cada mundo." },
     { icon: "lock", text: "Conferir o seu login não depende mais de esperar o servidor de login a cada acesso." },
     { icon: "check", text: "Nenhuma decisão que segura o tempo fica mais sem saída: sem energia ou dinheiro para as opções, a opção padrão fica liberada. Na largada da campanha, a coordenação sai do caixa da campanha e há uma largada sem custo." },
+    { icon: "calendar", text: "Em alguns mundos, dias do calendário eleitoral eram pulados na janela de troca de partido (como a pesquisa de março). Corrigido." },
   ],
 };
 

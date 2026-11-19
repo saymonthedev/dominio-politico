@@ -2,6 +2,7 @@ import { addDays, diffDays } from "./calendar";
 import { cityName } from "./cities";
 import { UF_BY_CODE } from "./geo";
 import { ideologyAffinity } from "./ideology";
+import { ensureState } from "./npc";
 import { eraRules } from "./ruleset";
 import type { Ctx } from "./state";
 import { scheduleStory, storyOf } from "./story/state";
@@ -162,7 +163,7 @@ export function affiliationConcern(b: AffiliationBreakdown): AffiliationConcern 
 }
 
 export function joinParty(ctx: Ctx, person: PersonRow, party: PartyRow): void {
-  const st = ctx.pstate(person.id)!;
+  const st = ensureState(ctx, person);
   if (person.party_id && person.party_id !== party.id) leaveParty(ctx, person, "troca de partido");
   person.party_id = party.id;
   if (["CIDADAO", "ATIVISTA", "APROXIMACAO"].includes(person.stage)) person.stage = "FILIADO";
@@ -202,7 +203,7 @@ export function leaveParty(ctx: Ctx, person: PersonRow, reason: string): void {
     ctx.save("candidacies", c);
     if (person.stage === "PRE_CANDIDATO" || person.stage === "CANDIDATO") person.stage = "APROXIMACAO";
   }
-  const st = ctx.pstate(person.id)!;
+  const st = ensureState(ctx, person);
   person.party_id = null;
   person.faction_id = null;
   if (["FILIADO", "QUADRO", "PRE_CANDIDATO"].includes(person.stage)) person.stage = "APROXIMACAO";

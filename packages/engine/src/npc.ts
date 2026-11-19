@@ -167,7 +167,14 @@ export function buildPerson(input: NewPersonInput): { person: PersonRow; state: 
     role_label: input.roleLabel ?? null,
     created_tick: input.createdTick,
   };
-  const state: PersonStateRow = {
+  return { person, state: buildPersonState(input) };
+}
+
+/** Ficha interna (person_state) de quem nasce no mundo: a mesma forma para todo tipo de pessoa. */
+export function buildPersonState(
+  input: Pick<NewPersonInput, "id" | "worldId" | "userId" | "traits" | "money" | "assets" | "reach" | "partyId" | "filiationDate" | "domicileSince">,
+): PersonStateRow {
+  return {
     id: input.id,
     world_id: input.worldId,
     user_id: input.userId ?? null,
@@ -200,7 +207,33 @@ export function buildPerson(input: NewPersonInput): { person: PersonRow; state: 
     sentence: null,
     story: null,
   };
-  return { person, state };
+}
+
+/**
+ * A ficha interna da pessoa, criada na hora se faltar. Personagens ativos ficaram sem ela quando a
+ * gravação de um dia foi cortada no meio (incidente de 18 e 19/11): a pessoa foi gravada e a ficha
+ * não. Sem ela, a troca de partido na janela partidária quebrava e o dia do calendário eleitoral
+ * era pulado. A ficha nova sai do sorteio da própria pessoa (pessoa real: traços neutros, sem
+ * dinheiro, como no ponto de partida).
+ */
+export function ensureState(ctx: Ctx, p: PersonRow): PersonStateRow {
+  const had = ctx.pstate(p.id);
+  if (had) return had;
+  const rng = ctx.rng("ficha", p.id);
+  const real = p.kind === "REAL_HISTORICAL" || p.kind === "REAL_ACTIVE_AT_SNAPSHOT";
+  const st = buildPersonState({
+    id: p.id,
+    worldId: p.world_id,
+    userId: p.user_id,
+    traits: real ? neutralRealTraits(rng) : randomTraits(rng),
+    money: real ? 0 : rng.int(20_000, 400_000),
+    reach: p.uf ? { [p.uf]: p.office_code ? 0.15 : 0.05 } : {},
+    partyId: p.party_id,
+    filiationDate: p.party_id ? "2000-01-01" : null,
+    domicileSince: "2000-01-01",
+  });
+  ctx.save("person_states", st);
+  return st;
 }
 
 /**
