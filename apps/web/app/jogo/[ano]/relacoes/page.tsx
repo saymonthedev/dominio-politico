@@ -1,4 +1,4 @@
-import { OFFICES, type PersonRow, type RelationshipRow } from "@dp/engine";
+import { OFFICES, type PersonRow, type RelationshipRow, genderOf, personWord, officeTitle } from "@dp/engine";
 import { Empty, GameHeader, Kpi, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
 import { PersonAvatar } from "@/components/PersonAvatar";
@@ -7,7 +7,7 @@ import { PartyChip } from "@/components/ui";
 import { getParties, getSession, partyMap, playerState, requireMe } from "@/lib/game";
 import { photoOf } from "@/lib/photos";
 
-const roleOf = (p: PersonRow) => (p.office_code ? OFFICES[p.office_code].name : p.role_label ?? (p.kind === "PLAYER" ? "jogador(a)" : "político(a)"));
+const roleOf = (p: PersonRow) => (p.office_code ? officeTitle(p.office_code, genderOf(p)) : p.role_label ?? personWord(p.kind === "PLAYER" ? "jogador(a)" : "político(a)", genderOf(p)));
 
 function tone(score: number): { label: string; tone: "ok" | "bad" | "neutral" | "gold" } {
   if (score >= 50) return { label: "aliado(a)", tone: "gold" };

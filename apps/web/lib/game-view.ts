@@ -8,13 +8,15 @@ import {
   Ctx,
   geoName,
   ideologyAffinity,
-
   OFFICES,
   type ElectionRow,
   type PartyRow,
   type PersonRow,
   type PersonStateRow,
   type WorldState,
+  genderOf,
+  personWord,
+  officeTitle,
 } from "@dp/engine";
 
 const DAY = 86_400_000;
@@ -146,7 +148,7 @@ export function agenda(state: WorldState, me: PersonRow, limit = 8, today = stat
     }
   }
   for (const m of state.t.mandates.values()) {
-    if (m.person_id === me.id && m.status === "FUTURO") items.push({ date: m.start_on, days: daysBetween(today, m.start_on), title: `Sua posse: ${OFFICES[m.office_code].name}`, detail: geoName(m.geo, state), tone: "hot" });
+    if (m.person_id === me.id && m.status === "FUTURO") items.push({ date: m.start_on, days: daysBetween(today, m.start_on), title: `Sua posse: ${officeTitle(m.office_code, genderOf(me))}`, detail: geoName(m.geo, state), tone: "hot" });
   }
   return items.sort((a, b) => a.date.localeCompare(b.date)).slice(0, limit);
 }
@@ -178,7 +180,7 @@ export function pending(state: WorldState, me: PersonRow, st: PersonStateRow): P
         .filter((r) => r.party_id === led.id && r.kind === "PEDIDO" && r.status === "PENDENTE")
         .map((r) => {
           const who = state.t.persons.get(r.person_id);
-          return { id: r.id, name: who?.name ?? "Alguém", role: who?.office_code ? OFFICES[who.office_code].name : who?.role_label ?? "político(a)", until: r.decide_on };
+          return { id: r.id, name: who?.name ?? "Alguém", role: who?.office_code ? officeTitle(who.office_code, genderOf(who)) : who?.role_label ?? personWord("político(a)", genderOf(who)), until: r.decide_on };
         });
     })(),
     founding: (() => {

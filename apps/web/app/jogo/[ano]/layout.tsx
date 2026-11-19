@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { sideVitals } from "@/lib/vitals";
-import { canonicalGeo, clockTarget, geoName, usesRounds, type NotificationRow } from "@dp/engine";
+import { canonicalGeo, clockTarget, genderize, genderizeEvent, genderOf, geoName, stageTitle, usesRounds, type NotificationRow } from "@dp/engine";
 import { Announce } from "@/components/Announce";
 import { Icon } from "@/components/Icon";
 import { GameSidebar } from "@/components/game/GameSidebar";
@@ -14,7 +14,6 @@ import { UserMenu } from "@/components/game/UserMenu";
 import { SuggestionNews } from "@/components/game/SuggestionNews";
 import type { SuggestionPopups } from "@/lib/suggestions";
 import { LogoMark } from "@/components/Logo";
-import { STAGE_LABEL } from "@/components/ui";
 import { fmtDay, fmtHour, initials } from "@/lib/format";
 import { defaultAvatar, isAvatarCode } from "@/lib/avatar-code";
 import { getSession, getWorld, mySubscription, requireMe } from "@/lib/game";
@@ -56,7 +55,9 @@ export default async function GameLayout({ children, params }: { children: React
   const trialLeft = counted && sub?.trial ? Math.max(1, Math.ceil((Date.parse(paidUntil!) - Date.now()) / 60_000)) : 0;
   const unread = unreadQ.count ?? 0;
   // acontecimentos esperando resposta (os que seguram o tempo primeiro)
-  const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
+  // os textos no gênero do personagem (sugestão da jogadora Emyle Victorya)
+  const g = genderOf(me.person);
+  const storyPending = [...(me.state.story?.pending ?? [])].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on)).map((ev) => genderizeEvent(ev, g));
   const invites = (invitesQ.data ?? []).map((r) => r.id as string);
 
   // O mundo segue andando: o relógio passou do dia do mundo, avança em segundo plano (com trava: uma tentativa
@@ -74,7 +75,7 @@ export default async function GameLayout({ children, params }: { children: React
   // os mesmos números que o relógio e as decisões devolvem (a barra muda na hora da escolha)
   const vitals = sideVitals(me.person, me.state, !!me.party);
   const chosen = me.state.story?.avatar;
-  const avatar = isAvatarCode(chosen) ? chosen : defaultAvatar(me.person.id);
+  const avatar = isAvatarCode(chosen) ? chosen : defaultAvatar(me.person.id, me.person.gender);
 
   return (
     <Toaster>
@@ -111,7 +112,7 @@ export default async function GameLayout({ children, params }: { children: React
             year={year}
             unread={unread}
             openInvites={invites}
-            items={((recentQ.data ?? []) as NotificationRow[]).map((n) => ({ id: n.id, title: n.title, body: n.body, date: n.game_date, link: n.link, unread: !n.read_at }))}
+            items={((recentQ.data ?? []) as NotificationRow[]).map((n) => ({ id: n.id, title: genderize(n.title, g), body: genderize(n.body, g), date: n.game_date, link: n.link, unread: !n.read_at }))}
           />
           <UserMenu initials={initials(me.person.name)} avatar={avatar} />
         </div>
@@ -124,7 +125,7 @@ export default async function GameLayout({ children, params }: { children: React
           paidUntil={paidActive && !sub?.trial ? fmtDay(paidUntil!) : null}
           profile={{
             name: me.person.name,
-            stage: STAGE_LABEL[me.person.stage] ?? me.person.stage,
+            stage: stageTitle(me.person.stage, g),
             age: world?.game_date ? Number(world.game_date.slice(0, 4)) - me.person.birth_year : null,
             place,
             party: me.party ? { acronym: me.party.acronym, color: me.party.color } : null,

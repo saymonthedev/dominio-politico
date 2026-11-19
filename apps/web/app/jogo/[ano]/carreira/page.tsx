@@ -1,4 +1,4 @@
-import { ACHIEVEMENTS, activeInjury, approvalLabel, AXES, AXIS_INFO, careerScore, daysLeft, ENTRY_CULTURE_LABEL, fatigueLabel, geoName, canonicalGeo, OFFICES, partyPostOf, profession, type AffiliationRequestRow, type WorldEventRow } from "@dp/engine";
+import { ACHIEVEMENTS, activeInjury, approvalLabel, AXES, AXIS_INFO, careerScore, daysLeft, ENTRY_CULTURE_LABEL, fatigueLabel, geoName, canonicalGeo, OFFICES, partyPostOf, profession, type AffiliationRequestRow, type WorldEventRow, genderOf, genderizeLog, officeTitle, stageTitle } from "@dp/engine";
 import { PartyMark } from "@/components/PartyMark";
 import { ActionPanel } from "@/components/ActionPanel";
 import { CareerTabs } from "@/components/game/CareerTabs";
@@ -71,17 +71,17 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const record = [
     ...[...state.t.mandates.values()]
       .filter((m) => m.person_id === me.person.id)
-      .map((m) => ({ date: m.start_on, won: true, title: `${OFFICES[m.office_code].name} · ${geoName(m.geo, { cities })}`, detail: `${m.status === "FUTURO" ? "posse em" : "desde"} ${fmtDate(m.start_on)}${m.status === "ENCERRADO" ? ` até ${fmtDate(m.end_on)}` : m.status === "ATIVO" ? " · em exercício" : ""}` })),
+      .map((m) => ({ date: m.start_on, won: true, title: `${officeTitle(m.office_code, genderOf(me.person))} · ${geoName(m.geo, { cities })}`, detail: `${m.status === "FUTURO" ? "posse em" : "desde"} ${fmtDate(m.start_on)}${m.status === "ENCERRADO" ? ` até ${fmtDate(m.end_on)}` : m.status === "ATIVO" ? " · em exercício" : ""}` })),
     ...[...state.t.candidacies.values()]
       .filter((c) => c.person_id === me.person.id && ["ELEITO", "NAO_ELEITO", "SUPLENTE", "SEGUNDO_TURNO", "HOMOLOGADA", "INDEFERIDA"].includes(c.status))
       .map((c) => {
         const e = state.t.elections.get(c.election_id);
         const label = { ELEITO: "eleito(a)", NAO_ELEITO: "não eleito(a)", SUPLENTE: "suplente", SEGUNDO_TURNO: "no 2º turno", HOMOLOGADA: "em campanha", INDEFERIDA: "candidatura indeferida" }[c.status as string];
-        return { date: e?.first_round ?? "", won: c.status === "ELEITO", title: `Eleição de ${e?.year ?? "?"}: ${OFFICES[c.office_code].name}`, detail: `${label}${c.votes ? ` · ${c.votes.toLocaleString("pt-BR")} votos` : ""}` };
+        return { date: e?.first_round ?? "", won: c.status === "ELEITO", title: `Eleição de ${e?.year ?? "?"}: ${officeTitle(c.office_code, genderOf(me.person))}`, detail: `${label}${c.votes ? ` · ${c.votes.toLocaleString("pt-BR")} votos` : ""}` };
       }),
   ].sort((a, b) => b.date.localeCompare(a.date));
   const chosenAvatar = me.state.story?.avatar;
-  const myAvatar = isAvatarCode(chosenAvatar) ? chosenAvatar : defaultAvatar(me.person.id);
+  const myAvatar = isAvatarCode(chosenAvatar) ? chosenAvatar : defaultAvatar(me.person.id, me.person.gender);
   const city = canonicalGeo(me.person.municipality);
   const place = /^\d{7}$/.test(city) ? geoName(city, { cities }) : me.person.uf;
 
@@ -98,12 +98,12 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
               {profession(me.person.profession).label} · {age} anos · {place}
             </p>
             <div className="profile__tags">
-              <Pill tone="gold">{STAGE_LABEL[me.person.stage]}</Pill>
+              <Pill tone="gold">{stageTitle(me.person.stage, genderOf(me.person))}</Pill>
               {me.party ? <PartyChip party={me.party} href={`/jogo/${year}/partidos/${me.party.id}`} /> : <Pill>Sem partido</Pill>}
               {post && <Pill tone="sim">{post.label}</Pill>}
             </div>
             <div className="profile__edit">
-              <AvatarEditor year={year} code={myAvatar} />
+              <AvatarEditor year={year} code={myAvatar} gender={me.person.gender ?? null} />
             </div>
           </div>
           <div className="kpis profile__kpis">
@@ -193,7 +193,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
           <div id="historia" className="cg-hist">
             <Panel title="Sua história" icon="zap">
-              <StoryHistory log={st.story?.log ?? []} />
+              <StoryHistory log={(st.story?.log ?? []).map((e) => genderizeLog(e, genderOf(me.person)))} />
             </Panel>
           </div>
 

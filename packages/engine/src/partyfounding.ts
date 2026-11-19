@@ -1,3 +1,4 @@
+import { genderOf, officeTitle, personWord } from "./gender";
 import { joinParty, relationshipScore } from "./affiliation";
 import { addDays, diffDays } from "./calendar";
 import { worldPriceLevel, type PricedWorld } from "./finance";
@@ -395,7 +396,7 @@ export function playerPartyRecruitment(ctx: Ctx): void {
         reason: requestReason(ctx, p, party),
       };
       ctx.save("affiliation_requests", req);
-      ctx.notify(founder.id, `Pedido de filiação ao ${party.acronym}`, `${p.name} (${p.office_code ? OFFICES[p.office_code].name : p.role_label ?? "político(a)"}, ${p.uf}) quer entrar no partido. ${req.reason}`, "/jogo/meu-partido");
+      ctx.notify(founder.id, `Pedido de filiação ao ${party.acronym}`, `${p.name} (${p.office_code ? officeTitle(p.office_code, genderOf(p)) : p.role_label ?? personWord("político(a)", genderOf(p))}, ${p.uf}) quer entrar no partido. ${req.reason}`, "/jogo/meu-partido");
       sent++;
     }
   }

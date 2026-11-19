@@ -9,6 +9,12 @@ import { loadBairros, loadCities, loadSnapshot } from "@dp/data";
 import { liveVitals, type LiveVitals } from "./vitals";
 import {
   careerSummary,
+  genderize,
+  genderizeEvent,
+  genderizeLog,
+  genderOf,
+  stageTitle,
+  type Gender,
   heirOptions,
   electionNight,
   Changes,
@@ -1136,7 +1142,7 @@ export async function advanceSharedWorlds(budgetMs: number): Promise<Record<stri
  * "Avançar o tempo": processa N dias imediatamente. Só nos mundos do próprio
  * jogador; nos compartilhados cada um vive os próprios dias e o mundo vira a cada 2 horas.
  */
-export async function fastForward(worldId: string, days: number, userId: string): Promise<FastForwardResult> {
+async function fastForwardRaw(worldId: string, days: number, userId: string): Promise<FastForwardResult> {
   if (modeOfWorld(worldId) === "SHARED") return { ok: false, message: SHARED_ONLY_AUTO(), days: 0 };
   if (!ALLOWED_DAYS.has(days)) return { ok: false, message: "Escolha 1, 7, 15 ou 30 dias.", days };
   const w = await openWorld(worldId);
@@ -1224,7 +1230,7 @@ function activePlayer(state: WorldState, userId: string) {
  * jogador, parando quando surge uma decisão que segura o tempo. A tela anima
  * o diário e, depois da resposta, pede o resto dos dias.
  */
-export async function advanceStep(worldId: string, days: number, userId: string): Promise<StepAdvanceResult> {
+async function advanceStepRaw(worldId: string, days: number, userId: string): Promise<StepAdvanceResult> {
   if (modeOfWorld(worldId) === "SHARED") return livePersonal(worldId, days, userId);
   if (!Number.isInteger(days) || days < 1 || days > 31) return { ok: false, message: "Escolha entre 1 e 31 dias.", days: 0 };
   const w = await openWorld(worldId);
@@ -1381,7 +1387,7 @@ export interface DecideResult {
 }
 
 /** Resposta a um acontecimento (sem avançar o relógio). */
-export async function decideStory(worldId: string, userId: string, eventId: string, choiceId: string): Promise<DecideResult> {
+async function decideStoryRaw(worldId: string, userId: string, eventId: string, choiceId: string): Promise<DecideResult> {
   let personId: string | null = null;
   let stageBefore: string | null = null;
   const { result, state } = await withWorld(
@@ -1546,4 +1552,56 @@ export async function runMaintenance(): Promise<MaintenanceResult> {
     fictionCities.delete(id);
   }
   return res;
+}
+
+/* ---------- textos no gênero do personagem (sugestão da jogadora Emyle Victorya) ---------- */
+
+/** O gênero do personagem ativo da conta no mundo (memória do servidor; sem ela, os textos ficam no neutro). */
+async function playerGender(worldId: string, userId: string): Promise<Gender | null> {
+  try {
+    return genderOf(activePlayer(await cachedState(worldId), userId));
+  } catch {
+    return null;
+  }
+}
+
+/** O resultado de passar o tempo, com os textos sobre o jogador no gênero dele (as manchetes do país não mudam). */
+function inGender<T extends FastForwardResult & Partial<StepAdvanceResult>>(r: T, g: Gender | null): T {
+  if (!g) return r;
+  return {
+    ...r,
+    message: genderize(r.message, g),
+    note: genderize(r.note, g),
+    notifications: r.notifications?.map((n) => ({ ...n, title: genderize(n.title, g), body: genderize(n.body, g) })),
+    pending: r.pending?.map((ev) => genderizeEvent(ev, g)),
+    diary: r.diary?.map((d) => ({ ...d, line: genderize(d.line, g), events: d.events.map((e) => genderizeLog(e, g)), pending: d.pending.map((x) => ({ ...x, title: genderize(x.title, g) })) })),
+    // a etapa já como a tela mostra ("Filiada"); a tela só compara antes e depois
+    before: r.before ? { ...r.before, stage: stageTitle(r.before.stage, g) } : r.before,
+    after: r.after ? { ...r.after, stage: stageTitle(r.after.stage, g) } : r.after,
+  };
+}
+
+export async function fastForward(worldId: string, days: number, userId: string): Promise<FastForwardResult> {
+  const r = await fastForwardRaw(worldId, days, userId);
+  return inGender(r, await playerGender(worldId, userId));
+}
+
+export async function advanceStep(worldId: string, days: number, userId: string): Promise<StepAdvanceResult> {
+  const r = await advanceStepRaw(worldId, days, userId);
+  return inGender(r, await playerGender(worldId, userId));
+}
+
+export async function decideStory(worldId: string, userId: string, eventId: string, choiceId: string): Promise<DecideResult> {
+  const r = await decideStoryRaw(worldId, userId, eventId, choiceId);
+  const g = await playerGender(worldId, userId);
+  if (!g) return r;
+  return {
+    ...r,
+    message: genderize(r.message, g),
+    title: genderize(r.title, g),
+    outcome: genderize(r.outcome, g),
+    choiceLabel: genderize(r.choiceLabel, g),
+    pending: r.pending?.map((ev) => genderizeEvent(ev, g)),
+    stage: r.stage ? { from: stageTitle(r.stage.from, g), to: stageTitle(r.stage.to, g) } : r.stage,
+  };
 }

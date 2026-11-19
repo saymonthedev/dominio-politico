@@ -1,4 +1,4 @@
-import { Ctx, explainShift, geoName, mainRival, OFFICES, PERSONA_LABEL, projectList, segmentStandings, type CandidacyRow, type DebateRow, type ElectionRow, type PollRow } from "@dp/engine";
+import { Ctx, explainShift, geoName, mainRival, OFFICES, PERSONA_LABEL, projectList, segmentStandings, type CandidacyRow, type DebateRow, type ElectionRow, type PollRow, genderOf, officeTitle } from "@dp/engine";
 import { CampaignMoney, Electorate, Momentum, Promises, ScoreBoard, type WarRoomProps } from "@/components/game/WarRoom";
 import { Nominata } from "@/components/game/Nominata";
 import { ActionPanel } from "@/components/ActionPanel";
@@ -91,7 +91,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                 <Pill>nº {current.ballot_number}</Pill>
               </div>
               <h2>
-                {OFFICES[current.office_code].name} · {geoName(current.geo, { cities })}
+                {officeTitle(current.office_code, genderOf(me.person))} · {geoName(current.geo, { cities })}
               </h2>
               {(current.campaign.coalition?.length || current.campaign.vice || current.campaign.suplentes?.length || current.campaign.padrinho || current.campaign.apoios?.length) && (
                 <p className="ehero__ticket">
@@ -282,7 +282,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                   <li key={x.id}>
                     <span className="tline__date mono">{x.election_id.replace(/\D/g, "").slice(0, 4) || "—"}</span>
                     <span>
-                      <b>{OFFICES[x.office_code].name}</b> · {geoName(x.geo, { cities })} <Pill tone={STATUS[x.status]?.tone}>{STATUS[x.status]?.label ?? x.status}</Pill>
+                      <b>{officeTitle(x.office_code, genderOf(me.person))}</b> · {geoName(x.geo, { cities })} <Pill tone={STATUS[x.status]?.tone}>{STATUS[x.status]?.label ?? x.status}</Pill>
                     </span>
                   </li>
                 ))}

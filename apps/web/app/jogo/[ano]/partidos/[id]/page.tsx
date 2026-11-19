@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { PartyMark } from "@/components/PartyMark";
-import { AXES, AXIS_INFO, ENTRY_CULTURE_LABEL, OFFICES, partyPostOf, spectrumLabel, UFS, type FactionRow, type PersonRow } from "@dp/engine";
+import { AXES, AXIS_INFO, ENTRY_CULTURE_LABEL, OFFICES, partyPostOf, spectrumLabel, UFS, type FactionRow, type PersonRow, genderOf, personWord, officeTitle } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { actionsFor } from "@/lib/actions-view";
 import { Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
@@ -94,7 +94,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
                   <div>
                     <b>{p.name}</b>
                     <span>
-                      {p.office_code ? OFFICES[p.office_code].name : p.role_label ?? "filiado(a)"} · {p.uf}
+                      {p.office_code ? officeTitle(p.office_code, genderOf(p)) : p.role_label ?? personWord("filiado(a)", genderOf(p))} · {p.uf}
                     </span>
                     <Pill tone={p.id === me.person.id ? "gold" : KIND[p.kind]?.tone}>{p.id === me.person.id ? (post ? `você · ${post.label}` : "você") : KIND[p.kind]?.label ?? p.kind}</Pill>
                   </div>

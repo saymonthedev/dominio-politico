@@ -110,11 +110,21 @@ export function CharacterForm({
         )}
         {!privateOpen && privateBlocked !== "own" && <p className="muted small">As vagas para mundos próprios estão esgotadas no momento. Tente de novo mais tarde.</p>}
       </Block>
-      <Block n={2} title="Identidade" text="Um nome fictício. Nomes de políticos reais são recusados.">
+      <Block n={2} title="Identidade" text="Um nome fictício e como o jogo fala do personagem. Nomes de políticos reais são recusados.">
         <div className="cf-row">
           <TextField label="Nome do personagem" name="persona" icon="user" minLength={3} maxLength={40} placeholder="Ex.: Joana Ribeiro" value={name} onChange={(e) => setName(e.target.value)} />
           <Stepper label="Idade" name="age" min={18} max={80} defaultValue={30} suffix="anos" />
         </div>
+        <ChoiceCards
+          name="gender"
+          label="O personagem é"
+          defaultValue=""
+          options={[
+            { value: "F", label: "Mulher", hint: "O jogo escreve eleita, vereadora, cidadã.", icon: "user" },
+            { value: "M", label: "Homem", hint: "O jogo escreve eleito, vereador, cidadão.", icon: "user" },
+            { value: "", label: "Prefiro não dizer", hint: "Os textos ficam no neutro: eleito(a), vereador(a).", icon: "user" },
+          ]}
+        />
       </Block>
       <Block n={3} title="Base eleitoral" text="Seu estado e sua cidade. É nela que você pode disputar prefeitura e câmara; para deputado e governo, vale o estado inteiro.">
         <div className="cf-row cf-row--even">

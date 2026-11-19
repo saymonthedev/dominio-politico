@@ -13,6 +13,9 @@ import {
   UF_CODES,
   Ctx,
   type PartyRow,
+  genderOf,
+  personWord,
+  officeTitle,
 } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
@@ -233,7 +236,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                             <a href={`/jogo/${year}/pessoa/${who.id}`}>{who.name}</a>
                           </b>
                           <span>
-                            {who.office_code ? OFFICES[who.office_code].name : who.role_label ?? (who.kind === "PLAYER" ? "jogador(a)" : "político(a)")} · {from?.acronym ?? "sem partido"} · {who.uf}
+                            {who.office_code ? officeTitle(who.office_code, genderOf(who)) : who.role_label ?? personWord(who.kind === "PLAYER" ? "jogador(a)" : "político(a)", genderOf(who))} · {from?.acronym ?? "sem partido"} · {who.uf}
                           </span>
                           <span>{r.kind === "CONVITE" ? `Convite seu, resposta até ${fmtDate(r.decide_on)}` : `${r.reason ?? "Quer entrar no partido."} Responda até ${fmtDate(r.decide_on)}.`}</span>
                         </div>
@@ -272,7 +275,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                     <div>
                       <b>{m.name}</b>
                       <span>
-                        {m.id === person.id ? "presidente" : m.office_code ? OFFICES[m.office_code].name : m.role_label ?? "filiado(a)"} · {m.uf}
+                        {m.id === person.id ? "presidente" : m.office_code ? officeTitle(m.office_code, genderOf(m)) : m.role_label ?? personWord("filiado(a)", genderOf(m))} · {m.uf}
                       </span>
                     </div>
                   </a>

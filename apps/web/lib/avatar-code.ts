@@ -62,8 +62,8 @@ export function parseAvatar(code: string | null | undefined): AvatarSpec | null 
 
 export const isAvatarCode = (code: unknown): code is string => typeof code === "string" && parseAvatar(code) !== null;
 
-/** Avatar sorteado (estável) a partir de um texto, como o id do personagem. */
-export function defaultAvatar(seed: string): string {
+/** Avatar sorteado (estável) a partir de um texto, como o id do personagem; personagem mulher sai sem barba. */
+export function defaultAvatar(seed: string, gender?: "F" | "M" | null): string {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619) >>> 0;
   const next = () => {
@@ -78,6 +78,11 @@ export function defaultAvatar(seed: string): string {
   if (next() % 2) spec.bg = next() % 6;
   if (next() % 3) spec.glasses = 0;
   if (next() % 2) spec.facial = 0;
+  if (gender === "F") {
+    spec.facial = 0;
+    // raspado ou calvo viram um dos outros cortes (de lado, cacheado, longo, coque, black power)
+    if (spec.hair === 1 || spec.hair === 2) spec.hair = 3 + (next() % 5);
+  }
   return avatarCode(spec);
 }
 

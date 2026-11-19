@@ -6,6 +6,7 @@ import type { WorldState } from "./state";
  * (e para a gravação mandar todas as colunas em todas as linhas).
  */
 export function hydrateState(s: WorldState): WorldState {
+  for (const p of s.t.persons.values()) p.gender ??= null;
   for (const st of s.t.person_states.values()) {
     st.dossiers ??= {};
     st.findings ??= {};

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { AXES, AXIS_INFO, CRIMES, OFFICES, canBeTargeted, dossierLabel, geoName, type Finding, type MandateRow, type NewsRow, type PersonRow } from "@dp/engine";
+import { AXES, AXIS_INFO, CRIMES, OFFICES, canBeTargeted, dossierLabel, geoName, type Finding, type MandateRow, type NewsRow, type PersonRow, genderOf, officeTitle, stageTitle } from "@dp/engine";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, Kpi, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
@@ -56,7 +56,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
           <div className="ghead__kicker">{real ? "Pessoa real · dados públicos do TSE" : person.kind === "PLAYER" ? "Jogador(a)" : "Personagem gerado pelo jogo"}</div>
           <h1>{person.name}</h1>
           <div className="pcard__tags">
-            {person.office_code ? <Pill tone="gold">{OFFICES[person.office_code].name}</Pill> : <Pill>{person.role_label ?? STAGE_LABEL[person.stage] ?? person.stage}</Pill>}
+            {person.office_code ? <Pill tone="gold">{officeTitle(person.office_code, genderOf(person))}</Pill> : <Pill>{person.role_label ?? stageTitle(person.stage, genderOf(person))}</Pill>}
             {party ? (
               <a href={`/jogo/${year}/partidos/${party.id}`} className="pill" style={{ background: party.color, color: "#fff" }}>
                 {party.acronym}
@@ -106,7 +106,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string; 
                   <li key={m.id}>
                     <span className="tline__date mono">{m.start_on.slice(0, 4)}–{m.end_on.slice(0, 4)}</span>
                     <span>
-                      <b>{OFFICES[m.office_code].name}</b> · {geoName(m.geo, { cities })} <Pill tone={MANDATE[m.status]?.tone}>{MANDATE[m.status]?.label ?? m.status}</Pill>
+                      <b>{officeTitle(m.office_code, genderOf(person))}</b> · {geoName(m.geo, { cities })} <Pill tone={MANDATE[m.status]?.tone}>{MANDATE[m.status]?.label ?? m.status}</Pill>
                       <small className="muted mono" style={{ display: "block" }}>
                         {fmtDate(m.start_on)} → {fmtDate(m.end_on)}
                       </small>

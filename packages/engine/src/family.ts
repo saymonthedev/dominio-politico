@@ -1,5 +1,6 @@
 import type { ActionDef, ActionResult } from "./actions";
 import { worldPriceLevel } from "./finance";
+import { FEMALE_NAMES as FEMALE, looksFemale, MALE_NAMES as MALE } from "./gender";
 import { Rng } from "./rng";
 import type { Ctx } from "./state";
 import { storyOf } from "./story/state";
@@ -52,32 +53,7 @@ export const ROLE_LABEL: Record<FamilyRole, string> = { CONJUGE: "Cônjuge", FIL
 export const roleLabel = (m: Pick<FamilyMember, "role" | "female">) =>
   m.role === "CONJUGE" ? (m.female ? "Esposa" : "Marido") : m.role === "FILHO" ? (m.female ? "Filha" : "Filho") : ROLE_LABEL[m.role];
 
-const FEMALE = ["Ana", "Beatriz", "Camila", "Daniela", "Eduarda", "Fernanda", "Gabriela", "Helena", "Isabela", "Joana", "Karina", "Larissa", "Mariana", "Natália", "Patrícia", "Raquel", "Sabrina", "Tatiana", "Vanessa", "Yasmin", "Adriana", "Bruna", "Cláudia", "Débora", "Elaine", "Flávia", "Glória", "Lívia", "Antônia", "Cecília", "Francisca", "Luana", "Rosana", "Simone", "Valéria", "Zilda"];
-const MALE = ["André", "Bruno", "Carlos", "Diego", "Eduardo", "Fábio", "Gustavo", "Henrique", "Igor", "João", "Leonardo", "Marcelo", "Nelson", "Otávio", "Paulo", "Rafael", "Sérgio", "Thiago", "Vinícius", "Wagner", "Alexandre", "Caio", "Davi", "Emerson", "Felipe", "Hugo", "Júlio", "Lucas", "Mateus", "Rodrigo", "Benedito", "Raimundo"];
 const SURNAMES = ["Almeida", "Barbosa", "Cardoso", "Castro", "Costa", "Dias", "Farias", "Freitas", "Gomes", "Lima", "Lopes", "Martins", "Melo", "Moraes", "Moreira", "Nogueira", "Oliveira", "Pereira", "Ramos", "Ribeiro", "Rocha", "Santana", "Soares", "Teixeira", "Viana"];
-
-/** Nomes femininos comuns que não terminam em "a" (e masculinos que terminam), para deduzir pelo nome. */
-const FEMALE_EXTRA = new Set(
-  "alice aline beatriz carmem carmen cristiane daniele danielle denise elaine eliane eloise emily emilly ester esther evelyn gabriele gabrielle heloise ingrid ines iris irene isabel isabele isabelle isis ivone jaqueline jacqueline jasmin kelly kemilly lais laís liz lis louise lourdes luiza maite michele michelle miriam nathaly nathalie nicole raquel rachel rose rosane ruth rute sueli suely solange tais thais taís thaís tatiane viviane yasmin yasmim yara"
-    .split(" "),
-);
-const MALE_EXTRA = new Set("luca lucca joshua nicola juca zeca josua jonata".split(" "));
-const plain = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-
-/**
- * Mulher ou homem pelo primeiro nome escrito pelo jogador (quando ele não disse). Antes o jogo só
- * conhecia uma lista curta de nomes femininos e qualquer outro (Maria, Júlia, Letícia...) virava
- * "marido" ou "filho".
- */
-export function looksFemale(name: string): boolean {
-  const first = name.trim().split(/\s+/)[0] ?? "";
-  if (FEMALE.includes(first)) return true;
-  if (MALE.includes(first)) return false;
-  const n = plain(first);
-  if (FEMALE_EXTRA.has(n)) return true;
-  if (MALE_EXTRA.has(n)) return false;
-  return n.endsWith("a");
-}
 
 const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 const yearOf = (d: ISODate) => Number(d.slice(0, 4));

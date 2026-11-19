@@ -2,6 +2,7 @@ import { makeIdeology, type Ideology } from "./ideology";
 import { moderateText } from "./news/moderation";
 import { worldPriceLevel } from "./finance";
 import { ensureHousing } from "./housing";
+import { isGender, type Gender } from "./gender";
 import { buildPerson } from "./npc";
 import { origin, profession } from "./names";
 import { cityName } from "./cities";
@@ -24,6 +25,8 @@ export interface CharacterInput {
   origin: string;
   interests: string[];
   ideology: Partial<Ideology>;
+  /** mulher, homem ou não informado (sugestão da jogadora Emyle Victorya) */
+  gender?: Gender | null;
 }
 
 export interface CharacterResult {
@@ -52,6 +55,7 @@ export function createCharacter(ctx: Ctx, input: CharacterInput): CharacterResul
     id: ctx.id("per_p", input.userId),
     kind: "PLAYER",
     name: input.name.trim().replace(/\s+/g, " "),
+    gender: isGender(input.gender) ? input.gender : null,
     birthYear: Number(ctx.date.slice(0, 4)) - age,
     uf: uf.code,
     municipality: city,

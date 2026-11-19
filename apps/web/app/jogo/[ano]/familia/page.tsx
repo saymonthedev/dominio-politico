@@ -1,4 +1,4 @@
-import { Ctx, FAMILY_ACTION_IDS, familyOf, geoName, monthlyStatement, OFFICES, politicosOf, roleLabel, type FamilyMember } from "@dp/engine";
+import { Ctx, FAMILY_ACTION_IDS, familyOf, geoName, monthlyStatement, OFFICES, politicosOf, roleLabel, type FamilyMember, genderOf, personWord, officeTitle } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { AvatarSvg } from "@/components/Avatar";
 import { GameHeader, Panel } from "@/components/game/Page";
@@ -44,10 +44,10 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
     if (!x) return null;
     if (x.status !== "ACTIVE") return { id: x.id, text: "saiu da vida pública" };
     const party = x.party_id ? state.t.parties.get(x.party_id)?.acronym : null;
-    if (x.office_code) return { id: x.id, text: `${OFFICES[x.office_code].name}${x.office_geo && x.office_geo !== "BR" ? ` (${geoName(x.office_geo, state)})` : ""}${party ? ` · ${party}` : ""}` };
+    if (x.office_code) return { id: x.id, text: `${officeTitle(x.office_code, genderOf(x))}${x.office_geo && x.office_geo !== "BR" ? ` (${geoName(x.office_geo, state)})` : ""}${party ? ` · ${party}` : ""}` };
     const c = [...state.t.candidacies.values()].find((k) => k.person_id === x.id && ["PRE", "HOMOLOGADA", "SEGUNDO_TURNO"].includes(k.status));
     if (c) return { id: x.id, text: `${c.status === "PRE" ? "pré-candidatura" : "candidatura"} a ${OFFICES[c.office_code].name.toLowerCase()}${party ? ` pelo ${party}` : ""}` };
-    return { id: x.id, text: party ? `filiado(a) ao ${party}` : "na política" };
+    return { id: x.id, text: party ? `${personWord("filiado(a)", genderOf(x))} ao ${party}` : "na política" };
   };
 
   return (

@@ -24,6 +24,10 @@ import {
   UF_CODES,
   type ActionCategory,
   type WorldState,
+  genderOf,
+  personWord,
+  genderize,
+  officeTitle,
 } from "@dp/engine";
 import { fmtDate, fmtMoney } from "./format";
 
@@ -99,11 +103,11 @@ function actionViews(state: WorldState, personId: string, categories?: ActionCat
   const persons = [...state.t.persons.values()].filter((p) => p.status === "ACTIVE" && p.id !== personId);
   const partyLabel = (id: string | null) => (id ? state.t.parties.get(id)?.acronym ?? "" : "sem partido");
   const describe = (p: (typeof persons)[number]) =>
-    `${p.name} — ${p.role_label ?? (p.office_code ? OFFICES[p.office_code].name : p.kind === "PLAYER" ? "jogador(a)" : "político(a)")} · ${partyLabel(p.party_id)} · ${p.uf}`;
+    `${p.name} — ${p.role_label ?? (p.office_code ? officeTitle(p.office_code, genderOf(p)) : personWord(p.kind === "PLAYER" ? "jogador(a)" : "político(a)", genderOf(p)))} · ${partyLabel(p.party_id)} · ${p.uf}`;
   const option = (p: (typeof persons)[number], extra = ""): ActionOption => ({
     value: p.id,
     label: describe(p) + extra,
-    meta: { o: p.office_code ? OFFICES[p.office_code].name : p.kind === "PLAYER" ? "Jogador(a)" : "Sem mandato", p: (p.party_id && state.t.parties.get(p.party_id)?.acronym) || "Sem partido", u: p.uf },
+    meta: { o: p.office_code ? officeTitle(p.office_code, genderOf(p)) : p.kind === "PLAYER" ? personWord("Jogador(a)", genderOf(p)) : "Sem mandato", p: (p.party_id && state.t.parties.get(p.party_id)?.acronym) || "Sem partido", u: p.uf },
   });
 
   const conversable = persons
@@ -219,16 +223,18 @@ function actionViews(state: WorldState, personId: string, categories?: ActionCat
       return { value: String(v), label: fmtMoney(v) };
     });
 
+  // os textos das ações no gênero do personagem ("Entrevista como pré-candidata")
+  const g = genderOf(me);
   return availableActions(ctx, personId)
     .filter(({ def }) => !categories || categories.includes(def.category))
     .map(({ def, reason }) => ({
       id: def.id,
-      label: def.label,
-      description: def.description,
+      label: genderize(def.label, g),
+      description: genderize(def.description, g),
       category: def.category,
       energy: def.energy,
       cost: def.costFn ? def.costFn(ctx, me, st) : def.cost,
-      reason,
+      reason: reason ? genderize(reason, g) : null,
       crime: def.crime ? { label: CRIMES[def.crime].label, sphere: SPHERE_LABEL[CRIMES[def.crime].sphere], law: CRIMES[def.crime].law(year) } : undefined,
       confirm: def.confirm,
       params: (def.params ?? []).map((p) => ({

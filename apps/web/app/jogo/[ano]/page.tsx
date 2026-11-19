@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { addDays, electionNight, pendingOf, roundDue, roundView, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
+import { addDays, electionNight, genderizeEvent, genderOf, pendingOf, roundDue, roundView, stageTitle, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
@@ -12,7 +12,6 @@ import { TimeMachine, type RoundInfo } from "@/components/game/TimeMachine";
 import { StoryInbox } from "@/components/game/StoryCenter";
 import { Icon } from "@/components/Icon";
 import { PersonAvatar } from "@/components/PersonAvatar";
-import { STAGE_LABEL } from "@/components/ui";
 import { fmtDate, fmtDec, fmtMoney, fmtPct } from "@/lib/format";
 import { agenda, careerSteps, pending, type Step } from "@/lib/game-view";
 import { getSession, playerState, requireMe } from "@/lib/game";
@@ -77,7 +76,8 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const firstName = me.person.name.split(" ")[0];
   const pendCount = todo.invites.length + todo.offers.length + todo.investigations + todo.partyRequests.length;
   // com as travas de agora (dinheiro e energia mudam depois que o acontecimento chega)
-  const storyPending = pendingOf(state, meNow, me.state);
+  const g = genderOf(meNow);
+  const storyPending = pendingOf(state, meNow, me.state).map((ev) => genderizeEvent(ev, g));
 
   // primeiros passos: cada um se completa pelo que o jogador já fez no mundo
   const tutorialOff = (await cookies()).get(`dp_tutorial_${year}`)?.value === "off";
@@ -161,7 +161,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
 
   return (
     <>
-      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${STAGE_LABEL[me.person.stage]}${me.party ? ` do ${me.party.acronym}` : ""}, ${Number(myDate.slice(0, 4)) - me.person.birth_year} anos. Veja o que fazer agora, passe o tempo e acompanhe o país.`}>
+      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${stageTitle(me.person.stage, g)}${me.party ? ` do ${me.party.acronym}` : ""}, ${Number(myDate.slice(0, 4)) - me.person.birth_year} anos. Veja o que fazer agora, passe o tempo e acompanhe o país.`}>
         <a className="ui-btn ui-btn--gold" href={`/jogo/${year}/carreira`}>
           <Icon name="play" size={16} /> <span>Agir na carreira</span>
         </a>

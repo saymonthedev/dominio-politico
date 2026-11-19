@@ -1,4 +1,4 @@
-import { ACHIEVEMENTS, careerScore, OFFICES } from "@dp/engine";
+import { ACHIEVEMENTS, careerScore, OFFICES, genderOf, officeTitle, stageTitle } from "@dp/engine";
 import { Empty, GameHeader, Panel, Pill } from "@/components/game/Page";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { avatarOf } from "@/lib/avatar";
@@ -50,7 +50,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                 <div className="rank__who">
                   <b>{r.p.name}</b>
                   <span>
-                    {r.p.office_code ? OFFICES[r.p.office_code].name : STAGE_LABEL[r.p.stage] ?? r.p.stage} · {r.party?.acronym ?? "sem partido"} · {r.p.uf}
+                    {r.p.office_code ? officeTitle(r.p.office_code, genderOf(r.p)) : stageTitle(r.p.stage, genderOf(r.p))} · {r.party?.acronym ?? "sem partido"} · {r.p.uf}
                   </span>
                 </div>
                 <Pill tone="sim">{r.achs} conquistas</Pill>

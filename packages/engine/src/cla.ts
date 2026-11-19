@@ -1,7 +1,8 @@
 import { joinParty, relKey } from "./affiliation";
 import { ageAt, formatDatePt } from "./calendar";
 import { checkEligibility, emptyCampaign, ensureRace, geoName } from "./elections";
-import { familyOf, familyStateOf, looksFemale, roleLabel, type FamilyMember } from "./family";
+import { familyOf, familyStateOf, roleLabel, type FamilyMember } from "./family";
+import { genderOf, looksFemale } from "./gender";
 import { worldPriceLevel } from "./finance";
 import { hasMunicipalElections } from "./geo";
 import { ensureHousing } from "./housing";
@@ -121,6 +122,7 @@ export function launchRelative(ctx: Ctx, me: PersonRow, st: PersonStateRow, memb
     id: ctx.id("per", me.id, m.id),
     kind: "FICTIONAL_GENERATED",
     name,
+    gender: m.female ? "F" : "M",
     birthYear: m.born,
     uf: me.uf,
     municipality: me.municipality,
@@ -224,7 +226,8 @@ export function heirOptions(ctx: Ctx, titular: PersonRow, st: PersonStateRow): A
 /** A família do herdeiro: a do titular (pais, cônjuge, filhos), não uma sorteada. */
 function heirOrigin(ctx: Ctx, titular: PersonRow, st: PersonStateRow, heir: FamilyMember, dead: boolean): { origin: FamilyMember[]; gone: string[] } {
   const fam = familyOf(ctx, titular, st);
-  const tFemale = looksFemale(titular.name.split(" ")[0] ?? "");
+  const tg = genderOf(titular);
+  const tFemale = tg ? tg === "F" : looksFemale(titular.name.split(" ")[0] ?? "");
   const me: FamilyMember = { id: "titular", role: "PAI", name: titular.name, born: titular.birth_year, bond: 85, female: tFemale };
   const origin: FamilyMember[] = [];
   if (heir.role === "FILHO") {
@@ -285,6 +288,7 @@ export function createHeir(ctx: Ctx, input: { userId: string; titularId: string;
       id: ctx.id("per_p", input.userId, pick.member.id),
       kind: "PLAYER",
       name: finalName,
+      gender: pick.member.female ? "F" : "M",
       birthYear: pick.member.born,
       uf: titular.uf,
       municipality: titular.municipality,

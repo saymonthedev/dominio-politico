@@ -1,4 +1,5 @@
 import { ageAt } from "./calendar";
+import { looksFemale } from "./gender";
 import { jitter, type Ideology } from "./ideology";
 import { distinctName, freshName, PROFESSIONS } from "./names";
 import type { Rng } from "./rng";
@@ -134,6 +135,8 @@ export interface NewPersonInput {
   userId?: string | null;
   filiationDate?: string | null;
   domicileSince: string;
+  /** mulher ou homem; sem isso, o personagem fictício segue o primeiro nome (gender.ts) */
+  gender?: "F" | "M" | null;
   createdTick: number;
   worldId: string;
 }
@@ -157,6 +160,7 @@ export function buildPerson(input: NewPersonInput): { person: PersonRow; state: 
     visibility: input.visibility,
     ideology: input.ideology,
     status: "ACTIVE",
+    gender: input.gender ?? null,
     status_note: null,
     office_code: null,
     office_geo: null,
@@ -257,6 +261,7 @@ export function spawnProceduralCadre(
     id,
     kind: "FICTIONAL_GENERATED",
     name,
+    gender: looksFemale(name) ? "F" : "M",
     birthYear,
     uf: opts.uf,
     municipality: opts.municipality ?? "",

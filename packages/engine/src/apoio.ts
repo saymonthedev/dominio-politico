@@ -122,7 +122,7 @@ function addEndorsement(ctx: Ctx, me: PersonRow, c: CandidacyRow, kind: Endorsem
   ctx.save("candidacies", c);
   const x = ctx.person(c.person_id);
   if (x?.kind === "PLAYER")
-    ctx.notify(x.id, kind === "SUCESSOR" ? "Você é o(a) sucessor(a) indicado(a)!" : "Novo apoio à sua candidatura", `${me.name} (${a.role}) declarou apoio à sua candidatura${kind === "SUCESSOR" ? " como sucessor(a) no cargo" : ""}. O apoio soma na votação enquanto ${me.name.split(" ")[0]} seguir na vida pública.`, "/jogo/campanha");
+    ctx.notify(x.id, kind === "SUCESSOR" ? "Você foi indicado(a) para a sucessão!" : "Novo apoio à sua candidatura", `${me.name} (${a.role}) declarou apoio à sua candidatura${kind === "SUCESSOR" ? " como sucessor(a) no cargo" : ""}. O apoio soma na votação enquanto ${me.name.split(" ")[0]} seguir na vida pública.`, "/jogo/campanha");
   return a;
 }
 

@@ -12,31 +12,38 @@ import { Icon } from "../Icon";
 const SHAPES = new Set<AvatarKey>(["hair", "facial", "glasses", "top"]);
 
 /** Botão "Editar visual" e a janela de montar o avatar (só aparência: não gasta tempo nem energia). */
-export function AvatarEditor({ year, code }: { year: number; code: string }) {
+export function AvatarEditor({ year, code, gender = null }: { year: number; code: string; gender?: "F" | "M" | null }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button type="button" tone="ghost" size="sm" icon="user" onClick={() => setOpen(true)}>
         Editar visual
       </Button>
-      {open && <AvatarDialog year={year} code={code} onClose={() => setOpen(false)} />}
+      {open && <AvatarDialog year={year} code={code} gender={gender} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function AvatarDialog({ year, code, onClose }: { year: number; code: string; onClose: () => void }) {
+const GENDERS: Array<{ value: "F" | "M" | null; label: string }> = [
+  { value: "F", label: "Mulher" },
+  { value: "M", label: "Homem" },
+  { value: null, label: "Prefiro não dizer" },
+];
+
+function AvatarDialog({ year, code, gender, onClose }: { year: number; code: string; gender: "F" | "M" | null; onClose: () => void }) {
   const box = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [spec, setSpec] = useState<AvatarSpec>(() => parseAvatar(code) ?? parseAvatar(randomAvatar())!);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [who, setWho] = useState<"F" | "M" | null>(gender);
   useModal(box, true, () => !pending && onClose());
   const current = avatarCode(spec);
   const set = (key: AvatarKey, v: number) => setSpec((s) => ({ ...s, [key]: v }));
   const save = () =>
     start(async () => {
       setError(null);
-      const r = await saveAvatar(year, current);
+      const r = await saveAvatar(year, current, who);
       if (!r.ok) return setError(r.message);
       router.refresh();
       onClose();
@@ -57,6 +64,17 @@ function AvatarDialog({ year, code, onClose }: { year: number; code: string; onC
             </Button>
           </div>
         </div>
+        <fieldset className="avedit__part avedit__gender">
+          <legend>Personagem</legend>
+          <div className="seg" role="radiogroup" aria-label="Gênero do personagem">
+            {GENDERS.map((g) => (
+              <button key={g.label} type="button" role="radio" aria-checked={who === g.value} className={who === g.value ? "on" : ""} onClick={() => setWho(g.value)}>
+                {g.label}
+              </button>
+            ))}
+          </div>
+          <p className="muted small">Muda como o jogo fala do personagem: {who === "F" ? "eleita, vereadora, cidadã" : who === "M" ? "eleito, vereador, cidadão" : "eleito(a), vereador(a), cidadão(ã)"}.</p>
+        </fieldset>
         <div className="avedit__parts">
           {AVATAR_PARTS.map((part) => (
             <fieldset key={part.key} className="avedit__part">
@@ -88,7 +106,7 @@ function AvatarDialog({ year, code, onClose }: { year: number; code: string; onC
             Cancelar
           </Button>
           <Button type="button" tone="gold" icon="check" loading={pending} onClick={save}>
-            Salvar visual
+            Salvar
           </Button>
         </div>
       </div>

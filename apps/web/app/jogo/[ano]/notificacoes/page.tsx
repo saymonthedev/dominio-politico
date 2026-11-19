@@ -1,3 +1,4 @@
+import { genderize, genderOf } from "@dp/engine";
 import { InviteActions } from "@/components/game/InviteActions";
 import type { AffiliationRequestRow, NotificationRow, PartyRow } from "@dp/engine";
 import { PartyMark } from "@/components/PartyMark";
@@ -22,6 +23,7 @@ function iconOf(title: string): string {
 export default async function Page({ params }: { params: Promise<{ ano: string }> }) {
   const year = Number((await params).ano);
   const me = await requireMe(year);
+  const g = genderOf(me.person);
   const { sb } = await getSession();
   const [nQ, reqQ, parties] = await Promise.all([
     sb.from("notifications").select("*").eq("world_id", me.worldId).order("tick", { ascending: false }).limit(150),
@@ -68,10 +70,10 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                         </span>
                         <div>
                           <div className="ntl__title">
-                            {href && !invite ? <a href={href}>{n.title}</a> : <b>{n.title}</b>}
+                            {href && !invite ? <a href={href}>{genderize(n.title, g)}</a> : <b>{genderize(n.title, g)}</b>}
                             {!n.read_at && <Pill tone="gold">nova</Pill>}
                           </div>
-                          <p>{n.body}</p>
+                          <p>{genderize(n.body, g)}</p>
                           {invite && openInvites.has(invite) && (
                             <InviteActions year={year} invite={invite} className="ntl__actions" />
                           )}

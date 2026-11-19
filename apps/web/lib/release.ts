@@ -12,15 +12,14 @@ export interface Release {
 
 /** Com a assinatura ligada (chave do Mercado Pago na Vercel). */
 export const RELEASE: Release = {
-  id: "2026-11-19-estabilidade",
+  id: "2026-11-19-genero",
   date: "19 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "Pedimos desculpas pela lentidão e pelas quedas de ontem e de hoje cedo. Achamos a causa e mudamos o jeito de carregar o mundo.",
+  lede: "O jogo agora fala do seu personagem do jeito certo, e o calendário eleitoral voltou a andar completo em todos os mundos.",
   items: [
-    { icon: "zap", text: "Cada servidor novo lia o mundo inteiro do banco de dados, e no pico de jogadores o banco engasgou: as telas travavam no Continuar e o login demorava. Agora o mundo vem de uma cópia guardada fora do banco, só o que mudou é lido, e só um servidor por vez monta cada mundo." },
-    { icon: "lock", text: "Conferir o seu login não depende mais de esperar o servidor de login a cada acesso." },
-    { icon: "check", text: "Nenhuma decisão que segura o tempo fica mais sem saída: sem energia ou dinheiro para as opções, a opção padrão fica liberada. Na largada da campanha, a coordenação sai do caixa da campanha e há uma largada sem custo." },
+    { icon: "user", text: "Diga se o seu personagem é mulher ou homem (ou prefira não dizer) ao criar o personagem, ou em Carreira, no botão de editar o visual. Para as personagens mulheres, o jogo escreve eleita, vereadora, deputada e cidadã." },
     { icon: "calendar", text: "Em alguns mundos, dias do calendário eleitoral eram pulados na janela de troca de partido (como a pesquisa de março). Corrigido." },
+    { icon: "heart", text: "As novidades sugeridas pelos jogadores chegam com o aviso de Concluída, com o nome de quem sugeriu. Obrigado por apoiar o jogo!" },
   ],
 };
 

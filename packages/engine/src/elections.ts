@@ -1,3 +1,4 @@
+import { genderOf, officeTitle } from "./gender";
 import { addDays, ageAt, diffDays, formatDatePt, year, type ISODate } from "./calendar";
 import { canonicalGeo, type CityBase, cityCouncilSeats, getUF, hasMunicipalElections, isCapital, isMunicipality, stateSeats, ufOfMunicipality, UFS, UF_BY_CODE } from "./geo";
 import { activeCities, cityName, snapshotTerritory } from "./cities";
@@ -457,7 +458,7 @@ export function runConventions(ctx: Ctx, e: ElectionRow): void {
       ctx.save("candidacies", cand);
       chosen.stage = "CANDIDATO";
       ctx.save("persons", chosen);
-      if (cand.is_player) ctx.notify(chosen.id, "Você é candidato(a)!", `A convenção do ${party.acronym} confirmou seu nome para ${OFFICES[race.office_code].name} em ${geoName(race.geo, ctx.s)}.`, "/jogo/campanha");
+      if (cand.is_player) ctx.notify(chosen.id, "Você é candidato(a)!", `A convenção do ${party.acronym} confirmou seu nome para ${officeTitle(race.office_code, genderOf(chosen))} em ${geoName(race.geo, ctx.s)}.`, "/jogo/campanha");
       if (race.office_code === "PRESIDENTE" || race.office_code === "GOVERNADOR" || cand.is_player) {
         ctx.publish("CONVENTION_RESULT", {
           facts: {

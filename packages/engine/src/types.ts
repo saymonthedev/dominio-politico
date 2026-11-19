@@ -71,6 +71,8 @@ export interface PersonRow {
   visibility: number;
   ideology: Ideology;
   status: "ACTIVE" | "RETIRED";
+  /** mulher ou homem, quando se sabe (jogador escolhe; ver gender.ts); null = não informado */
+  gender?: "F" | "M" | null;
   status_note: string | null;
   office_code: OfficeCode | null;
   office_geo: string | null;

@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { dropUserPhotos } from "@/lib/suggestions";
 import { redirect } from "next/navigation";
-import { createCharacter, createHeir, performAction, type ActionResult, type WorldState } from "@dp/engine";
+import { createCharacter, createHeir, genderize, genderOf, isGender, performAction, stageTitle, type ActionResult, type Gender, type WorldState } from "@dp/engine";
 import { activePersonId, getSession, myActiveCharacters, myCharacters, myWorldId } from "@/lib/game";
 import { supabaseServer } from "@/lib/supabase/server";
 import { isAvatarCode } from "@/lib/avatar-code";
@@ -149,6 +149,7 @@ export async function createCharacterAction(_: ActionState, form: FormData): Pro
           origin: String(form.get("origin") ?? ""),
           interests: form.getAll("interests").map(String),
           ideology,
+          gender: isGender(form.get("gender")) ? (form.get("gender") as Gender) : null,
         }),
       ),
     );
@@ -178,7 +179,12 @@ export async function doAction(_: ActionState, form: FormData): Promise<ActionSt
         if (state.t.persons.get(st.id)?.user_id !== user.id) return { ok: false, message: "Personagem não pertence a esta conta." };
         const before = vitalsOf(state, st.id);
         const r = performAction(mk(st.id), st.id, actionId, params);
-        return r.ok ? { ...r, ...diffVitals(before, vitalsOf(state, st.id)) } : r;
+        // o resultado no gênero do personagem ("Você está cansada"; a etapa nova como "Filiada")
+        const g = genderOf(state.t.persons.get(st.id));
+        const said = { ...r, message: genderize(r.message, g) };
+        if (!r.ok) return said;
+        const d = diffVitals(before, vitalsOf(state, st.id));
+        return { ...said, ...d, stage: d.stage ? { from: stageTitle(d.stage.from, g), to: stageTitle(d.stage.to, g) } : undefined };
       }),
     );
     revalidatePath(`/jogo/${year}`, "layout");
@@ -189,8 +195,11 @@ export async function doAction(_: ActionState, form: FormData): Promise<ActionSt
   }
 }
 
-/** Visual do personagem (só aparência): fica com a vida do personagem, sem gastar tempo nem energia. */
-export async function saveAvatar(year: number, code: string): Promise<{ ok: boolean; message: string }> {
+/**
+ * Visual do personagem (só aparência): fica com a vida do personagem, sem gastar tempo nem energia.
+ * Junto, o gênero do personagem (mulher, homem ou não dizer), que muda só como os textos falam dele.
+ */
+export async function saveAvatar(year: number, code: string, gender?: Gender | null): Promise<{ ok: boolean; message: string }> {
   const { sb, user } = await getSession();
   if (!user) return { ok: false, message: "Sessão expirada. Entre novamente." };
   if (!isStartYear(year) || !isAvatarCode(code)) return { ok: false, message: "Visual inválido." };
@@ -203,7 +212,13 @@ export async function saveAvatar(year: number, code: string): Promise<{ ok: bool
         const st = state.t.person_states.get(pid);
         if (state.t.persons.get(pid)?.user_id !== user.id || !st?.story) return false;
         st.story.avatar = code;
-        mk(pid).save("person_states", st);
+        const ctx = mk(pid);
+        ctx.save("person_states", st);
+        const p = state.t.persons.get(pid)!;
+        if (gender !== undefined && (gender === null || isGender(gender)) && (p.gender ?? null) !== gender) {
+          p.gender = gender;
+          ctx.save("persons", p);
+        }
         return true;
       }),
     );

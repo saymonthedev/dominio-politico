@@ -1,5 +1,4 @@
-import type { PersonRow, PersonStateRow, WorldState } from "@dp/engine";
-import { STAGE_LABEL } from "@/components/ui";
+import { genderOf, stageTitle, type PersonRow, type PersonStateRow, type WorldState } from "@dp/engine";
 
 /** Atributo da barra lateral (com meta, se houver, e a explicação do que é). */
 export interface VitalAttr {
@@ -47,7 +46,7 @@ export function sideVitals(person: PersonRow, st: PersonStateRow, hasParty: bool
     ...(st.scandal > 0 ? [{ label: "Escândalo", value: st.scandal, bad: true, hint: "Desgaste por denúncias e polêmicas." }] : []),
   ];
   return {
-    stage: STAGE_LABEL[person.stage] ?? person.stage,
+    stage: stageTitle(person.stage, genderOf(person)),
     energy: Math.round(st.energy),
     money: Math.round(st.money),
     reputation: Math.round(person.reputation),

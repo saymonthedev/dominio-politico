@@ -1,4 +1,4 @@
-import { approvalLabel, OFFICES, geoName, PROPOSAL_RESULT_LABEL, PROPOSAL_STAGE_LABEL, stageProgress, type BillRow, type MandateRow, type PolicyRow, type Proposal } from "@dp/engine";
+import { approvalLabel, OFFICES, geoName, PROPOSAL_RESULT_LABEL, PROPOSAL_STAGE_LABEL, stageProgress, type BillRow, type MandateRow, type PolicyRow, type Proposal, genderOf, officeTitle } from "@dp/engine";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
@@ -82,7 +82,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                     <Pill tone={MANDATE[active.status].tone}>{MANDATE[active.status].label}</Pill>
                   </div>
                   <h2>
-                    {OFFICES[active.office_code].name} · {geoName(active.geo, { cities })}
+                    {officeTitle(active.office_code, genderOf(me.person))} · {geoName(active.geo, { cities })}
                   </h2>
                   <p className="mono">
                     {fmtDate(active.start_on)} → {fmtDate(active.end_on)}
