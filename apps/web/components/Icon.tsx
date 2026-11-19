@@ -28,6 +28,7 @@ const PATHS: Record<string, string> = {
   mail: "M3 5h18v14H3z M3 6l9 7 9-7",
   user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
   x: "M6 6l12 12 M18 6L6 18",
+  shuffle: "M16 3h5v5 M4 20L21 3 M21 16v5h-5 M15 15l6 6 M4 4l5 5",
   download: "M12 3v12 M7 10l5 5 5-5 M4 21h16",
   trash: "M3 6h18 M8 6V4h8v2 M6 6l1 15h10l1-15 M10 11v6 M14 11v6",
   globe: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M2 12h20 M12 2a15 15 0 0 1 0 20 M12 2a15 15 0 0 0 0 20",

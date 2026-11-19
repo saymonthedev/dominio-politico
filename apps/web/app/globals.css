@@ -3332,6 +3332,34 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .missions li.is-done { border-color: color-mix(in srgb, var(--mata) 45%, var(--linha)); }
 .missions li.is-done em { background: var(--mata); }
 
+/* Criar rápido (novo personagem): nome sugerido, gênero e estado; o resto no padrão */
+.cf-col { display: grid; gap: 16px; min-width: 0; }
+.qc { display: grid; gap: 14px; padding: 22px 24px; border-radius: 18px; background: color-mix(in srgb, var(--faixa) 9%, var(--cartao)); border: 1.5px solid color-mix(in srgb, var(--faixa) 45%, var(--linha)); box-shadow: var(--shadow); }
+.qc__head { display: grid; gap: 4px; }
+.qc__kicker { display: inline-flex; align-items: center; gap: 7px; font-size: .74rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faixa-texto); }
+.qc__head h2 { margin: 0; font-size: 1.15rem; }
+.qc__head p { margin: 0; color: var(--apagado); font-size: .88rem; line-height: 1.55; }
+.qc__fields { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 220px); gap: 14px; align-items: end; }
+.qc__fields .ui-field { margin-bottom: 0; }
+.qc__seg { display: inline-flex; padding: 4px; gap: 4px; border-radius: 12px; background: var(--rebaixada); border: 1.5px solid var(--linha); }
+.qc__seg button { all: unset; box-sizing: border-box; cursor: pointer; padding: 9px 14px; border-radius: 9px; font-size: .88rem; font-weight: 600; color: var(--apagado); }
+.qc__seg button[aria-pressed="true"] { background: var(--tinta); color: var(--cartao); }
+.qc__seg button:focus-visible, .qc__dice:focus-visible { outline: 2px solid var(--faixa); outline-offset: 2px; }
+.qc__name { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.qc__dice { all: unset; box-sizing: border-box; cursor: pointer; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; border: 1.5px solid var(--linha); background: var(--cartao); color: var(--tinta); }
+.qc__dice:hover { border-color: var(--faixa); }
+.qc__foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.qc__foot p { margin: 0; flex: 1 1 260px; color: var(--apagado); font-size: .84rem; line-height: 1.5; }
+.cf-or { display: flex; align-items: center; gap: 12px; color: var(--apagado); font-size: .82rem; }
+.cf-or::before, .cf-or::after { content: ""; flex: 1; height: 1px; background: var(--linha); }
+@media (max-width: 760px) {
+  .qc { padding: 18px 16px; }
+  .qc__fields { grid-template-columns: minmax(0, 1fr); }
+  .qc__seg { display: flex; }
+  .qc__seg button { flex: 1; text-align: center; }
+  .qc__foot .ui-btn { flex: 1 1 100%; justify-content: center; }
+}
+
 /* Convide amigos (Minha conta): cartão no tema do jogo, igual no claro e no escuro */
 .ivc { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: center; padding: 28px; border-radius: 20px; color: #fff; overflow: hidden;
   background: radial-gradient(120% 140% at 100% 0%, rgba(212, 165, 60, .22) 0%, transparent 46%), linear-gradient(160deg, #163059 0%, var(--planalto) 62%, #081629 100%);

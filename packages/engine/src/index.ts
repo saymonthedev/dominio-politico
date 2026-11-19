@@ -37,6 +37,7 @@ export * from "./parties";
 export * from "./partycampaign";
 export * from "./partyfounding";
 export * from "./partypost";
+export * from "./quickname";
 export * from "./rng";
 export * from "./ruleset";
 export * from "./segments";

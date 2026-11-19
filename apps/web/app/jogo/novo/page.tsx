@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AXES, AXIS_INFO, CAPITAL_IBGE, ORIGINS, PROFESSIONS, profileFor, UFS } from "@dp/engine";
-import { CharacterForm } from "@/components/CharacterForm";
+import { CharacterForm, type QuickStart } from "@/components/CharacterForm";
 import { Icon } from "@/components/Icon";
 import { AppHeader, Footer, PageHero } from "@/components/SiteChrome";
 import { fmtMonthYear } from "@/lib/format";
+import { suggestNames } from "@/lib/quicknames";
 import { getSession, myActiveCharacters, myCharacters } from "@/lib/game";
 import { countPrivateWorlds, isStartYear, MAX_PRIVATE_WORLDS, modeOfWorld, worldExists, worldIdFor, yearOfWorld } from "@/lib/sim";
 import { START_POINTS } from "@/lib/startpoints";
@@ -44,6 +46,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
   const { data: shared } = await sb.from("worlds").select("game_date").eq("id", worldIdFor(year)).maybeSingle();
   const sharedDate = (shared?.game_date as string | undefined) ?? null;
   const sharedAhead = !!sharedDate && sharedDate.slice(0, 7) > sp.date.slice(0, 7);
+  // Criar rápido: nomes sorteados (nenhum real) e o estado da conexão, quando a Vercel informa
+  const names = await suggestNames(year);
+  const h = await headers();
+  const region = h.get("x-vercel-ip-country") === "BR" ? (h.get("x-vercel-ip-country-region") ?? "").toUpperCase() : "";
+  const quick: QuickStart | null =
+    names.F.length && names.M.length
+      ? { F: names.F, M: names.M, gender: Math.random() < 0.5 ? "F" : "M", uf: UFS.some((u) => u.code === region) ? region : "", capitals: Object.fromEntries(UFS.map((u) => [u.code, u.capital])) }
+      : null;
   const wc = profileFor(sp.winnerParty, year).color;
   const rc = profileFor(sp.rivalParty, year).color;
   return (
@@ -62,6 +72,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
             privateBlocked={privateBlocked}
             start={sp.date}
             sharedDate={sharedDate}
+            quick={quick}
             axes={AXES.map((a) => ({ key: a, label: AXIS_INFO[a].label, neg: AXIS_INFO[a].neg, pos: AXIS_INFO[a].pos }))}
           />
           <aside className="cf-aside">
