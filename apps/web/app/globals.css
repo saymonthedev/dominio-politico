@@ -3279,3 +3279,44 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .cab b { font-size: .86rem; line-height: 1.35; }
 .cab small { font-size: .76rem; color: var(--apagado); }
 .imp-alert p { margin: 0 0 10px; font-size: .86rem; line-height: 1.5; }
+
+/* Planos da assinatura (anual e mensal) e convite */
+.plans { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.plan { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: grid; gap: 2px; padding: 14px 14px 12px; border-radius: 14px; border: 1.5px solid var(--linha); background: var(--cartao); }
+.plan b { font-size: .95rem; }
+.plan__price { font-size: 1.35rem; font-weight: 800; color: var(--tinta); }
+.plan small { font-size: .76rem; color: var(--apagado); }
+.plan__tag { position: absolute; top: -10px; right: 10px; font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; background: var(--faixa); color: #0b1f3a; }
+.plan.is-on { border-color: var(--faixa); box-shadow: 0 0 0 2px var(--faixa); }
+.plan:focus-visible { outline: 2px solid var(--simulacao); outline-offset: 2px; }
+.pay__invite { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0; padding: 12px; border-radius: 12px; border: 1px dashed var(--faixa); color: var(--tinta); text-decoration: none; font-size: .84rem; line-height: 1.45; }
+.pay__invite:hover { background: color-mix(in srgb, var(--faixa) 10%, transparent); }
+@media (max-width: 420px) { .plans { grid-template-columns: 1fr; } }
+
+/* Convite e cartão de compartilhar */
+.invite { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; align-items: center; }
+.invite__card { width: 100%; height: auto; border-radius: 16px; box-shadow: var(--shadow); }
+.invite__cta { display: grid; gap: 10px; justify-items: start; }
+.sharebox { max-width: 640px; }
+.sharebox__body { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 18px; align-items: start; }
+.sharebox__img { width: 100%; height: auto; border-radius: 14px; box-shadow: var(--shadow); background: #0b1f3a; aspect-ratio: 9 / 16; }
+.sharebox__side h2 { margin: 0 0 6px; font-size: 1.1rem; }
+.sharebox__actions { display: grid; gap: 8px; margin: 12px 0; }
+.sharebox__actions .ui-btn { justify-content: center; }
+.sharebox__link { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: var(--rebaixada); font-size: .78rem; overflow: hidden; }
+.sharebox__link .mono { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.refer { display: grid; gap: 12px; }
+.refer__stats { display: flex; gap: 18px; flex-wrap: wrap; font-size: .86rem; }
+.refer__stats b { font-size: 1.2rem; display: block; }
+@media (max-width: 640px) {
+  .invite { grid-template-columns: 1fr; }
+  .sharebox__body { grid-template-columns: 1fr; }
+  .sharebox__img { max-width: 220px; margin: 0 auto; }
+}
+
+/* /admin: tabela da retenção por dia */
+.admin-table { overflow-x: auto; margin-top: 12px; }
+.admin-table table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.admin-table th, .admin-table td { padding: 6px 8px; border-bottom: 1px solid var(--linha); text-align: right; white-space: nowrap; }
+.admin-table thead th { color: var(--apagado); font-weight: 600; }
+.admin-table th[scope="row"], .admin-table thead th:first-child { text-align: left; }

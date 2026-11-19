@@ -2,9 +2,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { isAdmin } from "./admin";
 import { simSecret, SITE_URL, SUPABASE_KEY, SUPABASE_URL } from "./env";
-import { PERIOD_DAYS, PRICE } from "./price";
+import { PLANS, type Plan } from "./price";
 
-export { PERIOD_DAYS, PRICE, PRICE_LABEL } from "./price";
+export { ANNUAL_DAYS, ANNUAL_LABEL, ANNUAL_PRICE, PERIOD_DAYS, PLANS, PRICE, PRICE_LABEL, type Plan } from "./price";
 
 /**
  * Assinatura mensal: R$ 3,50 por 30 dias de jogo (preço em ./price), por Pix pelo Mercado Pago. Só no servidor.
@@ -65,15 +65,19 @@ function mpDate(ms: number): string {
   return `${new Date(ms - 3 * 3_600_000).toISOString().slice(0, 23)}-03:00`;
 }
 
-/** Gera o Pix da assinatura para a conta (o id da conta vai junto, para a conferência saber de quem é). */
-export async function createPix(user: { id: string; email: string }): Promise<PixCharge> {
+/**
+ * Gera o Pix da assinatura para a conta (o id da conta vai junto, para a conferência saber de quem é).
+ * O valor diz o plano: na conferência, a partir de R$ 29 o pagamento soma 365 dias (anual); abaixo, 30.
+ */
+export async function createPix(user: { id: string; email: string }, plan: Plan = "MENSAL"): Promise<PixCharge> {
   const expires = Date.now() + PIX_MINUTES * 60_000;
+  const { price, days } = PLANS[plan];
   const p = await mp<MpPayment>("/v1/payments", {
     method: "POST",
     headers: { "X-Idempotency-Key": crypto.randomUUID() },
     body: JSON.stringify({
-      transaction_amount: PRICE,
-      description: `Domínio Político: assinatura de ${PERIOD_DAYS} dias`,
+      transaction_amount: price,
+      description: `Domínio Político: assinatura de ${days} dias`,
       payment_method_id: "pix",
       payer: { email: user.email },
       external_reference: user.id,
@@ -93,7 +97,7 @@ export interface PaymentCheck {
 }
 
 /**
- * Confere um pagamento no Mercado Pago e registra (idempotente): aprovado soma 30 dias à conta dele;
+ * Confere um pagamento no Mercado Pago e registra (idempotente): aprovado soma 30 dias à conta dele (365 no anual);
  * devolvido ou contestado tira. `userId`: a tela só pode conferir pagamentos da própria conta.
  */
 export async function syncPayment(id: string, userId?: string): Promise<PaymentCheck> {

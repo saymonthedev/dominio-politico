@@ -27,7 +27,7 @@ export function SignInForm({ next }: { next: string }) {
   );
 }
 
-export function SignUpForm({ next }: { next: string }) {
+export function SignUpForm({ next, invite }: { next: string; invite?: string | null }) {
   const [state, action] = useActionState<FormState, FormData>(signUp, {});
   if (state.ok)
     return (
@@ -42,6 +42,7 @@ export function SignUpForm({ next }: { next: string }) {
   return (
     <form action={action} noValidate autoComplete="off">
       <input type="hidden" name="next" value={next} />
+      {invite && <input type="hidden" name="convite" value={invite} />}
       <TextField label="E-mail" name="acesso" inputMode="email" icon="mail" placeholder="voce@exemplo.com" />
       <PasswordField label="Senha" name="chave" placeholder="Mínimo de 8 caracteres" showStrength />
       <div style={{ margin: "6px 0 18px" }}>

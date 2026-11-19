@@ -6,6 +6,8 @@ import { CareerTrack } from "@/components/game/CareerTrack";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
 import { StoryHistory } from "@/components/game/StoryHistory";
+import { ShareButton } from "@/components/ShareButton";
+import { careerShare, sharePack } from "@/lib/share";
 import { Icon } from "@/components/Icon";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { AvatarEditor } from "@/components/game/AvatarEditor";
@@ -54,6 +56,12 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
     citiesFor(year),
   ]);
   const pm = partyMap(parties);
+  // cartão para compartilhar a carreira, com o link de convite da conta
+  const code = await sb.rpc("referral_code").then((r) => (typeof r.data === "string" ? r.data : null));
+  const meShare = state.t.persons.get(me.person.id) ?? me.person;
+  const shareBase = code ? careerShare(state, meShare, year) : null;
+  const sp = code && shareBase ? sharePack(code, shareBase.card, shareBase.text) : null;
+  const share = sp ? { link: sp.link, text: sp.text, story: sp.story } : null;
   const actions = actionsFor(state, me.person.id, ["BASE", "PARTIDO"]);
   const lifeActions = actionsFor(state, me.person.id, ["VIDA"]);
   const commandActions = actionsFor(state, me.person.id, ["COMANDO"]);
@@ -87,7 +95,9 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
   return (
     <>
-      <GameHeader kicker="Você" icon="user" title="Minha carreira" lede="Seu personagem, suas ações e o caminho até o próximo degrau. Cada ação gasta energia; passe o tempo no Painel para recuperar." />
+      <GameHeader kicker="Você" icon="user" title="Minha carreira" lede="Seu personagem, suas ações e o caminho até o próximo degrau. Cada ação gasta energia; passe o tempo no Painel para recuperar.">
+        {share && <ShareButton share={share} label="Compartilhar minha carreira" tone="gold" />}
+      </GameHeader>
 
       <Panel className="mb">
         <div className="profile">

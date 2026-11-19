@@ -1526,6 +1526,35 @@ export function adminOverview(): Promise<AdminOverview> {
   return rpc<AdminOverview>("admin_overview", {}, { retries: 0 });
 }
 
+/** Retenção e receita para o /admin (migração 0037): contas, quem voltou, teste → assinatura, receita e convites. */
+export interface AdminRetention {
+  accounts: number;
+  accounts_7d: number;
+  accounts_30d: number;
+  with_character: number;
+  with_character_30d: number;
+  cohort_30d: number;
+  returned_30d: number;
+  active_24h: number;
+  active_7d: number;
+  trials: number;
+  trials_paid: number;
+  paying: number;
+  lapsed_30d: number;
+  revenue_month: number;
+  revenue_30d: number;
+  revenue_total: number;
+  payments_30d: number;
+  annual: number;
+  referrals: number;
+  referrals_rewarded: number;
+  days: Array<{ d: string; new: number; played: number; paid: number; active: number }>;
+}
+
+export function adminRetention(): Promise<AdminRetention> {
+  return rpc<AdminRetention>("admin_retention", {}, { retries: 0 });
+}
+
 /** Dias que o relógio de um mundo compartilhado está atrasado (os próprios só andam quando o dono avança). */
 export function lagDaysOf(w: Pick<AdminWorldRow, "tick" | "anchor_real_at" | "anchor_tick" | "speed">, now = Date.now()): number {
   if (!w.speed || w.anchor_tick == null) return 0;

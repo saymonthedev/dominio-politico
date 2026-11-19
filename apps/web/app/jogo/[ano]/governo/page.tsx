@@ -1,5 +1,7 @@
 import { approvalLabel, OFFICES, geoName, PROPOSAL_RESULT_LABEL, PROPOSAL_STAGE_LABEL, stageProgress, type BillRow, type MandateRow, type PolicyRow, type Proposal, genderOf, officeTitle, cabinetView, chamberName, chamberOf, Ctx, isImpeachment } from "@dp/engine";
 import { VotePanel } from "@/components/game/VotePanel";
+import { ShareButton } from "@/components/ShareButton";
+import { careerShare, sharePack } from "@/lib/share";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
@@ -67,6 +69,10 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const presParty = pres?.party_id ? pm[pres.party_id] : undefined;
   const fiscal = gov.fiscal_stance > 0.1 ? "expansionista" : gov.fiscal_stance < -0.1 ? "contracionista" : "neutra";
   const active = mandates.find((m) => m.status === "ATIVO") ?? mandates.find((m) => m.status === "FUTURO");
+  // quem tem cargo (ou ganhou a eleição) compartilha o mandato, com o link de convite da conta
+  const code = meNow.office_code || active ? await sb.rpc("referral_code").then((r) => (typeof r.data === "string" ? r.data : null)) : null;
+  const shareBase = code ? careerShare(state, meNow, year) : null;
+  const sp = code && shareBase ? sharePack(code, shareBase.card, shareBase.text) : null;
   const story = me.state.story;
   const approval = story?.approval ?? null;
   const approvalLog = story?.approval_log ?? [];
@@ -75,7 +81,9 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
   return (
     <>
-      <GameHeader kicker="O país" icon="landmark" title="Governo e Congresso" lede="Quem governa, a força da base na Câmara e o que está em votação. Com mandato, é aqui que você vota, propõe e fiscaliza." />
+      <GameHeader kicker="O país" icon="landmark" title="Governo e Congresso" lede="Quem governa, a força da base na Câmara e o que está em votação. Com mandato, é aqui que você vota, propõe e fiscaliza.">
+        {sp && <ShareButton share={{ link: sp.link, text: sp.text, story: sp.story }} label="Compartilhar meu mandato" tone="gold" />}
+      </GameHeader>
 
       <div className="kpis mb">
         <Kpi icon="star" label="Aprovação do governo" value={fmtPct(gov.approval, 0)} tone={gov.approval < 35 ? "warn" : undefined} />

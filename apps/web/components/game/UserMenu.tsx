@@ -38,6 +38,9 @@ export function UserMenu({ initials, avatar }: { initials: string; avatar?: stri
           <a href="/conta" role="menuitem">
             <Icon name="user" size={16} /> Minha conta
           </a>
+          <a href="/conta#convite" role="menuitem">
+            <Icon name="gift" size={16} /> Convidar amigos (ganhe 7 dias)
+          </a>
           <a href="/manual" role="menuitem">
             <Icon name="book" size={16} /> Manual
           </a>

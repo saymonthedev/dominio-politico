@@ -22,7 +22,7 @@ export default function Page() {
               { icon: "lock", title: "Fica no jogo", text: "Nada é publicado em redes sociais reais." },
             ]}
           />
-          <UpdatedAt date="14/11/2026" version="1.4" />
+          <UpdatedAt date="19/11/2026" version="1.5" />
         </>
       }
       sections={[
@@ -97,12 +97,12 @@ export default function Page() {
           body: (
             <>
               <p>
-                O acesso ao jogo é por assinatura: R$ 3,50 por 30 dias de jogo, pagos por Pix. O pagamento é processado pelo Mercado Pago, e o acesso libera assim que o Pix é
-                confirmado.
+                O acesso ao jogo é por assinatura, paga por Pix: R$ 3,50 por 30 dias de jogo (mensal) ou R$ 29,90 por 365 dias (anual). O pagamento é processado pelo Mercado
+                Pago, e o acesso libera assim que o Pix é confirmado.
               </p>
               <ul>
                 <li>Conta criada a partir de 13/11/2026 pode jogar 1 hora grátis, uma vez, contada a partir da primeira entrada no jogo. Depois dela, segue a assinatura.</li>
-                <li>Não há renovação automática: cada pagamento vale 30 dias. Renovando antes de vencer, os 30 dias somam ao que ainda falta.</li>
+                <li>Não há renovação automática: cada pagamento vale os dias do plano (30 ou 365). Renovando antes de vencer, os dias somam ao que ainda falta.</li>
                 <li>
                   Com a assinatura vencida, as telas do jogo ficam bloqueadas até um novo pagamento. Os personagens ficam guardados; mundos só seus parados por 90 dias
                   continuam sendo apagados, com aviso por e-mail antes, como já acontecia.
@@ -112,9 +112,13 @@ export default function Page() {
                   <a href={AUTHOR.instagram} target="_blank" rel="noopener">
                     {AUTHOR.handle}
                   </a>{" "}
-                  (art. 49 do Código de Defesa do Consumidor). Com a devolução, os 30 dias daquele pagamento saem da assinatura.
+                  (art. 49 do Código de Defesa do Consumidor). Com a devolução, os dias daquele pagamento saem da assinatura.
                 </li>
                 <li>Você pode apagar a conta quando quiser, em Minha conta. Depois dos 7 dias, o período já pago não é devolvido.</li>
+                <li>
+                  Convite de amigos: cada conta tem um link de convite. Quando alguém cria uma conta nova pelo seu link e faz o primeiro pagamento, você ganha 7 dias de jogo,
+                  uma vez por amigo. Contas criadas só para ganhar dias, ou convites da própria pessoa, não valem e podem ser desfeitos.
+                </li>
                 <li>Se o preço mudar, o aviso vem antes, no jogo; o que já foi pago vale pelo período comprado.</li>
               </ul>
             </>

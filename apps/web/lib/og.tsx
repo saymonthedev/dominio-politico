@@ -77,3 +77,54 @@ export async function ogImage({ kicker, title, accent, lede, duel }: OgContent):
     { ...OG_SIZE, fonts: fonts.length ? fonts : undefined },
   );
 }
+
+/** Tamanho do story do Instagram e do status do WhatsApp. */
+export const STORY_SIZE = { width: 1080, height: 1920 };
+
+export interface CardContent {
+  /** rótulo de cima ("Minha carreira", "Eleita!") */
+  kicker: string;
+  name: string;
+  title: string;
+  lede: string;
+  /** endereço curto do convite, escrito na imagem (o story não tem link clicável) */
+  link: string;
+}
+
+/**
+ * Cartão de compartilhar do jogador (convite de amigos): o personagem, o cargo ou a etapa e o
+ * endereço do convite. Em pé para o story; deitado para a prévia do link no WhatsApp.
+ */
+export async function cardImage({ kicker, name, title, lede, link }: CardContent, story: boolean): Promise<ImageResponse> {
+  const [bold, regular] = await Promise.all([poppins(800), poppins(400)]);
+  const fonts = [
+    ...(bold ? [{ name: "Poppins", data: bold, weight: 800 as const, style: "normal" as const }] : []),
+    ...(regular ? [{ name: "Poppins", data: regular, weight: 400 as const, style: "normal" as const }] : []),
+  ];
+  const s = story ? 1.6 : 1;
+  return new ImageResponse(
+    (
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", position: "relative", background: "linear-gradient(160deg, #10284b 0%, #0b1f3a 60%, #081629 100%)", color: "#fff", fontFamily: "Poppins", padding: story ? "120px 84px 110px" : "56px 72px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 18 * s }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={LOGO} width={64 * s} height={64 * s} alt="" />
+          <div style={{ display: "flex", fontSize: 34 * s, fontWeight: 800, letterSpacing: -0.5 }}>
+            Domínio&nbsp;<span style={{ color: "#d4a53c" }}>Político</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", marginTop: story ? 260 : 44 }}>
+          <div style={{ display: "flex", fontSize: 24 * s, letterSpacing: 4, textTransform: "uppercase", color: "#d4a53c" }}>{kicker}</div>
+          <div style={{ display: "flex", marginTop: 14, fontSize: (name.length > 24 ? 64 : 76) * s, fontWeight: 800, lineHeight: 1.05, letterSpacing: -2 }}>{name}</div>
+          <div style={{ display: "flex", marginTop: 20 * s, fontSize: 36 * s, fontWeight: 800, lineHeight: 1.2, color: "#f4d58d" }}>{title}</div>
+          <div style={{ display: "flex", marginTop: 16 * s, fontSize: 26 * s, lineHeight: 1.4, color: "#c7d2e3" }}>{lede}</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", marginTop: "auto", gap: 10 * s, padding: `${22 * s}px ${26 * s}px`, borderRadius: 22 * s, background: "rgba(255,255,255,.07)", border: "2px solid rgba(212,165,60,.6)" }}>
+          <div style={{ display: "flex", fontSize: 26 * s, fontWeight: 800 }}>Jogue também: crie seu político e chegue ao Planalto</div>
+          <div style={{ display: "flex", fontSize: 24 * s, color: "#f4d58d" }}>{link}</div>
+        </div>
+        <div style={{ display: "flex", position: "absolute", left: 0, right: 0, bottom: 0, height: 10 * s, background: "#d4a53c" }} />
+      </div>
+    ),
+    { ...(story ? STORY_SIZE : OG_SIZE), fonts: fonts.length ? fonts : undefined },
+  );
+}

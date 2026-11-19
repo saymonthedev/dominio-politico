@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { checkPix, startPix } from "@/app/assinar/actions";
 import type { PixCharge } from "@/lib/payments";
+import { PLANS, type Plan } from "@/lib/price";
 import { fmtDay } from "@/lib/format";
 import { Button } from "./forms";
 import { Icon } from "./Icon";
@@ -17,8 +18,12 @@ const mmss = (ms: number) => {
  * Pagamento da assinatura: gera o Pix, mostra o QR Code e o copia e cola, e confere sozinho a cada
  * poucos segundos (com a aba à vista). Caiu o pagamento: agradece e libera o jogo na hora.
  */
-export function Checkout({ price, days, renew }: { price: number; days: number; renew: boolean }) {
-  const priceLabel = `R$ ${price.toFixed(2).replace(".", ",")}`;
+export function Checkout({ renew }: { renew: boolean }) {
+  const [plan, setPlan] = useState<Plan>("ANUAL");
+  const { price, days, label: priceLabel } = PLANS[plan];
+  const monthly = PLANS.MENSAL;
+  // quanto o anual economiza perto de 12 mensais
+  const saving = Math.round((1 - PLANS.ANUAL.price / (monthly.price * 12)) * 100);
   const [phase, setPhase] = useState<Phase>("idle");
   const [charge, setCharge] = useState<PixCharge | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +34,7 @@ export function Checkout({ price, days, renew }: { price: number; days: number; 
   const start = async () => {
     setError(null);
     setPhase("creating");
-    const r = await startPix().catch(() => ({ ok: false as const, message: "Sem conexão. Tente de novo." }));
+    const r = await startPix(plan).catch(() => ({ ok: false as const, message: "Sem conexão. Tente de novo." }));
     if (!r.ok) {
       setError(r.message);
       setPhase("idle");
@@ -141,12 +146,25 @@ export function Checkout({ price, days, renew }: { price: number; days: number; 
 
   return (
     <div className="pay__card">
+      <div className="plans" role="radiogroup" aria-label="Plano da assinatura">
+        <button type="button" role="radio" aria-checked={plan === "ANUAL"} className={`plan${plan === "ANUAL" ? " is-on" : ""}`} onClick={() => setPlan("ANUAL")}>
+          <span className="plan__tag">economize {saving}%</span>
+          <b>Anual</b>
+          <span className="plan__price">{PLANS.ANUAL.label}</span>
+          <small>por {PLANS.ANUAL.days} dias de jogo</small>
+        </button>
+        <button type="button" role="radio" aria-checked={plan === "MENSAL"} className={`plan${plan === "MENSAL" ? " is-on" : ""}`} onClick={() => setPlan("MENSAL")}>
+          <b>Mensal</b>
+          <span className="plan__price">{monthly.label}</span>
+          <small>por {monthly.days} dias de jogo</small>
+        </button>
+      </div>
       <p className="pay__price">
         <b>{priceLabel}</b>
         <span>por {days} dias de jogo</span>
       </p>
       <Button type="button" tone="gold" size="lg" icon="qr" loading={phase === "creating"} onClick={start} disabled={phase === "creating"}>
-        {renew ? `Renovar por mais ${days} dias` : "Pagar com Pix"}
+        {renew ? `Renovar por mais ${days} dias` : `Pagar ${priceLabel} com Pix`}
       </Button>
       {error && (
         <p className="pay__err" role="alert">

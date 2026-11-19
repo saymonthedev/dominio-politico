@@ -6,7 +6,7 @@ import { Sparkline } from "@/components/ui";
 import { isAdmin } from "@/lib/admin";
 import { fmtDate, fmtDec, fmtNum } from "@/lib/format";
 import { getSession } from "@/lib/game";
-import { adminOverview, asPlayer, lagDaysOf, MAX_PRIVATE_WORLDS, modeOfWorld, type AdminOverview, type AdminSharedWorld, type AdminWorldRow } from "@/lib/sim";
+import { adminOverview, adminRetention, asPlayer, lagDaysOf, MAX_PRIVATE_WORLDS, modeOfWorld, type AdminOverview, type AdminRetention, type AdminSharedWorld, type AdminWorldRow } from "@/lib/sim";
 import { adminSuggestions, type AdminSuggestion } from "@/lib/suggestions";
 
 export const metadata: Metadata = { title: "Saúde do jogo", robots: { index: false } };
@@ -149,6 +149,8 @@ export default async function Page() {
   // sugestões dos jogadores: carregam junto, e um erro aqui não derruba o painel
   const suggestionsP = adminSuggestions().catch((e: unknown) => (e instanceof Error ? e.message : String(e)));
   const token = (await sb.auth.getSession()).data.session?.access_token;
+  // retenção e receita: também em paralelo, e um erro aqui não derruba o painel
+  const retentionP = withDeadline(asPlayer(token, () => adminRetention()), DEADLINE_MS).catch(() => null);
   let o: AdminOverview | null = null;
   let failure = "";
   try {
@@ -183,6 +185,9 @@ export default async function Page() {
   const shared: AdminSharedWorld[] = o.shared ?? (o.worlds.filter((w) => modeOfWorld(w.id) === "SHARED") as unknown as AdminSharedWorld[]);
   const rows = new Map(o.worlds.map((w) => [w.id, w]));
   const suggestions = await suggestionsP;
+  const r = (await retentionP) as AdminRetention | null;
+  const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "—");
+  const brl = (v: number) => `R$ ${Number(v).toFixed(2).replace(".", ",")}`;
   const fresh = Array.isArray(suggestions) ? suggestions.filter((x: AdminSuggestion) => x.status === "NOVA").length : 0;
   return (
     <>
@@ -196,6 +201,46 @@ export default async function Page() {
           <Kpi label="Mundos próprios" value={`${own} / ${MAX_PRIVATE_WORLDS}`} note={`${o.worlds.length} mundos no total`} warn={own >= MAX_PRIVATE_WORLDS} />
           <Kpi label="Erros em 24 h" value={fmtNum(o.errors_24h)} note={`${o.errors_7d} em 7 dias`} warn={o.errors_24h > 0} />
         </div>
+        {r && (
+          <section className="admin-world" id="retencao">
+            <header>
+              <h2>Retenção e receita</h2>
+            </header>
+            <div className="kpis">
+              <Kpi label="Contas novas" value={fmtNum(r.accounts_7d)} note={`${r.accounts_30d} em 30 dias · ${pct(r.with_character_30d, r.accounts_30d)} criaram personagem`} />
+              <Kpi label="Voltaram depois do 1º dia" value={pct(r.returned_30d, r.cohort_30d)} note={`${r.returned_30d} de ${r.cohort_30d} que jogaram (contas de 2 a 30 dias)`} warn={r.cohort_30d > 4 && r.returned_30d / r.cohort_30d < 0.3} />
+              <Kpi label="Jogando" value={fmtNum(r.active_24h)} note={`nas últimas 24 h · ${r.active_7d} em 7 dias`} />
+              <Kpi label="Teste grátis → assinatura" value={pct(r.trials_paid, r.trials)} note={`${r.trials_paid} de ${r.trials} testes`} />
+              <Kpi label="Assinantes pagando" value={fmtNum(r.paying)} note={`${r.lapsed_30d} venceram sem renovar em 30 dias · ${r.annual} anuais`} warn={r.lapsed_30d > r.paying / 2} />
+              <Kpi label="Receita do mês" value={brl(r.revenue_month)} note={`${brl(r.revenue_30d)} em 30 dias · ${r.payments_30d} pagamentos · ${brl(r.revenue_total)} no total`} />
+              <Kpi label="Convites" value={fmtNum(r.referrals)} note={`${r.referrals_rewarded} amigos assinaram (7 dias para quem convidou)`} />
+            </div>
+            <div className="admin-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Dia</th>
+                    <th scope="col">Contas novas</th>
+                    <th scope="col">Criaram personagem</th>
+                    <th scope="col">Primeiro pagamento</th>
+                    <th scope="col">Jogaram</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...r.days].reverse().map((d) => (
+                    <tr key={d.d}>
+                      <th scope="row" className="mono">{d.d.slice(8, 10)}/{d.d.slice(5, 7)}</th>
+                      <td className="mono">{d.new}</td>
+                      <td className="mono">{d.played}</td>
+                      <td className="mono">{d.paid}</td>
+                      <td className="mono">{d.active}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
         <section className="admin-world" id="sugestoes">
           <header>
             <h2>Sugestões dos jogadores</h2>

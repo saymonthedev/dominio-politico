@@ -12,15 +12,15 @@ export interface Release {
 
 /** Com a assinatura ligada (chave do Mercado Pago na Vercel). */
 export const RELEASE: Release = {
-  id: "2026-11-19-plenario",
+  id: "2026-11-19-convite",
   date: "19 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "Plenário com painel de votação, impeachment e secretariado para quem governa.",
+  lede: "Chame os amigos e ganhe dias de jogo, mostre a sua carreira nas redes e assine por um ano com desconto.",
   items: [
-    { icon: "ballot", text: "Projeto aprovado na Câmara dos Deputados agora também passa pelo Senado antes de virar lei. Cada votação mostra o painel com sim, não, abstenções e ausentes e o voto de cada bancada, em Governo e Congresso." },
-    { icon: "gavel", text: "Prefeito, governador ou presidente com o governo em frangalhos pode sofrer impeachment: a Câmara Municipal, a Assembleia ou a Câmara e o Senado votam, e são precisos 2/3. Vereadores e deputados votam no painel." },
-    { icon: "users", text: "Quem governa monta o secretariado (ou os ministérios): nomeia, exonera, cria e extingue pastas, e pode dar espaço a partidos aliados." },
-    { icon: "heart", text: "As novidades sugeridas pelos jogadores chegam com o aviso de Concluída, com o nome de quem sugeriu. Obrigado por apoiar o jogo!" },
+    { icon: "gift", text: "Convide amigos: em Minha conta está o seu link. A cada amigo que criar a conta por ele e assinar, você ganha 7 dias de jogo." },
+    { icon: "share", text: "Compartilhe a sua carreira: na Carreira (e no Governo, quem tem mandato), o botão Compartilhar faz um cartão do seu personagem para o story e o WhatsApp, já com o seu link de convite." },
+    { icon: "coins", text: "Plano anual: 365 dias de jogo por R$ 29,90, por Pix, sem renovação automática. O mensal continua igual." },
+    { icon: "heart", text: "Obrigado por jogar e por espalhar o Domínio Político!" },
   ],
 };
 

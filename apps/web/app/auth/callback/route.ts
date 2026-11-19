@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { isInviteCode } from "@/lib/referral";
 import { supabaseServer } from "@/lib/supabase/server";
 
 /**
@@ -31,5 +32,11 @@ export async function GET(request: NextRequest) {
   let ok = false;
   if (code) ok = !(await sb.auth.exchangeCodeForSession(code)).error;
   else if (tokenHash && type) ok = !(await sb.auth.verifyOtp({ token_hash: tokenHash, type })).error;
+  if (ok) {
+    // conta nova que chegou por convite: fica ligada a quem convidou (o banco confere se é nova e se ainda não pagou)
+    const { data } = await sb.auth.getUser();
+    const convite = data.user?.user_metadata?.convite;
+    if (isInviteCode(convite)) await sb.rpc("referral_claim", { p_code: convite });
+  }
   return NextResponse.redirect(new URL(ok ? safe : `/entrar?erro=link&next=${encodeURIComponent(safe)}`, url.origin));
 }

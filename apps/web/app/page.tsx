@@ -8,7 +8,7 @@ import { Icon } from "@/components/Icon";
 import { Footer, PublicHeader } from "@/components/SiteChrome";
 import { StartTrack } from "@/components/StartTrack";
 import { brazilUfPaths } from "@/lib/geo-paths";
-import { paywallOn, PERIOD_DAYS, PRICE, PRICE_LABEL } from "@/lib/payments";
+import { ANNUAL_LABEL, paywallOn, PERIOD_DAYS, PRICE, PRICE_LABEL } from "@/lib/payments";
 import { homeMeta } from "@/lib/seo";
 import { START_POINTS } from "@/lib/startpoints";
 import { TRIAL_LABEL } from "@/lib/price";
@@ -53,7 +53,7 @@ const FAQ = [
   },
   {
     q: "Quanto custa?",
-    a: `Conta nova joga ${TRIAL_LABEL} de graça para experimentar, contada da primeira vez que entra no jogo. Depois, a assinatura é ${PRICE_LABEL} por mês, paga por Pix, sem renovação automática: cada pagamento libera ${PERIOD_DAYS} dias de jogo.`,
+    a: `Conta nova joga ${TRIAL_LABEL} de graça para experimentar, contada da primeira vez que entra no jogo. Depois, a assinatura é ${PRICE_LABEL} por mês (${PERIOD_DAYS} dias) ou ${ANNUAL_LABEL} por ano (365 dias), paga por Pix, sem renovação automática. E quem convida amigos ganha 7 dias de jogo por amigo que assinar.`,
   },
   {
     q: "Dá para jogar no celular?",

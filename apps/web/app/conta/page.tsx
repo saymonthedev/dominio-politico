@@ -9,6 +9,8 @@ import { getSession, myCharacters } from "@/lib/game";
 import { fmtDate } from "@/lib/format";
 import { deleteMyWorld } from "@/app/jogo/actions";
 import { modeOfWorld, yearOfWorld } from "@/lib/sim";
+import { ShareButton } from "@/components/ShareButton";
+import { inviteShare, sharePack } from "@/lib/share";
 
 export const metadata: Metadata = { title: "Minha conta" };
 
@@ -23,6 +25,22 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   const chars = await myCharacters();
   const email = user.email ?? "";
   const own = chars.filter((c) => modeOfWorld(c.world_id) !== "SHARED");
+  // convite de amigos: o código da conta e quantos amigos já vieram e assinaram
+  const [codeQ, statsQ] = await Promise.all([sb.rpc("referral_code"), sb.rpc("referral_stats")]);
+  const code = typeof codeQ.data === "string" ? codeQ.data : null;
+  const stats = (statsQ.data as { invited?: number; rewarded?: number } | null) ?? {};
+  // o nome do personagem vai no cartão (o ativo, se houver); busca pela chave da tabela (mundo e id)
+  let first = "Um amigo";
+  if (chars.length) {
+    const { data } = await sb
+      .from("persons")
+      .select("name, status")
+      .in("world_id", [...new Set(chars.map((c) => c.world_id))])
+      .in("id", chars.map((c) => c.person_id));
+    const rows = (data ?? []) as Array<{ name: string; status: string }>;
+    first = rows.find((r) => r.status === "ACTIVE")?.name ?? rows[0]?.name ?? first;
+  }
+  const invite = code ? sharePack(code, inviteShare(first).card, inviteShare(first).text) : null;
   return (
     <>
       <AppHeader />
@@ -53,6 +71,34 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
               <Icon name="flag" size={18} /> <span>Meus mundos</span>
             </a>
           </section>
+
+          {invite && (
+            <section className="account-card" id="convite">
+              <div className="refer">
+                <div>
+                  <h2 style={{ margin: 0 }}>
+                    <Icon name="gift" size={20} /> Convide amigos e ganhe dias de jogo
+                  </h2>
+                  <p className="muted small" style={{ margin: "6px 0 0" }}>
+                    Mande o seu link no WhatsApp ou poste o cartão no story. A cada amigo que criar a conta pelo seu link e assinar, você ganha <b>7 dias de jogo</b>, somados à sua assinatura.
+                  </p>
+                </div>
+                <div className="refer__stats">
+                  <div>
+                    <b>{stats.invited ?? 0}</b>
+                    <span className="muted small">{(stats.invited ?? 0) === 1 ? "amigo entrou" : "amigos entraram"} pelo seu link</span>
+                  </div>
+                  <div>
+                    <b>{(stats.rewarded ?? 0) * 7} dias</b>
+                    <span className="muted small">ganhos com {stats.rewarded ?? 0} {(stats.rewarded ?? 0) === 1 ? "amigo que assinou" : "amigos que assinaram"}</span>
+                  </div>
+                </div>
+                <div>
+                  <ShareButton share={{ link: invite.link, text: invite.text, story: invite.story }} label="Convidar amigos" tone="gold" />
+                </div>
+              </div>
+            </section>
+          )}
 
           {own.map((c) => (
             <section key={c.world_id} className="account-card account-card--form danger">

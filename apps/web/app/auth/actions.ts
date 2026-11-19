@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { SITE_URL } from "@/lib/env";
+import { isInviteCode } from "@/lib/referral";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export type FormState = { ok?: boolean; error?: string; message?: string; code?: string };
@@ -37,12 +38,15 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   if (password.length < 8) return { error: "A senha precisa ter pelo menos 8 caracteres." };
   const sb = await supabaseServer();
   const next = safeNext(form.get("next"));
+  // convite de um amigo: fica na conta e vale na confirmação do e-mail (em qualquer aparelho)
+  const invite = form.get("convite");
+  const convite = isInviteCode(invite) ? invite.toUpperCase() : null;
   const { data, error } = await sb.auth.signUp({
     email,
     password,
     options: {
       emailRedirectTo: callback(next),
-      data: { age_confirmed: true, accepted_terms_at: new Date().toISOString() },
+      data: { age_confirmed: true, accepted_terms_at: new Date().toISOString(), ...(convite ? { convite } : {}) },
       ...captcha(form),
     },
   });
@@ -50,7 +54,10 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
     if (/captcha/i.test(error.message)) return { error: "Confirme que você não é um robô e tente de novo." };
     return { error: error.message.includes("registered") ? "Este e-mail já tem conta. Entre com sua senha." : `Não foi possível criar a conta: ${error.message}` };
   }
-  if (data.session) redirect(next);
+  if (data.session) {
+    if (convite) await sb.rpc("referral_claim", { p_code: convite });
+    redirect(next);
+  }
   return { ok: true, message: "Conta criada! Enviamos um link de confirmação para o seu e-mail. Depois de confirmar, é só entrar." };
 }
 
