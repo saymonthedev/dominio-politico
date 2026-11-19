@@ -44,6 +44,8 @@ export interface StoryChoice {
   cost?: { money?: number; energy?: number };
   /** motivo de estar indisponível */
   locked?: string | null;
+  /** liberada porque todas as outras estão travadas agora (a decisão nunca fica sem saída) */
+  freed?: string;
 }
 
 export interface StoryWho {

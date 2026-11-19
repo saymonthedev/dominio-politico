@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { SUPABASE_KEY, SUPABASE_URL } from "../env";
+import { PUBLIC_JWKS } from "./jwks";
 import { pause, transientAuthError } from "./transient";
 
 /**
@@ -45,11 +46,11 @@ function toUser(c: { sub?: string; email?: unknown } | null | undefined): Sessio
  */
 export async function currentUser() {
   let sb = await supabaseServer();
-  let { data, error } = await sb.auth.getClaims();
+  let { data, error } = await sb.auth.getClaims(undefined, { jwks: PUBLIC_JWKS });
   if (!data?.claims && transientAuthError(error)) {
     await pause(600);
     sb = await supabaseServer();
-    ({ data, error } = await sb.auth.getClaims());
+    ({ data, error } = await sb.auth.getClaims(undefined, { jwks: PUBLIC_JWKS }));
   }
   return { sb, user: toUser(data?.claims) };
 }

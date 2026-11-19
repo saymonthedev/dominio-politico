@@ -1,15 +1,15 @@
 import { addDays, diffDays } from "../calendar";
 import { usesRounds } from "../clock";
 import { isJailed } from "../crime";
-import type { Ctx, WorldState } from "../state";
-import type { PersonRow } from "../types";
+import { Ctx, type WorldState } from "../state";
+import type { PersonRow, PersonStateRow } from "../types";
 import { STORY_DEFS } from "./catalog";
 import { StoryCtx } from "./context";
 import type { ChoiceDef, EventDef } from "./def";
 import { Effects } from "./effects";
 import { dailyLife } from "./life";
 import { count, promote, pushLog, storyOf } from "./state";
-import type { Binding, StoryDelta, StoryEvent, StoryLogEntry } from "./types";
+import type { Binding, StoryChoice, StoryDelta, StoryEvent, StoryLogEntry } from "./types";
 
 /**
  * Diretor de eventos. Todo dia, para cada jogador:
@@ -54,6 +54,30 @@ function lockReason(c: StoryCtx, b: Binding, ch: ChoiceDef): string | null {
   if (ch.cost?.money && c.st.money < ch.cost.money) return `Exige ${`R$ ${Math.round(ch.cost.money).toLocaleString("pt-BR")}`}.`;
   if (ch.cost?.energy && c.st.energy < ch.cost.energy) return `Exige ${ch.cost.energy} de energia.`;
   return ch.requires?.(c, b) ?? null;
+}
+
+/** Texto da opção liberada quando nenhuma outra cabe no dinheiro, na energia ou nos requisitos de agora. */
+export const FREED_NOTE = "Liberada: agora você não tem energia, dinheiro ou condição para as outras opções.";
+
+/**
+ * As escolhas como valem agora: o dinheiro, a energia e os requisitos mudam depois que o
+ * acontecimento chega (com uma decisão segurando o tempo, nada se recupera sozinho). Uma decisão
+ * nunca fica sem saída: com todas travadas, a opção padrão (a mesma do fim do prazo) fica liberada.
+ */
+function liveChoices(c: StoryCtx, def: EventDef, ev: StoryEvent): StoryChoice[] {
+  const defs = guard(`render ${ev.def}`, () => def.render(c, ev.data).choices, [] as ChoiceDef[]);
+  const choices: StoryChoice[] = ev.choices.map((ch) => {
+    const d = defs.find((x) => x.id === ch.id);
+    const locked = d ? guard(`lock ${ev.def}`, () => lockReason(c, ev.data, d), ch.locked ?? null) : (ch.locked ?? null);
+    const { freed: _old, ...rest } = ch;
+    return { ...rest, ...(d ? { cost: d.cost, hint: d.hint } : {}), locked };
+  });
+  if (ev.kind !== "INFO" && choices.length && choices.every((ch) => ch.locked)) {
+    const out = choices.find((ch) => ch.id === ev.fallback) ?? choices[choices.length - 1];
+    out.locked = null;
+    out.freed = FREED_NOTE;
+  }
+  return choices;
 }
 
 /** Um acontecimento com defeito nunca pode travar o dia do mundo. */
@@ -163,12 +187,14 @@ export function resolveStory(ctx: Ctx, personId: string, eventId: string, choice
     s.pending.push(ev);
     return { ok: false, message: "Escolha inválida." };
   }
-  // custo e requisitos conferidos de novo: o dinheiro ou a energia podem ter mudado
-  const choiceDef = guard(`render ${ev.def}`, () => def.render(c, ev.data).choices.find((x) => x.id === choiceId), undefined);
-  const reason = choiceDef ? guard(`lock ${ev.def}`, () => lockReason(c, ev.data, choiceDef), null) : null;
-  if (reason && !auto) {
-    s.pending.push(ev);
-    return { ok: false, message: reason };
+  // custo e requisitos conferidos de novo: o dinheiro ou a energia podem ter mudado (e, com tudo
+  // travado, a opção padrão fica liberada: ninguém fica preso numa decisão que segura o tempo)
+  if (!auto && ev.choices.length) {
+    const reason = liveChoices(c, def, ev).find((x) => x.id === choiceId)?.locked;
+    if (reason) {
+      s.pending.push(ev);
+      return { ok: false, message: reason };
+    }
   }
   const entry = guard(`resolve ${ev.def}`, () => applyChoice(c, def, ev, choiceId, auto), null);
   if (!entry) {
@@ -300,11 +326,27 @@ export function storyDay(ctx: Ctx, p: PersonRow): void {
   ctx.save("person_states", c.st);
 }
 
-/** Pendentes para a tela (ordenados: os que seguram o tempo primeiro). */
+/**
+ * Pendentes para a tela (ordenados: os que seguram o tempo primeiro), com as travas de agora
+ * (dinheiro, energia e requisitos), e não as do dia em que o acontecimento chegou.
+ */
 export function pendingFor(src: Ctx | WorldState, personId: string): StoryEvent[] {
   const st = src.t.person_states.get(personId);
-  if (!st?.story) return [];
-  return [...st.story.pending].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
+  const p = src.t.persons.get(personId);
+  return p && st ? pendingOf(src, p, st) : [];
+}
+
+/** O mesmo, com o personagem e o estado dados (a tela lê o jogador fresco do banco). */
+export function pendingOf(src: Ctx | WorldState, p: PersonRow, st: PersonStateRow): StoryEvent[] {
+  if (!st.story) return [];
+  const list = [...st.story.pending].sort((a, b) => Number(b.blocking) - Number(a.blocking) || a.on.localeCompare(b.on));
+  if (p.kind !== "PLAYER" || !list.some((e) => e.choices.length)) return list;
+  const ctx = src instanceof Ctx ? src : new Ctx(src, "view");
+  const c = new StoryCtx(ctx, p, st, ctx.rng("story-view", p.id));
+  return list.map((ev) => {
+    const def = STORY_DEFS[ev.def];
+    return def && ev.choices.length ? { ...ev, choices: liveChoices(c, def, ev) } : ev;
+  });
 }
 
 export { nextSaturday, weekdayName, WEEKDAYS } from "./time";

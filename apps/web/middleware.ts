@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { PUBLIC_JWKS } from "@/lib/supabase/jwks";
 import { pause, transientAuthError } from "@/lib/supabase/transient";
 
 type CookieChange = { name: string; value: string; options: CookieOptions };
@@ -34,7 +35,8 @@ async function readSession(request: NextRequest): Promise<Reading> {
   });
   out.sb = sb;
   try {
-    const { data, error } = await sb.auth.getClaims();
+    // a chave pública embutida: conferir o login não espera o servidor de login
+    const { data, error } = await sb.auth.getClaims(undefined, { jwks: PUBLIC_JWKS });
     out.claims = data?.claims ?? null;
     out.error = error;
   } catch (e) {

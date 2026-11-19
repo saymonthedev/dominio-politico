@@ -2013,6 +2013,7 @@ html[data-kbd] .skip:focus-visible { top: 12px; box-shadow: 0 0 0 3px var(--plan
 .ev__tone--risky { background: var(--alerta-fundo) !important; color: var(--alerta) !important; }
 .ev__tone--illegal { background: var(--urgente-fundo) !important; color: var(--urgente) !important; }
 .ev__lock { display: flex; align-items: center; gap: 5px; font-size: .74rem; color: var(--urgente); }
+.ev__freed { display: flex; align-items: center; gap: 5px; font-size: .74rem; color: var(--mata); }
 .ev__result { display: grid; gap: 8px; padding: 14px 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--ev) 45%, var(--linha)); background: color-mix(in srgb, var(--ev) 8%, var(--cartao)); animation: fx-rise .35s ease-out both; }
 .ev__result p { margin: 0; line-height: 1.6; }
 .ev__result .dchips { margin-top: 2px; }

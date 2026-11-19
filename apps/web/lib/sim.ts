@@ -560,13 +560,15 @@ const copyable = (state: WorldState, rev: number | null): rev is number =>
  * requisição (depois da resposta o servidor pode ser congelado e a gravação se perder). O texto do
  * mundo é montado na hora; a requisição espera no máximo 4 s pelo envio, que continua sozinho.
  */
-async function saveSnapshotNow(worldId: string, state: WorldState, rev: number | null): Promise<void> {
-  if (!copyable(state, rev)) return;
-  if (Date.now() - (snapSaved.get(worldId) ?? 0) < 2 * 60_000) return;
+async function saveSnapshotNow(worldId: string, state: WorldState, rev: number | null): Promise<{ done: Promise<unknown> } | null> {
+  if (!copyable(state, rev)) return null;
+  if (Date.now() - (snapSaved.get(worldId) ?? 0) < 2 * 60_000) return null;
   snapSaved.set(worldId, Date.now());
   const job = writeSnapshot(worldId, { rev, at: Date.now(), data: snapshotData(state) });
   const ok = await Promise.race([job, new Promise<null>((r) => setTimeout(() => r(null), 4_000))]);
   if (ok === false) snapSaved.delete(worldId);
+  // embrulhado: uma promessa devolvida direto faria esta função esperar o envio inteiro
+  return { done: job };
 }
 
 /**
@@ -645,21 +647,89 @@ function matches(state: WorldState, f?: Freshness): boolean {
   return true;
 }
 
-/** Carga completa (uma por vez para cada mundo nesta instância). */
+/* ---------- carga completa do banco: uma de cada vez (migração 0035) ---------- */
+
+const BUSY_LOAD = "O mundo demorou para carregar. Tentando de novo…";
+/** Carga completa que falhou há pouco nesta instância: não tenta de novo logo (só afundaria o banco). */
+const loadFailedAt = new Map<string, number>();
+const LOAD_COOLDOWN_MS = 20_000;
+/** Mundos sendo montados do banco ao mesmo tempo, somando todos os servidores (os outros esperam a cópia). */
+const LOAD_MAX = 2;
+/** Quanto tempo a tela espera a cópia que outro servidor está montando. */
+const LOAD_WAIT_MS = 15_000;
+
+/** Pede a vez de montar o mundo do banco. Sem a função no banco (migração não aplicada), segue direto. */
+async function loadSlot(worldId: string, holder: string): Promise<boolean> {
+  try {
+    return !!(await rpc<boolean>("sim_load_slot", { p_world: worldId, p_holder: holder, p_seconds: 60, p_max: LOAD_MAX }, { retries: 0 }));
+  } catch (e) {
+    return missingFn(e);
+  }
+}
+
+function loadDone(worldId: string, holder: string): void {
+  void rpc("sim_load_done", { p_world: worldId, p_holder: holder }, { retries: 0 }).catch(() => undefined);
+}
+
+/** Espera a cópia que outro servidor está montando; se a vez ficar livre antes, ela é desta instância. */
+async function awaitCopy(worldId: string, holder: string): Promise<{ copy: { state: WorldState; rev: number } | null; slot: boolean }> {
+  const end = Date.now() + LOAD_WAIT_MS;
+  while (Date.now() < end) {
+    await new Promise((ok) => setTimeout(ok, 2_000 + Math.random() * 1_000));
+    const rev = await worldRev(worldId);
+    const copy = rev !== null ? await fromSnapshot(worldId, rev).catch(() => null) : null;
+    if (copy) return { copy, slot: false };
+    if (await loadSlot(worldId, holder)) return { copy: null, slot: true };
+  }
+  return { copy: null, slot: false };
+}
+
+/**
+ * Carga completa (uma por vez para cada mundo nesta instância e, com a vez do banco, uma por mundo
+ * em todos os servidores): primeiro a cópia guardada fora do banco e só o que mudou depois dela; sem
+ * cópia que sirva, quem ganha a vez lê o banco e grava a cópia, e os outros esperam por ela.
+ */
 function load(worldId: string): Promise<Cached> {
   let p = loading.get(worldId);
   if (!p) {
     p = (async () => {
       // a revisão é lida antes: se alguém gravar no meio da leitura, a próxima conferência busca o que faltou
-      const rev = await worldRev(worldId);
-      // primeiro a cópia guardada fora do banco (e só o que mudou depois dela); sem cópia que sirva, o banco
-      const copy = rev !== null ? await fromSnapshot(worldId, rev).catch(() => null) : null;
-      const entry: Cached = copy
-        ? { state: copy.state, born: Date.now(), rev: copy.rev, writing: false }
-        : { state: await loadState(worldId), born: Date.now(), rev, writing: false };
+      let rev = await worldRev(worldId);
+      let copy = rev !== null ? await fromSnapshot(worldId, rev).catch(() => null) : null;
+      let holder: string | null = null;
+      if (!copy) {
+        if (Date.now() - (loadFailedAt.get(worldId) ?? 0) < LOAD_COOLDOWN_MS) throw new Error(BUSY_LOAD);
+        holder = crypto.randomUUID();
+        if (!(await loadSlot(worldId, holder))) {
+          const waited = await awaitCopy(worldId, holder);
+          copy = waited.copy;
+          if (!copy && !waited.slot) throw new Error(BUSY_LOAD);
+          if (!copy) rev = await worldRev(worldId);
+          else holder = null;
+        }
+      }
+      let entry: Cached;
+      if (copy) entry = { state: copy.state, born: Date.now(), rev: copy.rev, writing: false };
+      else {
+        try {
+          entry = { state: await loadState(worldId), born: Date.now(), rev, writing: false };
+        } catch (e) {
+          loadFailedAt.set(worldId, Date.now());
+          if (holder) loadDone(worldId, holder);
+          throw e;
+        }
+      }
       // uma gravação começou aqui mesmo durante a leitura: a memória dela está mais adiante
       if (!cache.get(worldId)?.writing) remember(worldId, entry);
-      if (!copy) await saveSnapshotNow(worldId, entry.state, rev);
+      if (!copy) {
+        const job = await saveSnapshotNow(worldId, entry.state, rev);
+        // a vez volta depois que a cópia chegou ao Blob: quem está esperando já a encontra
+        const h = holder;
+        if (h) {
+          if (job) inBackground(() => job.done.finally(() => loadDone(worldId, h)));
+          else loadDone(worldId, h);
+        }
+      }
       return entry;
     })().finally(() => loading.delete(worldId));
     loading.set(worldId, p);
@@ -699,8 +769,11 @@ export async function cachedState(worldId: string, fresh?: Freshness): Promise<W
   if (usable(hit)) {
     const rev = await worldRev(worldId);
     if (hit.writing) return hit.state;
-    if (rev !== null && rev === hit.rev && matches(hit.state, fresh)) return hit.state;
-    const r = await sync(worldId, hit);
+    // banco sem responder: a memória (no máximo alguns minutos atrás) vale mais que uma carga completa,
+    // que num banco engasgado só falha e engasga mais
+    if (rev === null) return hit.state;
+    if (rev === hit.rev && matches(hit.state, fresh)) return hit.state;
+    const r = await sync(worldId, hit).catch(() => "busy" as const);
     if (r === "busy" || (r === "ok" && matches(hit.state, fresh))) return hit.state;
   }
   const got = await load(worldId);

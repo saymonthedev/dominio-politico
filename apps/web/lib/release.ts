@@ -12,14 +12,14 @@ export interface Release {
 
 /** Com a assinatura ligada (chave do Mercado Pago na Vercel). */
 export const RELEASE: Release = {
-  id: "2026-11-17-condenacoes",
-  date: "17 de novembro de 2026",
+  id: "2026-11-19-estabilidade",
+  date: "19 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "O mundo ficou menos corrupto: os personagens do jogo cometem menos crimes e se defendem na Justiça.",
+  lede: "Pedimos desculpas pela lentidão e pelas quedas de ontem e de hoje cedo. Achamos a causa e mudamos o jeito de carregar o mundo.",
   items: [
-    { icon: "check", text: "Os personagens do jogo eram condenados demais: até 1 em cada 5 parlamentares por ano, e em 4 anos a bancada de um estado perdia mais da metade dos deputados. Agora são cerca de 3% por ano, e ainda há escândalos e operações da polícia." },
-    { icon: "gavel", text: "Personagem que vira réu contrata advogado conforme o dinheiro que tem, como você já podia fazer. O risco das suas próprias escolhas não mudou." },
-    { icon: "heart", text: "As novidades sugeridas pelos jogadores chegam com o aviso de Concluída, com o nome de quem sugeriu. Obrigado por apoiar o jogo!" },
+    { icon: "zap", text: "Cada servidor novo lia o mundo inteiro do banco de dados, e no pico de jogadores o banco engasgou: as telas travavam no Continuar e o login demorava. Agora o mundo vem de uma cópia guardada fora do banco, só o que mudou é lido, e só um servidor por vez monta cada mundo." },
+    { icon: "lock", text: "Conferir o seu login não depende mais de esperar o servidor de login a cada acesso." },
+    { icon: "check", text: "Nenhuma decisão que segura o tempo fica mais sem saída: sem energia ou dinheiro para as opções, a opção padrão fica liberada. Na largada da campanha, a coordenação sai do caixa da campanha e há uma largada sem custo." },
   ],
 };
 

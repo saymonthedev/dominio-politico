@@ -999,7 +999,16 @@ const convencao_resultado: EventDef = {
         choices: [
           { id: "lancamento", label: "Lançamento com família, amigos e apoiadores", hint: "Voluntários e ânimo", tone: "safe", cost: { money: c.money(1500) } },
           { id: "rua", label: "Começar já na rua, de porta em porta", hint: "Cansativo e eficaz", tone: "bold", cost: { energy: 25 } },
-          { id: "equipe", label: "Contratar coordenação profissional", hint: "Campanha organizada desde o primeiro dia", tone: "neutral", cost: { money: c.money(8000) } },
+          {
+            id: "equipe",
+            label: "Contratar coordenação profissional",
+            hint: `Campanha organizada desde o primeiro dia · ${brl(c.money(8000))} do caixa da campanha`,
+            tone: "neutral",
+            // sai do orçamento da campanha (o fundo do partido e as doações) e, se faltar, do bolso
+            requires: () => (Math.max(0, cand.campaign.budget - cand.campaign.spent) + c.st.money >= c.money(8000) ? null : `Faltam recursos: a coordenação custa ${brl(c.money(8000))}.`),
+          },
+          // sempre há uma largada sem custo: ninguém fica preso aqui sem energia ou dinheiro
+          { id: "simples", label: "Largar no simples: santinho, redes sociais e conversa com os vizinhos", hint: "Sem custo; um começo modesto", tone: "neutral" },
         ],
       };
     }
@@ -1026,6 +1035,11 @@ const convencao_resultado: EventDef = {
         fx.reach(0.01);
         fx.volunteers(8);
         return "Você bateu em duzentas portas na primeira semana. Ouviu muito \"não\" — e alguns \"pode contar comigo\".";
+      }
+      if (choice !== "equipe") {
+        fx.volunteers(3);
+        fx.momentum(0.01, "largada da campanha");
+        return "Santinho na mão, foto nova no perfil e o grupo da família avisado. Começo pequeno, mas a vizinhança já sabe o seu número.";
       }
       fx.campaignSpend(c.money(8000), "Coordenação de campanha", "equipe");
       fx.momentum(0.04, "coordenação profissional");

@@ -42,6 +42,8 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DecideResult | null>(null);
+  // as opções como valem agora (o servidor devolve as travas atualizadas quando recusa uma escolha)
+  const [live, setLive] = useState<StoryEvent["choices"] | null>(null);
   // outro acontecimento na mesma janela: nada do anterior (resultado, erro) pode ficar
   const [shownId, setShownId] = useState(event.id);
   if (shownId !== event.id) {
@@ -49,6 +51,7 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
     setResult(null);
     setBusy(null);
     setError(null);
+    setLive(null);
   }
   const kind = KIND[event.kind];
   const info = event.kind === "INFO";
@@ -84,6 +87,8 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
     setBusy(null);
     if (!r.ok) {
       setError(r.message);
+      const again = r.pending?.find((e) => e.id === event.id);
+      if (again?.choices.length) setLive(again.choices);
       return;
     }
     setResult(r);
@@ -92,7 +97,7 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
   };
 
   const due = deadline(today, event.expires);
-  const choices = event.choices.length ? event.choices : [{ id: "ok", label: "Continuar" }];
+  const choices = live ?? (event.choices.length ? event.choices : [{ id: "ok", label: "Continuar" }]);
 
   return (
     <div className="ui-overlay ev-overlay" {...backdropClose(() => !busy && (result ? onResolved(result) : onLater?.()))}>
@@ -199,6 +204,11 @@ export function EventModal({ year, event, today, onResolved: resolved, onLater, 
                     {locked && (
                       <small className="ev__lock" id={`ev-lock-${ch.id}`}>
                         <Icon name="lock" size={12} /> {locked}
+                      </small>
+                    )}
+                    {!locked && "freed" in ch && ch.freed && (
+                      <small className="ev__freed">
+                        <Icon name="check" size={12} /> {ch.freed}
                       </small>
                     )}
                   </button>
