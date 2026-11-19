@@ -50,6 +50,8 @@ export * from "./story";
 export * from "./ticket";
 export * from "./urna";
 export * from "./vacancies";
+export * from "./plenario";
+export * from "./secretariado";
 export * from "./padrinho";
 export * from "./apoio";
 export * from "./cla";

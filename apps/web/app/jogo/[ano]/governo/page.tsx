@@ -1,4 +1,5 @@
-import { approvalLabel, OFFICES, geoName, PROPOSAL_RESULT_LABEL, PROPOSAL_STAGE_LABEL, stageProgress, type BillRow, type MandateRow, type PolicyRow, type Proposal, genderOf, officeTitle } from "@dp/engine";
+import { approvalLabel, OFFICES, geoName, PROPOSAL_RESULT_LABEL, PROPOSAL_STAGE_LABEL, stageProgress, type BillRow, type MandateRow, type PolicyRow, type Proposal, genderOf, officeTitle, cabinetView, chamberName, chamberOf, Ctx, isImpeachment } from "@dp/engine";
+import { VotePanel } from "@/components/game/VotePanel";
 import { ActionPanel } from "@/components/ActionPanel";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
 import { QuickAction } from "@/components/game/QuickAction";
@@ -34,20 +35,31 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
   const [state, parties, bQ, mQ, pQ] = await Promise.all([
     playerState(year),
     getParties(me.worldId),
-    sb.from("bills").select("*").eq("world_id", me.worldId).order("vote_on", { ascending: false }).limit(20),
+    sb.from("bills").select("*").eq("world_id", me.worldId).order("vote_on", { ascending: false }).limit(60),
     sb.from("mandates").select("*").eq("world_id", me.worldId).eq("person_id", me.person.id).order("start_on", { ascending: false }),
     sb.from("policies").select("*").eq("world_id", me.worldId).eq("owner_person_id", me.person.id).order("started_on", { ascending: false }),
   ]);
   const today = state.world.game_date;
   const gov = state.world.gov;
   const pm = partyMap(parties);
-  const bills = (bQ.data ?? []) as BillRow[];
+  // o que interessa ao jogador: Câmara e Senado, a Assembleia do estado, a Câmara da cidade e um processo contra ele
+  const myChamber = chamberOf(me.person);
+  const relevant = (b: BillRow) =>
+    b.chamber === "CAMARA" || b.chamber === "SENADO" || b.chamber === myChamber || b.chamber === `ASSEMBLEIA:${me.person.uf}` || b.chamber === `MUNICIPAL:${me.person.municipality}` || b.votes?.impeachment?.target === me.person.id;
+  const bills = ((bQ.data ?? []) as BillRow[]).filter(relevant).slice(0, 24);
+  const againstMe = bills.find((b) => b.status === "TRAMITANDO" && b.votes?.impeachment?.target === me.person.id);
   const open = bills.filter((b) => b.status === "TRAMITANDO").sort((a, b) => a.vote_on.localeCompare(b.vote_on));
   const done = bills.filter((b) => b.status !== "TRAMITANDO");
   const mandates = (mQ.data ?? []) as MandateRow[];
   const policies = (pQ.data ?? []) as PolicyRow[];
   const actions = actionsFor(state, me.person.id, ["MANDATO"]);
   const canVote = actions.some((a) => a.id === "votar_projeto" && !a.reason);
+  const votesHere = (b: BillRow) => canVote && b.chamber === myChamber && b.votes?.impeachment?.target !== me.person.id;
+  const colors = Object.fromEntries(parties.map((p) => [p.id, p.color]));
+  // secretariado ou ministérios de quem governa
+  const meNow = state.t.persons.get(me.person.id) ?? me.person;
+  const stNow = state.t.person_states.get(me.person.id) ?? me.state;
+  const cab = cabinetView(new Ctx(state, "view"), meNow, stNow);
   const base = parties.filter((p) => gov.base_party_ids.includes(p.id));
   const baseSeats = base.reduce((s, p) => s + (p.seats.camara ?? 0), 0);
   const bench = [...parties].filter((p) => (p.seats.camara ?? 0) > 0).sort((a, b) => (b.seats.camara ?? 0) - (a.seats.camara ?? 0));
@@ -74,6 +86,20 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
       <div className="ggrid ggrid--main">
         <div className="gstack">
+          {againstMe?.votes.impeachment && (
+            <Panel title="Processo de impeachment contra você" icon="alert" tone="gold">
+              <div className="imp-alert">
+                <p>
+                  {chamberName(againstMe.chamber, { cities })} vota em <b>{fmtDate(againstMe.vote_on)}</b>
+                  {againstMe.votes.impeachment.stage === "ADMISSIBILIDADE" ? ", decidindo se o processo segue para o Senado" : ""}. Motivos: {againstMe.votes.impeachment.reason}. Para afastar você, são precisos 2/3 da Casa.
+                </p>
+                <p>
+                  Converse com as bancadas e dê espaço no {cab?.title === "Ministérios" ? "ministério" : "secretariado"} a partidos aliados: cada bancada aliada vota menos pelo impeachment. Articulação feita até agora: {againstMe.votes.impeachment.lobby}%.
+                </p>
+                <QuickAction year={year} action="articular_contra_impeachment" label="Articular votos contra o impeachment" tone="gold" />
+              </div>
+            </Panel>
+          )}
           {active ? (
             <Panel tone="dark">
               <div className="ehero">
@@ -141,6 +167,35 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             </Panel>
           )}
 
+          {cab && (
+            <Panel title={cab.title} icon="users" aside={<span className="muted small">{cab.cabinet.posts.length} pastas{cab.cabinet.posts.length > cab.base ? ` · ${cab.cabinet.posts.length - cab.base} além das ${cab.base} iniciais` : ""}</span>}>
+              <p className="muted small" style={{ marginTop: 0 }}>
+                Técnico melhora a gestão; nome do seu partido agrada a direção; indicação de outro partido traz a bancada dele para o lado do governo, nas votações e contra um impeachment. Pasta vaga e máquina inchada pesam na aprovação. Nomeie, crie e extinga pastas nas ações de mandato.
+                {cab.draft ? " A equipe inicial é montada na primeira nomeação ou na virada do mês." : ""}
+              </p>
+              <ul className="cab">
+                {cab.cabinet.posts.map((x) => (
+                  <li key={x.id} className={x.holder || cab.draft ? undefined : "is-empty"}>
+                    <div>
+                      <b>{x.name}</b>
+                      <small>
+                        {x.holder
+                          ? `${x.holder} · ${x.kind === "TECNICO" ? "técnico" : x.kind === "PARTIDO" ? "do seu partido" : "indicação aliada"}${x.since ? ` · desde ${fmtDate(x.since)}` : ""}`
+                          : cab.draft
+                            ? "a definir"
+                            : "vaga: nomeie alguém"}
+                      </small>
+                    </div>
+                    <span className="pend__actions">
+                      {x.party_id && pm[x.party_id] && <PartyChip party={pm[x.party_id]} />}
+                      {x.holder && <QuickAction year={year} action="exonerar_secretario" params={{ pasta: x.id }} label="Exonerar" tone="ghost" />}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+
           {me.person.office_code && (
             <Panel title="Gabinete: propostas" icon="inbox" aside={<span className="muted small">{activeProps.length} em andamento</span>}>
               {proposals.length ? (
@@ -184,7 +239,7 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
             </Panel>
           )}
 
-          <Panel title="Em votação" icon="ballot" aside={<span className="muted small">Câmara dos Deputados</span>}>
+          <Panel title="Em votação" icon="ballot" aside={<span className="muted small">{myChamber && myChamber !== "CAMARA" && myChamber !== "SENADO" ? `Congresso e ${chamberName(myChamber, { cities })}` : "Câmara e Senado"}</span>}>
             {open.length ? (
               <div className="bills">
                 {open.map((b) => {
@@ -199,13 +254,17 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                       <p>{b.summary}</p>
                       <div className="bill__foot">
                         <span className="pcard__tags">
+                          <Pill>{chamberName(b.chamber, { cities })}</Pill>
+                          {isImpeachment(b) && <Pill tone="bad">impeachment</Pill>}
                           {author && <PartyChip party={author} />}
-                          <Pill tone={b.gov_position > 0 ? "ok" : b.gov_position < 0 ? "bad" : "neutral"}>
-                            governo {b.gov_position > 0 ? "a favor" : b.gov_position < 0 ? "contra" : "liberou"}
-                          </Pill>
+                          {!isImpeachment(b) && (
+                            <Pill tone={b.gov_position > 0 ? "ok" : b.gov_position < 0 ? "bad" : "neutral"}>
+                              governo {b.gov_position > 0 ? "a favor" : b.gov_position < 0 ? "contra" : "liberou"}
+                            </Pill>
+                          )}
                           {myVote && <Pill tone="gold">seu voto: {VOTE_LABEL[myVote]}</Pill>}
                         </span>
-                        {canVote && (
+                        {votesHere(b) && (
                           <span className="pend__actions">
                             <QuickAction year={year} action="votar_projeto" params={{ bill: b.id, vote: "SIM" }} label="Sim" tone={myVote === "SIM" ? "gold" : "ghost"} />
                             <QuickAction year={year} action="votar_projeto" params={{ bill: b.id, vote: "NAO" }} label="Não" tone={myVote === "NAO" ? "gold" : "ghost"} />
@@ -213,6 +272,14 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
                           </span>
                         )}
                       </div>
+                      {(b.votes?.panels ?? []).length > 0 && (
+                        <details className="vpanels">
+                          <summary>Como foi a votação anterior</summary>
+                          {(b.votes.panels ?? []).map((pn, i) => (
+                            <VotePanel key={i} panel={pn} me={me.person.id} colors={colors} />
+                          ))}
+                        </details>
+                      )}
                     </article>
                   );
                 })}
@@ -226,9 +293,30 @@ export default async function Page({ params }: { params: Promise<{ ano: string }
 
           {done.length > 0 && (
             <Panel title="Votações recentes" icon="clock">
-              <div className="bills">
+              <div className="bills" id="votacoes">
                 {done.map((b) => {
                   const total = b.votes.yes + b.votes.no + b.votes.abstain || 1;
+                  const panels = [...(b.votes.panels ?? [])].reverse();
+                  if (panels.length)
+                    return (
+                      <article key={b.id} className="bill bill--done">
+                        <div className="bill__head">
+                          <b>{b.title}</b>
+                          <Pill tone={b.status === "APROVADO" ? "ok" : "bad"}>{isImpeachment(b) ? (b.status === "APROVADO" ? "afastado" : "rejeitado") : b.status === "APROVADO" ? "aprovado" : "rejeitado"}</Pill>
+                        </div>
+                        <div className="vpanels">
+                          <VotePanel panel={panels[0]} me={me.person.id} colors={colors} />
+                          {panels.length > 1 && (
+                            <details>
+                              <summary>Votação anterior: {panels[1].house}</summary>
+                              {panels.slice(1).map((pn, i) => (
+                                <VotePanel key={i} panel={pn} me={me.person.id} colors={colors} />
+                              ))}
+                            </details>
+                          )}
+                        </div>
+                      </article>
+                    );
                   return (
                     <article key={b.id} className="bill bill--done">
                       <div className="bill__head">

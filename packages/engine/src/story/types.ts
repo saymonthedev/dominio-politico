@@ -164,6 +164,8 @@ export interface StoryState {
   avatar?: string;
   /** o que o jogador mudou na família (proximidade, casamento, filhos, separação) */
   family?: import("../family").FamilyState;
+  /** secretariado ou ministérios de quem governa (secretariado.ts) */
+  cabinet?: import("../secretariado").Cabinet | null;
   /** pedidos de apoio de candidaturas fictícias, à espera de resposta (apoio.ts) */
   apoio_pedidos?: Array<{ id: string; cand: string; from: string; on: ISODate; until: ISODate }>;
   /** candidaturas que já pediram apoio e foram recusadas (não pedem de novo) */

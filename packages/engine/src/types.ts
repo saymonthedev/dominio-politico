@@ -453,9 +453,70 @@ export interface BillRow {
   gov_position: number;
   vote_on: ISODate;
   status: "TRAMITANDO" | "APROVADO" | "REJEITADO";
-  votes: { yes: number; no: number; abstain: number };
-  player_votes: Record<string, "SIM" | "NAO" | "ABSTENCAO">;
+  votes: BillVotes;
+  player_votes: Record<string, VoteChoice>;
   fiscal_effect: number;
+}
+
+export type VoteChoice = "SIM" | "NAO" | "ABSTENCAO";
+
+/** Uma bancada no painel de votação. */
+export interface VotePanelParty {
+  id: string;
+  acronym: string;
+  seats: number;
+  yes: number;
+  no: number;
+  abstain: number;
+  absent: number;
+  orientation: VoteChoice | "LIBERADA";
+}
+
+/**
+ * Painel de votação de uma Casa (sugestão do jogador Gabriel do Valle): o placar de sim, não,
+ * abstenção e ausentes, quantos votos eram necessários e como votou cada bancada e cada jogador.
+ */
+export interface VotePanel {
+  /** CAMARA, SENADO, ASSEMBLEIA:<UF> ou MUNICIPAL:<cidade> */
+  chamber: string;
+  house: string;
+  date: ISODate;
+  seats: number;
+  yes: number;
+  no: number;
+  abstain: number;
+  absent: number;
+  /** votos "sim" (ou presentes, nos projetos de lei) necessários */
+  needed: number;
+  rule: string;
+  approved: boolean;
+  /** o que estava em votação: o projeto, a admissão ou o julgamento do impeachment */
+  step: string;
+  parties: VotePanelParty[];
+  players: Record<string, VoteChoice>;
+}
+
+/** Processo de impeachment (só contra personagens fictícios ou jogadores; nunca pessoas reais). */
+export interface ImpeachmentInfo {
+  target: string;
+  name: string;
+  office: OfficeCode;
+  geo: string;
+  reason: string;
+  /** Câmara dos Deputados admite e o Senado julga; nos estados e cidades, uma votação só */
+  stage: "ADMISSIBILIDADE" | "JULGAMENTO";
+  filed_by: string | null;
+  /** articulação de quem é acusado contra o impeachment (pontos que tiram apoio nas bancadas) */
+  lobby: number;
+}
+
+/** O que fica em bills.votes: o placar da última votação e o painel de cada Casa. */
+export interface BillVotes {
+  yes: number;
+  no: number;
+  abstain: number;
+  panels?: VotePanel[];
+  impeachment?: ImpeachmentInfo;
 }
 
 export interface PolicyRow {

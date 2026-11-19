@@ -3240,3 +3240,42 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .adm-sug__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .adm-sug__msg { display: flex; align-items: center; gap: 6px; margin: 0; font-size: .82rem; color: var(--mata); }
 .adm-sug__msg.is-err { color: var(--urgente); }
+
+/* Painel de votação do plenário (sugestão do jogador Gabriel do Valle) */
+.vpanel { display: grid; gap: 10px; padding: 14px; border-radius: 14px; border: 1px solid var(--linha); background: var(--cartao); }
+.vpanel__head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.vpanel__head b { display: block; font-size: .92rem; line-height: 1.35; }
+.vpanel__head .mono { font-size: .74rem; color: var(--apagado); }
+.vpanel__result { font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.vpanel.is-yes .vpanel__result { background: color-mix(in srgb, var(--mata) 16%, transparent); color: var(--mata); }
+.vpanel.is-no .vpanel__result { background: color-mix(in srgb, var(--urgente) 14%, transparent); color: var(--urgente); }
+.vpanel__board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: #0b1f3a; border-radius: 12px; padding: 10px; }
+.vpanel__board div { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 8px; background: rgba(255, 255, 255, .05); }
+.vpanel__board b { font-size: 1.55rem; line-height: 1; }
+.vpanel__board span { font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; color: #c9d2e0; }
+.vpanel__board .y b { color: #6fe09b; }
+.vpanel__board .n b { color: #ff8a7c; }
+.vpanel__board .a b, .vpanel__board .f b { color: #ede3cb; }
+.vpanel__rule { margin: 0; font-size: .78rem; color: var(--apagado); }
+.vpanel__rule b { color: var(--tinta); }
+.vpanel__parties { overflow-x: auto; }
+.vpanel__parties summary { cursor: pointer; font-size: .8rem; font-weight: 600; color: var(--tinta); }
+.vpanel__parties table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: .78rem; }
+.vpanel__parties th, .vpanel__parties td { padding: 5px 6px; text-align: right; border-bottom: 1px solid var(--linha); white-space: nowrap; }
+.vpanel__parties thead th { font-weight: 600; color: var(--apagado); }
+.vpanel__parties th[scope="row"], .vpanel__parties thead th:first-child { text-align: left; }
+.vpanel__parties td:last-child, .vpanel__parties thead th:last-child { text-align: left; color: var(--apagado); }
+.vpanel__parties th i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.vpanel__parties th small { color: var(--apagado); font-weight: 400; }
+.vpanels { display: grid; gap: 10px; }
+.vpanels > details > summary { cursor: pointer; font-size: .8rem; color: var(--apagado); margin-bottom: 8px; }
+@media (max-width: 520px) { .vpanel__board { grid-template-columns: repeat(2, 1fr); } }
+
+/* Secretariado e ministérios (sugestão do jogador Gabriel do Valle) */
+.cab { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.cab li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--linha); border-radius: 12px; background: var(--cartao); }
+.cab li.is-empty { border-style: dashed; }
+.cab li > div { display: grid; gap: 3px; min-width: 0; }
+.cab b { font-size: .86rem; line-height: 1.35; }
+.cab small { font-size: .76rem; color: var(--apagado); }
+.imp-alert p { margin: 0 0 10px; font-size: .86rem; line-height: 1.5; }

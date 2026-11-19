@@ -215,6 +215,13 @@ export const TEMPLATES: Record<string, NewsTemplate> = {
     importance: 2,
     variants: [{ h: "{name} toma posse como {office} em {geoName}", b: "A posse marca o início do mandato que vai até {endDate}." }],
   },
+  // processo contra quem governa: só personagens fictícios e jogadores (a política bloqueia pessoa real)
+  IMPEACHMENT: {
+    category: "congresso",
+    claims: ["CORRUPTION"],
+    importance: 3,
+    variants: [{ h: "{title}", b: "{body}" }],
+  },
   BILL_VOTE: {
     category: "congresso",
     claims: [],

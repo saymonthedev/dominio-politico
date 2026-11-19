@@ -12,13 +12,14 @@ export interface Release {
 
 /** Com a assinatura ligada (chave do Mercado Pago na Vercel). */
 export const RELEASE: Release = {
-  id: "2026-11-19-genero",
+  id: "2026-11-19-plenario",
   date: "19 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "O jogo agora fala do seu personagem do jeito certo, e o calendário eleitoral voltou a andar completo em todos os mundos.",
+  lede: "Plenário com painel de votação, impeachment e secretariado para quem governa.",
   items: [
-    { icon: "user", text: "Diga se o seu personagem é mulher ou homem (ou prefira não dizer) ao criar o personagem, ou em Carreira, no botão de editar o visual. Para as personagens mulheres, o jogo escreve eleita, vereadora, deputada e cidadã." },
-    { icon: "calendar", text: "Em alguns mundos, dias do calendário eleitoral eram pulados na janela de troca de partido (como a pesquisa de março). Corrigido." },
+    { icon: "ballot", text: "Projeto aprovado na Câmara dos Deputados agora também passa pelo Senado antes de virar lei. Cada votação mostra o painel com sim, não, abstenções e ausentes e o voto de cada bancada, em Governo e Congresso." },
+    { icon: "gavel", text: "Prefeito, governador ou presidente com o governo em frangalhos pode sofrer impeachment: a Câmara Municipal, a Assembleia ou a Câmara e o Senado votam, e são precisos 2/3. Vereadores e deputados votam no painel." },
+    { icon: "users", text: "Quem governa monta o secretariado (ou os ministérios): nomeia, exonera, cria e extingue pastas, e pode dar espaço a partidos aliados." },
     { icon: "heart", text: "As novidades sugeridas pelos jogadores chegam com o aviso de Concluída, com o nome de quem sugeriu. Obrigado por apoiar o jogo!" },
   ],
 };

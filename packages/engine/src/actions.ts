@@ -1,5 +1,7 @@
 import { checkAchievements } from "./achievements";
 import { LIFE_ACTIONS } from "./actions-life";
+import { chamberOf, isImpeachment, PLENARIO_ACTIONS, votableBills } from "./plenario";
+import { CABINET_ACTIONS } from "./secretariado";
 import { bumpApproval } from "./approval";
 import { addOtherAssets } from "./housing";
 import { newProposal } from "./gabinete";
@@ -118,7 +120,10 @@ export interface ActionParam {
     | "successor"
     | "family_candidate"
     | "relative_office"
-    | "heir";
+    | "heir"
+    | "cabinet_post"
+    | "cabinet_new"
+    | "cabinet_party";
   options?: Array<{ value: string; label: string }>;
   /** valores de referência (R$ de 2026) para type "amount"; a tela corrige pela época */
   amounts?: number[];
@@ -1190,20 +1195,23 @@ export const ACTIONS: ActionDef[] = [
   // ------------------------------------------------------------------ MANDATO
   {
     id: "votar_projeto",
-    label: "Votar projeto em plenário",
-    description: "Seu voto conta no placar. Votar contra a orientação do partido custa prestígio interno.",
+    label: "Votar em plenário",
+    description: "Seu voto conta no painel da sua Casa (Câmara Municipal, Assembleia, Câmara dos Deputados ou Senado): projetos e processos de impeachment. Votar contra a orientação do partido custa prestígio interno.",
     category: "MANDATO",
     energy: 5,
     params: [
       { name: "bill", label: "Projeto", type: "bill" },
       { name: "vote", label: "Voto", type: "choice", options: [{ value: "SIM", label: "Sim" }, { value: "NAO", label: "Não" }, { value: "ABSTENCAO", label: "Abstenção" }] },
     ],
-    available: (_c, p) => (p.office_code === "DEP_FEDERAL" ? null : "Disponível para deputados federais."),
+    available: (ctx, p) => (!chamberOf(p) ? "Disponível para vereadores, deputados e senadores." : votableBills(ctx, p).length ? null : "Nada em votação na sua Casa agora."),
     run: ({ ctx, p, st, params }) => {
       const bill = ctx.t.bills.get(params.bill);
       if (!bill || bill.status !== "TRAMITANDO") return { ok: false, message: "Projeto fora de pauta." };
+      if (bill.chamber !== chamberOf(p)) return { ok: false, message: "Essa votação não é na sua Casa." };
+      if (bill.votes.impeachment?.target === p.id) return { ok: false, message: "Você não vota no seu próprio processo." };
       bill.player_votes[p.id] = params.vote as "SIM" | "NAO" | "ABSTENCAO";
       ctx.save("bills", bill);
+      if (isImpeachment(bill)) return { ok: true, message: `Voto registrado: ${params.vote === "NAO" ? "não" : params.vote === "SIM" ? "sim" : "abstenção"}. A votação do impeachment é em ${formatDatePt(bill.vote_on)}.` };
       // o eleitorado do seu estado acompanha: voto alinhado à maioria rende, voto contra custa
       const segs = [...ctx.t.voter_segments.values()].filter((sg) => sg.uf === p.uf);
       const lean = segs.reduce((acc, sg) => acc + (sg.ideology[bill.axis as Axis] ?? 0) * sg.weight, 0) * bill.direction;
@@ -2127,6 +2135,8 @@ export const ACTIONS: ActionDef[] = [
     },
   },
   ...LIFE_ACTIONS,
+  ...PLENARIO_ACTIONS,
+  ...CABINET_ACTIONS,
   donateToCampaign(),
   socialPost(),
 ];

@@ -1,6 +1,5 @@
 import { addDays } from "./calendar";
-import { partyPostOf } from "./partypost";
-import { type Axis } from "./ideology";
+import type { Axis } from "./ideology";
 import { OFFICES, type OfficeCode } from "./ruleset";
 import type { Ctx } from "./state";
 import type { BillRow, PersonRow, PolicyRow } from "./types";
@@ -66,93 +65,7 @@ export function monthlyBills(ctx: Ctx): void {
   }
 }
 
-/** Votação: bancadas votam conforme ideologia, orientação do governo e disciplina. */
-/** Orientação de bancada dada pelo jogador que preside o partido nacionalmente (nas flags da história). */
-function partyOrientation(ctx: Ctx, partyId: string, billId: string): string | null {
-  for (const p of ctx.t.persons.values()) {
-    if (p.kind !== "PLAYER" || p.status !== "ACTIVE" || p.party_id !== partyId) continue;
-    const st = ctx.pstate(p.id);
-    if (partyPostOf(ctx.s, p, st)?.level !== "PRES_NACIONAL") continue;
-    const v = st?.story?.flags[`orientacao:${billId}`];
-    if (typeof v === "string" && v !== "LIBERADA") return v;
-  }
-  return null;
-}
-
-export function dailyBillVotes(ctx: Ctx): void {
-  for (const bill of ctx.t.bills.values()) {
-    if (bill.status !== "TRAMITANDO" || bill.vote_on > ctx.date) continue;
-    const rng = ctx.rng("vote", bill.id);
-    let yes = 0;
-    let no = 0;
-    let abstain = 0;
-    for (const party of ctx.t.parties.values()) {
-      const seats = party.seats.camara ?? 0;
-      if (!seats) continue;
-      const position = party.ideology[bill.axis as Axis] * bill.direction;
-      const govPull = bill.gov_position * party.gov_alignment * 30;
-      let support = 1 / (1 + Math.exp(-(position + govPull) / 25));
-      // orientação dada por jogador que preside o partido nacionalmente
-      const orient = partyOrientation(ctx, party.id, bill.id);
-      if (orient === "SIM") support = 0.9;
-      else if (orient === "NAO") support = 0.1;
-      const cohesive = party.discipline;
-      for (let s = 0; s < seats; s++) {
-        const r = rng.float();
-        const p = cohesive * (support > 0.5 ? 1 : 0) + (1 - cohesive) * support;
-        if (r < 0.03) abstain++;
-        else if (r < p) yes++;
-        else no++;
-      }
-    }
-    // Votos dos jogadores deputados federais substituem votos genéricos
-    for (const [pid, v] of Object.entries(bill.player_votes)) {
-      const p = ctx.person(pid);
-      if (!p || p.office_code !== "DEP_FEDERAL") continue;
-      if (v === "SIM") yes++;
-      else if (v === "NAO") no++;
-      else abstain++;
-      if (yes + no + abstain > 513) {
-        if (yes > no) yes--;
-        else no--;
-      }
-      applyPlayerVoteConsequences(ctx, p, bill, v);
-    }
-    const quorum = bill.title.startsWith("PEC") ? 308 : Math.floor((yes + no + abstain) / 2) + 1;
-    const approved = bill.title.startsWith("PEC") ? yes >= quorum : yes > no && yes + no + abstain >= 257;
-    bill.status = approved ? "APROVADO" : "REJEITADO";
-    bill.votes = { yes, no, abstain };
-    ctx.save("bills", bill);
-    if (approved && bill.fiscal_effect) {
-      ctx.world.gov.fiscal_stance = Math.max(-1, Math.min(1, ctx.world.gov.fiscal_stance + bill.fiscal_effect * 0.5));
-      ctx.saveWorld();
-    }
-    const govNote = bill.gov_position === 0 ? "O governo liberou a bancada." : (bill.gov_position > 0) === approved ? "Vitória do governo no plenário." : "Derrota para o governo no plenário.";
-    ctx.publish("BILL_VOTE", {
-      facts: { chamber: "Câmara", result: approved ? "aprova" : "rejeita", title: bill.title.replace(/^(PL|PEC) /, (m) => m), yes, no, govNote },
-    });
-  }
-}
-
-function applyPlayerVoteConsequences(ctx: Ctx, p: PersonRow, bill: BillRow, vote: "SIM" | "NAO" | "ABSTENCAO"): void {
-  const party = p.party_id ? ctx.t.parties.get(p.party_id) : undefined;
-  const st = ctx.pstate(p.id);
-  if (!party || !st) return;
-  const partyLine = party.ideology[bill.axis as Axis] * bill.direction + bill.gov_position * party.gov_alignment * 30 > 0 ? "SIM" : "NAO";
-  if (vote !== "ABSTENCAO" && vote !== partyLine) {
-    st.party_standing = Math.max(0, st.party_standing - 8 * party.discipline);
-    ctx.notify(p.id, "Voto contra a orientação", `Você votou contra a orientação do ${party.acronym}. A direção não gostou.`, "/jogo/governo");
-  } else if (vote === partyLine) {
-    st.party_standing = Math.min(100, st.party_standing + 2);
-  }
-  // Coerência com o eleitorado da UF
-  const segs = [...ctx.t.voter_segments.values()].filter((s) => s.uf === p.uf);
-  const ufPosition = segs.reduce((s, sg) => s + sg.ideology[bill.axis as Axis] * sg.weight, 0) * bill.direction;
-  const aligned = (vote === "SIM" && ufPosition > 0) || (vote === "NAO" && ufPosition < 0);
-  p.reputation = Math.max(0, Math.min(100, p.reputation + (aligned ? 1 : -1)));
-  ctx.save("persons", p);
-  ctx.save("person_states", st);
-}
+/** As votações (Câmara, Senado, Assembleias e Câmaras Municipais) e o impeachment ficam em plenario.ts. */
 
 // ---------------------------------------------------------------------------
 // Políticas executivas

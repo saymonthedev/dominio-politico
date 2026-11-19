@@ -16,6 +16,7 @@ import {
   type WorldState,
   genderOf,
   personWord,
+  chamberOf,
   officeTitle,
 } from "@dp/engine";
 
@@ -142,10 +143,19 @@ export function agenda(state: WorldState, me: PersonRow, limit = 8, today = stat
     const mine = [...state.t.candidacies.values()].some((c) => c.person_id === me.id && d.participants.includes(c.id));
     if (mine && d.status === "AGENDADO" && d.scheduled_on >= today) items.push({ date: d.scheduled_on, days: daysBetween(today, d.scheduled_on), title: `Debate na ${d.outlet}`, detail: "Defina sua estratégia antes.", tone: "warn" });
   }
-  if (me.office_code) {
-    for (const b of state.t.bills.values()) {
-      if (b.status === "TRAMITANDO" && b.vote_on >= today) items.push({ date: b.vote_on, days: daysBetween(today, b.vote_on), title: `Votação: ${b.title}`, detail: "Projeto em pauta no plenário.", tone: "info" });
-    }
+  // votações na Casa em que o jogador tem cadeira (e um processo de impeachment contra ele)
+  const myChamber = chamberOf(me);
+  for (const b of state.t.bills.values()) {
+    if (b.status !== "TRAMITANDO" || b.vote_on < today) continue;
+    const againstMe = b.votes?.impeachment?.target === me.id;
+    if (!againstMe && (!myChamber || b.chamber !== myChamber)) continue;
+    items.push({
+      date: b.vote_on,
+      days: daysBetween(today, b.vote_on),
+      title: againstMe ? "Votação do seu impeachment" : `Votação: ${b.title}`,
+      detail: againstMe ? "Articule votos na tela do governo." : b.votes?.impeachment ? "Processo de impeachment no plenário." : "Projeto em pauta no plenário.",
+      tone: againstMe ? "hot" : "info",
+    });
   }
   for (const m of state.t.mandates.values()) {
     if (m.person_id === me.id && m.status === "FUTURO") items.push({ date: m.start_on, days: daysBetween(today, m.start_on), title: `Sua posse: ${officeTitle(m.office_code, genderOf(me))}`, detail: geoName(m.geo, state), tone: "hot" });

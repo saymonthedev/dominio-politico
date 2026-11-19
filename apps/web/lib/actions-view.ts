@@ -27,6 +27,11 @@ import {
   genderOf,
   personWord,
   genderize,
+  votableBills,
+  chamberName,
+  cabinetPostOptions,
+  cabinetNewOptions,
+  cabinetPartyOptions,
   officeTitle,
 } from "@dp/engine";
 import { fmtDate, fmtMoney } from "./format";
@@ -161,7 +166,14 @@ function actionViews(state: WorldState, personId: string, categories?: ActionCat
       case "office":
         return e ? officesForElection(e.kind).map((o) => ({ value: o, label: `${OFFICES[o].name} (mín. ${OFFICES[o].minAge} anos)` })) : [];
       case "bill":
-        return [...state.t.bills.values()].filter((b) => b.status === "TRAMITANDO").map((b) => ({ value: b.id, label: `${b.title} — votação ${fmtDate(b.vote_on)}` }));
+        // só o que está em votação na Casa em que o jogador tem cadeira (Câmara Municipal, Assembleia, Câmara ou Senado)
+        return votableBills(ctx, me).map((b) => ({ value: b.id, label: `${b.title} — ${chamberName(b.chamber, state)} · votação ${fmtDate(b.vote_on)}` }));
+      case "cabinet_post":
+        return cabinetPostOptions(ctx, me, st, actionId === "exonerar_secretario");
+      case "cabinet_new":
+        return cabinetNewOptions(ctx, me, st);
+      case "cabinet_party":
+        return cabinetPartyOptions(ctx, me);
       case "offer":
         return st.offers.map((o) => ({ value: o.id, label: `${o.kind === "PROPINA" ? "Propina" : "Caixa dois"} de ${fmtMoney(o.amount)} — ${state.t.persons.get(o.from)?.name ?? "intermediário"}` }));
       case "request":
