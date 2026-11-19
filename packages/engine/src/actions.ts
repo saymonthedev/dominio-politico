@@ -3,6 +3,7 @@ import { LIFE_ACTIONS } from "./actions-life";
 import { chamberOf, isImpeachment, PLENARIO_ACTIONS, votableBills } from "./plenario";
 import { CABINET_ACTIONS } from "./secretariado";
 import { missionProgress } from "./missoes";
+import { startBaseline, startProgress } from "./inicio";
 import { bumpApproval } from "./approval";
 import { addOtherAssets } from "./housing";
 import { newProposal } from "./gabinete";
@@ -2350,6 +2351,8 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
     usedKeys.push(key);
     return diminishing(st, key, ctx.tick);
   };
+  // missões de início: personagem de antes delas começa com o que já tinha feito (sem recompensa)
+  startBaseline(ctx, p, st);
   const repBefore = p.reputation;
   const standingBefore = st.party_standing;
   const reachBefore = { ...st.reach };
@@ -2382,13 +2385,16 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
   st.action_seq += 1;
   st.last_action_tick = ctx.tick;
   for (const k of usedKeys.length ? usedKeys : [actionId]) recordUse(st, k, ctx.tick);
+  // missões de início: paga os passos cumpridos (por esta ação ou pelo tempo que passou desde a anterior)
+  const start = startProgress(ctx, p, st);
   p.reputation = Math.round(p.reputation * 10) / 10;
   ctx.save("persons", p);
   ctx.save("person_states", st);
   ctx.emit("PLAYER_ACTION", { actors: [personId], geography: p.uf, payload: { action: actionId, params, message: result.message } });
   afterAction(ctx, personId, actionId, params);
   checkAchievements(ctx, p);
-  return mission ? { ...result, message: `${result.message} ${mission}` } : result;
+  const extra = [mission, start].filter(Boolean).join(" ");
+  return extra ? { ...result, message: `${result.message} ${extra}` } : result;
 }
 
 export const OFFICE_CHOICES = (Object.keys(OFFICES) as OfficeCode[]).map((c) => ({ value: c, label: OFFICES[c].name }));

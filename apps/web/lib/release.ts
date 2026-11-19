@@ -21,6 +21,8 @@ export const RELEASE: Release = {
     { icon: "share", text: "Compartilhe a sua carreira: na Carreira (e no Governo, quem tem mandato), o botão Compartilhar faz um cartão do seu personagem para o story e o WhatsApp, já com o seu link de convite." },
     { icon: "coins", text: "Plano anual: 365 dias de jogo por R$ 29,90, por Pix, sem renovação automática. O mensal continua igual." },
     { icon: "flag", text: "Missões da semana no Painel: três metas por semana do jogo, com energia e capital político na hora; cumprindo as três, +1 de reputação." },
+    { icon: "star", text: "Missões de início no Painel: os primeiros passos agora rendem energia e capital político e levam até a sua primeira pré-candidatura." },
+    { icon: "zap", text: "Criar rápido: personagem novo em um toque, com nome sugerido; é só escolher o estado. O formulário completo continua lá." },
     { icon: "heart", text: "Obrigado por jogar e por espalhar o Domínio Político!" },
   ],
 };

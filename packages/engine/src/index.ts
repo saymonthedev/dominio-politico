@@ -25,6 +25,7 @@ export * from "./housing";
 export * from "./hydrate";
 export * from "./government";
 export * from "./ideology";
+export * from "./inicio";
 export * from "./names";
 export * from "./news/moderation";
 export * from "./news/narrative";

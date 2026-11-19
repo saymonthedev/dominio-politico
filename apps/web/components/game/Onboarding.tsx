@@ -12,9 +12,14 @@ export interface OnboardingStep {
   href: string;
   cta: string;
   done: boolean;
+  /** recompensa da missão de início ("+10 de energia, +2 de capital político") */
+  reward?: string;
 }
 
-/** Primeiros passos no Painel: some sozinho quando tudo estiver feito ou quando o jogador esconder. */
+/**
+ * Missões de início no Painel (os primeiros passos, com recompensa): somem sozinhas quando tudo
+ * estiver feito ou quando o jogador esconder. A recompensa sai na ação que cumpre o passo.
+ */
 export function Onboarding({ year, steps }: { year: number; steps: OnboardingStep[] }) {
   const [hidden, setHidden] = useState(false);
   const done = steps.filter((s) => s.done).length;
@@ -30,17 +35,18 @@ export function Onboarding({ year, steps }: { year: number; steps: OnboardingSte
       <header className="onb__head">
         <div>
           <span className="onb__kicker">
-            <Icon name="flag" size={14} /> Primeiros passos
+            <Icon name="flag" size={14} /> Missões de início
           </span>
           <h2 id="onb-title">
-            {done} de {steps.length} concluídos
+            {done} de {steps.length} concluídas
           </h2>
+          <p className="onb__lede">Cada missão cumprida rende energia e capital político. O caminho leva até a sua primeira pré-candidatura.</p>
         </div>
         <button type="button" className="onb__hide" onClick={hide}>
           Esconder
         </button>
       </header>
-      <div className="onb__bar" role="progressbar" aria-label="Progresso dos primeiros passos" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={done}>
+      <div className="onb__bar" role="progressbar" aria-label="Progresso das missões de início" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={done}>
         <i style={{ width: `${(done / steps.length) * 100}%` }} />
       </div>
       <ol className="onb__steps">
@@ -54,6 +60,11 @@ export function Onboarding({ year, steps }: { year: number; steps: OnboardingSte
                 {s.term ? <Term k={s.term}>{s.title}</Term> : s.title}
                 {s.done && <span className="ui-sr"> (concluído)</span>}
               </b>
+              {!s.done && s.reward && (
+                <span className="onb__reward">
+                  <Icon name="gift" size={13} /> {s.reward}
+                </span>
+              )}
               <p>{s.text}</p>
               {s === next && (
                 <a className="ui-btn ui-btn--gold ui-btn--sm" href={s.href}>

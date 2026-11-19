@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { addDays, electionNight, genderizeEvent, genderOf, missionsView, pendingOf, roundDue, roundView, stageTitle, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
+import { addDays, electionNight, genderizeEvent, genderOf, missionsView, pendingOf, roundDue, roundView, stageTitle, startView, type EconomyRow, type NewsRow, type PartyRow, type StartStepId } from "@dp/engine";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
@@ -81,9 +81,21 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   // missões da semana do jogador (no dia dele, nas rodadas do mundo compartilhado)
   const missions = missionsView(meNow, st, myDate);
 
-  // primeiros passos: cada um se completa pelo que o jogador já fez no mundo
+  // missões de início (primeiros passos com recompensa): o motor diz o que já foi cumprido e paga na ação
   const tutorialOff = (await cookies()).get(`dp_tutorial_${year}`)?.value === "off";
   const base = `/jogo/${year}`;
+  const startMap = new Map(startView(me.person, me.state, myTick).map((x) => [x.id, x]));
+  const startOf = (id: StartStepId) => ({ done: startMap.get(id)?.done ?? false, reward: startMap.get(id)?.reward });
+  // pré-candidatura: só no período de pré-campanha da próxima eleição (e com partido)
+  const nextVote = [...state.t.elections.values()].filter((e) => e.status !== "ENCERRADA").sort((a, b) => a.year - b.year)[0];
+  const preOpen = !!nextVote && (nextVote.status === "PRE_CAMPANHA" || nextVote.status === "CONVENCOES") && myDate < nextVote.calendar.conventionEnd;
+  const preText = !nextVote
+    ? "Na pré-campanha, peça ao partido para disputar um cargo. A convenção decide entre você e os outros nomes."
+    : preOpen
+      ? me.person.party_id
+        ? `A pré-campanha da eleição de ${nextVote.year} está aberta até ${fmtDate(nextVote.calendar.conventionEnd)}: peça ao partido para disputar um cargo. A convenção decide entre você e os outros nomes.`
+        : `A pré-campanha da eleição de ${nextVote.year} está aberta, mas só quem é filiado pode se lançar. Entre num partido antes.`
+      : `A pré-campanha da eleição de ${nextVote.year} abre em ${fmtDate(nextVote.calendar.preCampaignStart)}. Até lá, ganhe espaço no partido: na convenção vence quem tem mais apoio.`;
   const onboarding: OnboardingStep[] = [
     {
       id: "energia",
@@ -92,7 +104,23 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
       text: "Cada ação da carreira custa energia, que volta 25 pontos por dia de jogo. Comece por um evento comunitário.",
       href: `${base}/carreira`,
       cta: "Escolher uma ação",
-      done: me.state.action_seq > 0,
+      ...startOf("energia"),
+    },
+    {
+      id: "reuniao",
+      title: "Vá a uma reunião aberta de partido",
+      text: "É o jeito mais rápido de sair do anonimato: você conhece as lideranças locais e passa a ser notado(a) pelos partidos. Está nas ações da Carreira.",
+      href: `${base}/carreira`,
+      cta: "Ir à reunião",
+      ...startOf("reuniao"),
+    },
+    {
+      id: "partido",
+      title: "Entre num partido",
+      text: "Sem partido não há candidatura. Compare afinidade e chance de aprovação de cada legenda, peça filiação e passe o tempo: o partido responde em alguns dias.",
+      href: `${base}/partidos`,
+      cta: "Comparar partidos",
+      ...startOf("partido"),
     },
     {
       id: "tempo",
@@ -102,7 +130,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
         : "Neste mundo só seu, o tempo para enquanto você não joga. Avance dias aqui no Painel e veja o que aconteceu no Brasil.",
       href: `${base}#tempo`,
       cta: "Ir para o relógio",
-      done: myTick - me.person.created_tick >= 7,
+      ...startOf("tempo"),
     },
     {
       id: "acontecimento",
@@ -111,7 +139,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
       text: "Com o passar do tempo, a vida acontece: convites, crises, propostas. Eles aparecem no ícone de raio do topo e no relógio do Painel. Escolha como reagir; cada escolha tem consequências.",
       href: `${base}#tempo`,
       cta: "Ir para o relógio",
-      done: (me.state.story?.log ?? []).some((e) => !e.auto && e.kind !== "INFO"),
+      ...startOf("acontecimento"),
     },
     {
       id: "mes",
@@ -120,23 +148,16 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
       text: "No dia 1 o jogo fecha suas contas: salário, impostos, custo de vida e rendimentos. O extrato fica em Finanças.",
       href: `${base}/financas`,
       cta: "Abrir Finanças",
-      done: !!me.state.ledger?.month,
+      ...startOf("mes"),
     },
     {
-      id: "degrau",
-      title: "Suba o primeiro degrau",
-      text: "Com 20 de ativismo você vira ativista e passa a ser notado(a) pelos partidos. O caminho completo está na Carreira.",
+      id: "pre",
+      title: "Lance a pré-candidatura",
+      term: "Pré-candidatura",
+      text: preText,
       href: `${base}/carreira`,
-      cta: "Ver a carreira",
-      done: me.person.stage !== "CIDADAO",
-    },
-    {
-      id: "partido",
-      title: "Entre num partido",
-      text: "Sem partido não há candidatura. Compare afinidade e chance de aprovação de cada legenda antes de pedir filiação.",
-      href: `${base}/partidos`,
-      cta: "Comparar partidos",
-      done: !!me.person.party_id,
+      cta: preOpen && me.person.party_id ? "Lançar pré-candidatura" : "Ver a carreira",
+      ...startOf("pre"),
     },
   ];
 

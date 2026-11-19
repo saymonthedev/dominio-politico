@@ -1756,6 +1756,8 @@ td.num, th.num { text-align: right; }
 .onb__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .onb__kicker { display: inline-flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--faixa-texto); }
 .onb h2 { margin: 4px 0 0; font-size: 1.1rem; letter-spacing: -0.01em; }
+.onb__lede { margin: 4px 0 0; font-size: .82rem; color: var(--apagado); line-height: 1.45; }
+.onb__reward { display: flex; width: fit-content; align-items: center; gap: 5px; margin-top: 4px; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 600; color: var(--faixa-texto); background: color-mix(in srgb, var(--faixa) 14%, transparent); }
 .onb__hide { all: unset; cursor: pointer; font-size: .8rem; font-weight: 600; color: var(--apagado); padding: 6px 10px; border-radius: 8px; }
 .onb__hide:hover { background: var(--rebaixada); color: var(--tinta); }
 .onb__hide:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--faixa) 50%, transparent); }

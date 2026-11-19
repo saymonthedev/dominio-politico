@@ -18,6 +18,7 @@ const ENTRIES: GlossaryEntry[] = [
   { term: "Coligação", text: "Aliança entre partidos para uma eleição. Proibida nas eleições proporcionais a partir de 2020 (EC 97/2017)." },
   { term: "Colaboração premiada", text: "Acordo em que o investigado confessa e entrega provas em troca de redução de pena (Lei 12.850/2013). Também chamada de delação." },
   { term: "Convenção partidária", text: "Reunião em que o partido escolhe seus candidatos e alianças. Acontece em um período fixo do ano eleitoral." },
+  { term: "Pré-candidatura", text: "Pedido ao partido para disputar um cargo na próxima eleição. Só quem é filiado pode se lançar, no período de pré-campanha; a convenção decide quem vira candidato." },
   { term: "Copom", text: "Comitê de Política Monetária do Banco Central, que define a taxa Selic a cada 45 dias." },
   { term: "CPI", text: "Comissão Parlamentar de Inquérito: investigação conduzida pelo Legislativo, com poderes próprios de autoridade judicial." },
   { term: "Cultura de entrada", text: "Como cada partido recebe novos filiados no jogo: aberto a pedidos, só com relacionamento com alguém de dentro ou só por convite." },
