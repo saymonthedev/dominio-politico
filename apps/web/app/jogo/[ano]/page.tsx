@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { addDays, electionNight, genderizeEvent, genderOf, pendingOf, roundDue, roundView, stageTitle, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
+import { addDays, electionNight, genderizeEvent, genderOf, missionsView, pendingOf, roundDue, roundView, stageTitle, type EconomyRow, type NewsRow, type PartyRow } from "@dp/engine";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
@@ -78,6 +78,8 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   // com as travas de agora (dinheiro e energia mudam depois que o acontecimento chega)
   const g = genderOf(meNow);
   const storyPending = pendingOf(state, meNow, me.state).map((ev) => genderizeEvent(ev, g));
+  // missões da semana do jogador (no dia dele, nas rodadas do mundo compartilhado)
+  const missions = missionsView(meNow, st, myDate);
 
   // primeiros passos: cada um se completa pelo que o jogador já fez no mundo
   const tutorialOff = (await cookies()).get(`dp_tutorial_${year}`)?.value === "off";
@@ -195,6 +197,25 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
         <div className="gstack">
           <Panel className={storyPending.length ? undefined : "is-empty-m"} title={<Term k="Acontecimento">Acontecimentos</Term>} icon="zap" tone={storyPending.some((e) => e.blocking) ? "gold" : undefined} aside={storyPending.length ? <Pill tone="gold">{storyPending.length}</Pill> : undefined} href={`/jogo/${year}/carreira#historia`} hrefLabel="Histórico">
             <StoryInbox year={year} events={storyPending} today={myDate} />
+          </Panel>
+
+          <Panel title="Missões da semana" icon="flag" aside={missions.all ? <Pill tone="ok">semana completa</Pill> : <span className="muted small">{missions.items.filter((x) => x.done).length} de {missions.items.length}</span>}>
+            <ul className="missions">
+              {missions.items.map((x) => (
+                <li key={x.id} className={x.done ? "is-done" : undefined}>
+                  <div>
+                    <b>{x.label}</b>
+                    <small>
+                      {x.done ? "Cumprida" : `${x.count} de ${x.goal}`} · +{x.reward.energy} de energia{x.reward.capital ? `, +${x.reward.capital} de capital político` : ""}
+                    </small>
+                  </div>
+                  <i aria-hidden="true">
+                    <em style={{ width: `${Math.round((x.count / x.goal) * 100)}%` }} />
+                  </i>
+                </li>
+              ))}
+            </ul>
+            <p className="muted small" style={{ margin: "8px 0 0" }}>Cumprindo as três, você ganha +1 de reputação. As missões trocam a cada semana do jogo.</p>
           </Panel>
 
           <Panel className={pendCount ? undefined : "is-empty-m"} title="Pendências" icon="inbox" tone={pendCount ? "gold" : undefined} aside={pendCount ? <Pill tone="gold">{pendCount}</Pill> : undefined}>

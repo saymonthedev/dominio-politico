@@ -2,6 +2,7 @@ import { checkAchievements } from "./achievements";
 import { LIFE_ACTIONS } from "./actions-life";
 import { chamberOf, isImpeachment, PLENARIO_ACTIONS, votableBills } from "./plenario";
 import { CABINET_ACTIONS } from "./secretariado";
+import { missionProgress } from "./missoes";
 import { bumpApproval } from "./approval";
 import { addOtherAssets } from "./housing";
 import { newProposal } from "./gabinete";
@@ -2376,6 +2377,8 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
   st.energy = Math.max(0, st.energy - def.energy);
   // cada ação que gasta energia cansa um pouco (descanso e lazer não contam)
   if (def.category !== "VIDA" && def.energy > 0) addFatigue(st, def.energy * 0.12);
+  // missões da semana: a ação conta e quem cumpre já recebe (energia, capital político)
+  const mission = missionProgress(ctx, p, st, def.category);
   st.action_seq += 1;
   st.last_action_tick = ctx.tick;
   for (const k of usedKeys.length ? usedKeys : [actionId]) recordUse(st, k, ctx.tick);
@@ -2385,7 +2388,7 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
   ctx.emit("PLAYER_ACTION", { actors: [personId], geography: p.uf, payload: { action: actionId, params, message: result.message } });
   afterAction(ctx, personId, actionId, params);
   checkAchievements(ctx, p);
-  return result;
+  return mission ? { ...result, message: `${result.message} ${mission}` } : result;
 }
 
 export const OFFICE_CHOICES = (Object.keys(OFFICES) as OfficeCode[]).map((c) => ({ value: c, label: OFFICES[c].name }));

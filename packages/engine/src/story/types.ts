@@ -166,6 +166,8 @@ export interface StoryState {
   family?: import("../family").FamilyState;
   /** secretariado ou ministérios de quem governa (secretariado.ts) */
   cabinet?: import("../secretariado").Cabinet | null;
+  /** missões da semana (missoes.ts): quantas ações contaram em cada uma e as cumpridas */
+  missions?: { week: string; count: Record<string, number>; done: string[] } | null;
   /** pedidos de apoio de candidaturas fictícias, à espera de resposta (apoio.ts) */
   apoio_pedidos?: Array<{ id: string; cand: string; from: string; on: ISODate; until: ISODate }>;
   /** candidaturas que já pediram apoio e foram recusadas (não pedem de novo) */

@@ -3320,3 +3320,14 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .admin-table th, .admin-table td { padding: 6px 8px; border-bottom: 1px solid var(--linha); text-align: right; white-space: nowrap; }
 .admin-table thead th { color: var(--apagado); font-weight: 600; }
 .admin-table th[scope="row"], .admin-table thead th:first-child { text-align: left; }
+
+/* Missões da semana (Painel) */
+.missions { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.missions li { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--linha); background: var(--cartao); }
+.missions li > div { display: grid; gap: 2px; }
+.missions b { font-size: .86rem; }
+.missions small { font-size: .76rem; color: var(--apagado); }
+.missions i { display: block; height: 6px; border-radius: 999px; background: var(--rebaixada); overflow: hidden; }
+.missions em { display: block; height: 100%; border-radius: 999px; background: var(--faixa); }
+.missions li.is-done { border-color: color-mix(in srgb, var(--mata) 45%, var(--linha)); }
+.missions li.is-done em { background: var(--mata); }
