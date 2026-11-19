@@ -4,6 +4,7 @@
  * relógio do mundo, aplicamos ações e gravamos as mudanças.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadBairros, loadCities, loadSnapshot } from "@dp/data";
 import { liveVitals, type LiveVitals } from "./vitals";
@@ -261,16 +262,95 @@ function keepPlayerEvents(json: Record<string, unknown[]>, state: WorldState): v
   else delete json.world_events;
 }
 
-/** Grava as mudanças em lotes paralelos; a linha do mundo vai por último, com checagem de tick. */
-export async function persist(worldId: string, changes: Changes, expectedTick: number | null, state?: WorldState): Promise<void> {
+/** Pacote de uma gravação guardado no diário do banco (para completar a gravação se ela for cortada). */
+interface JournalPack {
+  tick: number | null;
+  worlds: unknown[];
+  rows: Record<string, unknown[]>;
+}
+
+/**
+ * Guarda o pacote inteiro da gravação antes dos lotes (comprimido; private.world_journal, migração
+ * 0038). Devolve a revisão em que ele vale, ou null se o banco ainda não tem o diário.
+ */
+async function putJournal(worldId: string, holder: string, pack: JournalPack): Promise<number | null> {
+  const data = deflateRawSync(Buffer.from(JSON.stringify(pack), "utf8"), { level: 3 }).toString("base64");
+  try {
+    return asRev(await rpc<number | string>("sim_journal_put", { p_world: worldId, p_holder: holder, p_data: data }));
+  } catch (e) {
+    if (missingFn(e)) return null;
+    throw e;
+  }
+}
+
+/**
+ * Grava as mudanças. O que cabe numa chamada vai numa só (uma transação do banco: tudo ou nada).
+ * O resto vai em lotes paralelos, com a linha do mundo por último (com checagem de tick) e o pacote
+ * inteiro guardado antes no diário: se o servidor cair no meio, quem abrir o mundo depois completa.
+ */
+export async function persist(worldId: string, changes: Changes, expectedTick: number | null, state?: WorldState, holder?: string): Promise<void> {
   const json = changes.toJSON();
   const worldRows = json.worlds ?? [];
   delete json.worlds;
   if (state) keepPlayerEvents(json, state);
-  await writeBatches(worldId, batchesOf(json), "sim_apply");
+  const batches = batchesOf(json);
+  if (batches.length <= 1) {
+    const one: Batch = { ...(batches[0] ?? {}) };
+    if (worldRows.length) one.worlds = worldRows;
+    if (!rowsIn(one)) return;
+    try {
+      await rpc("sim_apply", { p_world: worldId, p_changes: one, p_expected_tick: worldRows.length ? expectedTick : null });
+      return;
+    } catch (e) {
+      // pesado demais para o tempo do banco numa chamada só: segue em lotes menores, com o diário
+      if (!isTimeout(e)) throw e;
+    }
+  }
+  const journal = holder ? await putJournal(worldId, holder, { tick: expectedTick, worlds: worldRows, rows: json }) : null;
+  await writeBatches(worldId, batches, "sim_apply");
   if (worldRows.length) {
     await rpc("sim_apply", { p_world: worldId, p_changes: { worlds: worldRows }, p_expected_tick: expectedTick });
   }
+  if (journal !== null) {
+    // se esta limpeza falhar, o próximo a abrir o mundo regrava o mesmo pacote (sem efeito) e apaga
+    await rpc("sim_journal_done", { p_world: worldId, p_holder: holder, p_rev: journal, p_bump: false }).catch(() => undefined);
+  }
+}
+
+/**
+ * Gravação anterior cortada no meio (o servidor caiu ou estourou o tempo entre os lotes): com o lease
+ * na mão, grava o que faltou a partir do pacote do diário e sobe a revisão, para todos os servidores
+ * relerem o que mudou. Devolve a revisão do lease depois disso.
+ */
+async function finishCutWrite(worldId: string, holder: string, rev: number): Promise<number> {
+  let j: { rev: number | string; data: string } | null;
+  try {
+    j = await rpc<{ rev: number | string; data: string } | null>("sim_journal_get", { p_world: worldId });
+  } catch (e) {
+    if (missingFn(e)) return rev;
+    throw e;
+  }
+  if (!j) return rev;
+  const jrev = Number(j.rev);
+  if (jrev !== rev) {
+    // alguém gravou o mundo depois do corte por outro caminho: o pacote ficou velho
+    await rpc("sim_journal_done", { p_world: worldId, p_holder: holder, p_rev: jrev, p_bump: false });
+    console.warn(`[diario] ${worldId}: pacote da revisão ${jrev} descartado (revisão atual ${rev})`);
+    return rev;
+  }
+  const pack = JSON.parse(inflateRawSync(Buffer.from(j.data, "base64")).toString("utf8")) as JournalPack;
+  await writeBatches(worldId, batchesOf(pack.rows), "sim_apply");
+  if (pack.worlds.length) {
+    try {
+      await rpc("sim_apply", { p_world: worldId, p_changes: { worlds: pack.worlds }, p_expected_tick: pack.tick });
+    } catch (e) {
+      // o corte foi depois da linha do mundo: ela já estava gravada
+      if (!(e instanceof SimDbError && e.code === "40001")) throw e;
+    }
+  }
+  const next = asRev(await rpc<number | string | null>("sim_journal_done", { p_world: worldId, p_holder: holder, p_rev: jrev, p_bump: true }));
+  console.warn(`[diario] ${worldId}: gravação cortada completada (revisão ${rev} → ${next ?? rev})`);
+  return next ?? rev;
 }
 
 /** Criação marcada há mais que isto (segundos) foi interrompida e pode ser retomada. */
@@ -813,6 +893,7 @@ async function openWorld(worldId: string, opts: { wait?: boolean } = {}): Promis
   if (rev === null) return null;
   let entry: Cached | undefined;
   try {
+    rev = await finishCutWrite(worldId, holder, rev);
     const hit = cache.get(worldId);
     if (usable(hit) && !hit.writing) {
       // daqui em diante só esta gravação mexe na memória (as telas leem dela como está)
@@ -912,7 +993,7 @@ export async function withWorld<T>(
     for (const c of actionChanges) changes.merge(c);
     if (changes.count() > 0) {
       dirty = true;
-      await persist(worldId, changes, expected, state);
+      await persist(worldId, changes, expected, state, w.holder);
     }
     ok = true;
     await logFaults(worldId, clock.faults);
@@ -1168,7 +1249,7 @@ async function fastForwardRaw(worldId: string, days: number, userId: string): Pr
     // registro do avanço (atividade do mundo próprio)
     ctx.emit("TIME_ADVANCED", { actors: me ? [me.id] : [], geography: "BR", payload: { days: manual, from, to: state.world.game_date } });
     dirty = true;
-    await persist(worldId, ctx.changes, expected, state);
+    await persist(worldId, ctx.changes, expected, state, w.holder);
     ok = true;
     await logFaults(worldId, ctx.faults);
     const news = ctx.changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
@@ -1259,7 +1340,7 @@ async function advanceStepRaw(worldId: string, days: number, userId: string): Pr
     changes.merge(clock.changes);
     changes.merge(step.ctx.changes);
     dirty = true;
-    await persist(worldId, changes, expected, state);
+    await persist(worldId, changes, expected, state, w.holder);
     ok = true;
     await logFaults(worldId, step.ctx.faults);
     const news = changes.get("news_articles").filter((n) => n.visibility === "PUBLIC" || n.user_id === userId);
@@ -1320,7 +1401,7 @@ async function livePersonal(worldId: string, days: number, userId: string): Prom
     if (roundDue(state.world, Date.now())) {
       if (changes.count() > 0) {
         dirty = true;
-        await persist(worldId, changes, expected, state);
+        await persist(worldId, changes, expected, state, w.holder);
       }
       ok = true;
       return { ok: false, message: "A rodada virou e o mundo ainda está andando os dias dela. Tente de novo em instantes.", days: 0 };
@@ -1330,7 +1411,7 @@ async function livePersonal(worldId: string, days: number, userId: string): Prom
     const step = await stepDaysAsync(state, me.id, { days, budgetMs: 20_000, now: () => Date.now(), tolerant: true, personalCap: state.world.stats.round_cap }, breathe);
     changes.merge(step.ctx.changes);
     dirty = true;
-    await persist(worldId, changes, expected, state);
+    await persist(worldId, changes, expected, state, w.holder);
     ok = true;
     await logFaults(worldId, [...clock.faults, ...step.ctx.faults]);
     // nos dias pessoais só sai notícia da sua história; o resto do país anda na virada

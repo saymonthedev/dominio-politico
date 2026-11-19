@@ -9,7 +9,8 @@ import { getSession, myCharacters } from "@/lib/game";
 import { fmtDate } from "@/lib/format";
 import { deleteMyWorld } from "@/app/jogo/actions";
 import { modeOfWorld, yearOfWorld } from "@/lib/sim";
-import { ShareButton } from "@/components/ShareButton";
+import { InviteCard } from "@/components/InviteCard";
+import { TRIAL_LABEL } from "@/lib/price";
 import { inviteShare, sharePack } from "@/lib/share";
 
 export const metadata: Metadata = { title: "Minha conta" };
@@ -72,33 +73,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
             </a>
           </section>
 
-          {invite && (
-            <section className="account-card" id="convite">
-              <div className="refer">
-                <div>
-                  <h2 style={{ margin: 0 }}>
-                    <Icon name="gift" size={20} /> Convide amigos e ganhe dias de jogo
-                  </h2>
-                  <p className="muted small" style={{ margin: "6px 0 0" }}>
-                    Mande o seu link no WhatsApp ou poste o cartão no story. A cada amigo que criar a conta pelo seu link e assinar, você ganha <b>7 dias de jogo</b>, somados à sua assinatura.
-                  </p>
-                </div>
-                <div className="refer__stats">
-                  <div>
-                    <b>{stats.invited ?? 0}</b>
-                    <span className="muted small">{(stats.invited ?? 0) === 1 ? "amigo entrou" : "amigos entraram"} pelo seu link</span>
-                  </div>
-                  <div>
-                    <b>{(stats.rewarded ?? 0) * 7} dias</b>
-                    <span className="muted small">ganhos com {stats.rewarded ?? 0} {(stats.rewarded ?? 0) === 1 ? "amigo que assinou" : "amigos que assinaram"}</span>
-                  </div>
-                </div>
-                <div>
-                  <ShareButton share={{ link: invite.link, text: invite.text, story: invite.story }} label="Convidar amigos" tone="gold" />
-                </div>
-              </div>
-            </section>
-          )}
+          {invite && <InviteCard share={{ link: invite.link, text: invite.text, story: invite.story }} invited={stats.invited ?? 0} rewarded={stats.rewarded ?? 0} trial={TRIAL_LABEL} />}
 
           {own.map((c) => (
             <section key={c.world_id} className="account-card account-card--form danger">

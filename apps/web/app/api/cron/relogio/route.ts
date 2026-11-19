@@ -3,6 +3,8 @@ import { advanceSharedWorlds } from "@/lib/sim";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
+/** roda em São Paulo, ao lado do banco (sa-east-1): o Vercel Cron chama dos EUA */
+export const preferredRegion = "gru1";
 
 /**
  * Virada das rodadas dos mundos compartilhados (Vercel Cron, vercel.json, de 15 em 15 minutos; as

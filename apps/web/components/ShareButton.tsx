@@ -28,7 +28,7 @@ export function ShareButton({ share, label = "Compartilhar", tone = "ghost" }: {
   );
 }
 
-function ShareDialog({ share, onClose }: { share: ShareData; onClose: () => void }) {
+export function ShareDialog({ share, onClose, title = "Mostre a sua carreira" }: { share: ShareData; onClose: () => void; title?: string }) {
   const box = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
@@ -69,7 +69,7 @@ function ShareDialog({ share, onClose }: { share: ShareData; onClose: () => void
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="sharebox__img" src={share.story} alt="Cartão do seu personagem para o story" width={270} height={480} />
           <div className="sharebox__side">
-            <h2 id="share-title">Mostre a sua carreira</h2>
+            <h2 id="share-title">{title}</h2>
             <p className="muted small">
               Poste o cartão no story ou mande no WhatsApp. <b>A cada amigo que entrar pelo seu link e assinar, você ganha 7 dias de jogo.</b>
             </p>

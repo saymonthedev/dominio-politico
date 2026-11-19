@@ -5,6 +5,8 @@ import { advanceSharedWorlds, logError, runMaintenance, yearOfWorld, type Mainte
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
+/** roda em São Paulo, ao lado do banco (sa-east-1): o Vercel Cron chama dos EUA */
+export const preferredRegion = "gru1";
 
 /** tempo total para avançar os mundos; o resto fica para a manutenção */
 const TICK_BUDGET_MS = 40_000;
