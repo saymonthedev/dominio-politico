@@ -1,4 +1,5 @@
 import { addMonths, monthKey } from "./calendar";
+import { betweenJob } from "./entre-eleicoes";
 import { familyCosts } from "./family";
 import { ensureHousing, housingCosts, housingMonthEnd } from "./housing";
 import { profession } from "./names";
@@ -184,11 +185,18 @@ export function monthlyStatement(ctx: Ctx, p: PersonRow, st: PersonStateRow, dat
   // fora dele, vale a jornada combinada nos acontecimentos da carreira (licença, meio período, demissão)
   const share = typeof st.story?.flags.jornada === "number" ? Math.max(0, Math.min(1, st.story.flags.jornada)) : 1;
   const profLabel = profession(p.profession.split("|")[0]).label;
-  const work = jailed || p.office_code ? 0 : professionIncome(p, priceLevelAt(ctx, date)) * share;
+  // entre eleições: Conselho Tutelar ou cargo de confiança, com a profissão em licença
+  const between = !jailed && !p.office_code ? betweenJob(st, date) : null;
+  const job = between ? Math.round(between.ref * priceLevelAt(ctx, date)) : 0;
+  const work = jailed || p.office_code || between ? 0 : professionIncome(p, priceLevelAt(ctx, date)) * share;
   if (work > 0) items.push({ kind: "RENDA", label: share < 1 ? `Salário de ${profLabel} (jornada reduzida)` : `Salário de ${profLabel}`, amount: Math.round(work) });
   if (p.office_code && !jailed) items.push({ kind: "RENDA", label: `Salário de ${profLabel}: em licença durante o mandato`, amount: 0 });
+  if (between) {
+    items.push({ kind: "RENDA", label: between.label, amount: job });
+    items.push({ kind: "RENDA", label: `Salário de ${profLabel}: em licença`, amount: 0 });
+  }
   if (subsidy > 0) items.push({ kind: "SUBSIDIO", label: `Subsídio de ${OFFICES[p.office_code!].name.toLowerCase()}`, amount: Math.round(subsidy) });
-  const tax = incomeTax(work + subsidy, date);
+  const tax = incomeTax(work + subsidy + job, date);
   if (tax > 0) items.push({ kind: "IMPOSTO", label: "Imposto de Renda retido (estimativa)", amount: -Math.round(tax) });
   const selic = ctx.s.economy?.selic ?? 10;
   if (st.money > 0) {
@@ -196,7 +204,7 @@ export function monthlyStatement(ctx: Ctx, p: PersonRow, st: PersonStateRow, dat
     items.push({ kind: "RENDIMENTO", label: `Rendimento da reserva (${selic.toFixed(2).replace(".", ",")}% de Selic, já com IR)`, amount: Math.round(gross * 0.85) });
   }
   items.push({ kind: "CUSTO_VIDA", label: "Custo de vida (comida, contas, saúde, deslocamento)", amount: -livingCost(ctx, p, subsidy, date) });
-  if (p.kind === "PLAYER") items.push(...housingCosts(ctx, p, st, work + subsidy));
+  if (p.kind === "PLAYER") items.push(...housingCosts(ctx, p, st, work + subsidy + job));
   if (p.kind === "PLAYER") items.push(...familyCosts(ctx, p, st, priceLevelAt(ctx, date)));
   const party = p.party_id ? ctx.t.parties.get(p.party_id) : undefined;
   if (party && subsidy > 0) {

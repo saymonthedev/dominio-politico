@@ -20,6 +20,7 @@ import {
 import { dailyPolicies, monthlyBills, monthlyFiscalStance } from "./government";
 import { dailyVotes, monthlyImpeachments } from "./plenario";
 import { monthlyCabinets } from "./secretariado";
+import { dailyBetween, monthlyBetween } from "./entre-eleicoes";
 import { monthlyFinances, monthlyPartyFinances } from "./finance";
 import { monthlyApproval } from "./approval";
 import { energyRecovery } from "./wellbeing";
@@ -247,6 +248,7 @@ export function advanceDay(ctx: Ctx): void {
   step("crimes do dia", d, () => dailyCrime(ctx));
   step("políticas públicas", d, () => dailyPolicies(ctx));
   step("votações", d, () => dailyVotes(ctx));
+  step("conselho tutelar e cargos de confiança", d, () => dailyBetween(ctx));
   if (isCopomDay(d)) step("Copom", d, () => copomMeeting(ctx));
 
   if (weekday(d) === 1) {
@@ -262,6 +264,7 @@ export function advanceDay(ctx: Ctx): void {
     step("crimes do mês", d, () => monthlyCrime(ctx));
     step("pedidos de impeachment", d, () => monthlyImpeachments(ctx));
     step("secretariados", d, () => monthlyCabinets(ctx));
+    step("conselho e cargos de confiança do mês", d, () => monthlyBetween(ctx));
     step("finanças dos partidos", d, () => monthlyPartyFinances(ctx));
   }
   if (month(d) === 1 && day(d) === 2) step("renovação do ano", d, () => yearlyRenewal(ctx));

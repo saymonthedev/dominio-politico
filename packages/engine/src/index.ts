@@ -15,6 +15,7 @@ export * from "./crime";
 export * from "./crimes";
 export * from "./economy";
 export * from "./elections";
+export * from "./entre-eleicoes";
 export * from "./fiction";
 export * from "./family";
 export * from "./gender";

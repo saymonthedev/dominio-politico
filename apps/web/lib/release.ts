@@ -12,18 +12,16 @@ export interface Release {
 
 /** Com a assinatura ligada (chave do Mercado Pago na Vercel). */
 export const RELEASE: Release = {
-  id: "2026-11-19-convite",
-  date: "19 de novembro de 2026",
+  id: "2026-11-20-entre-eleicoes",
+  date: "20 de novembro de 2026",
   title: "Atualização lançada",
-  lede: "Chame os amigos e ganhe dias de jogo, mostre a sua carreira nas redes e assine por um ano com desconto.",
+  lede: "Mais o que fazer entre uma eleição e outra, e a noite da eleição como um evento para todo o mundo compartilhado.",
   items: [
-    { icon: "gift", text: "Convide amigos: em Minha conta estão o seu link (é só tocar em Copiar), o botão do WhatsApp e o cartão pronto para o story. A cada amigo que criar a conta pelo link e assinar, você ganha 7 dias de jogo." },
-    { icon: "share", text: "Compartilhe a sua carreira: na Carreira (e no Governo, quem tem mandato), o botão Compartilhar faz um cartão do seu personagem para o story e o WhatsApp, já com o seu link de convite." },
-    { icon: "coins", text: "Plano anual: 365 dias de jogo por R$ 29,90, por Pix, sem renovação automática. O mensal continua igual." },
-    { icon: "flag", text: "Missões da semana no Painel: três metas por semana do jogo, com energia e capital político na hora; cumprindo as três, +1 de reputação." },
-    { icon: "star", text: "Missões de início no Painel: os primeiros passos agora rendem energia e capital político e levam até a sua primeira pré-candidatura." },
-    { icon: "zap", text: "Criar rápido: personagem novo em um toque, com nome sugerido; é só escolher o estado. O formulário completo continua lá." },
-    { icon: "heart", text: "Obrigado por jogar e por espalhar o Domínio Político!" },
+    { icon: "ballot", text: "Noite da eleição ao vivo: no mundo compartilhado, quando a rodada termina no dia da votação, o Painel mostra a hora em que a urna fecha e a contagem regressiva. Na virada, a apuração sai para todo mundo ao mesmo tempo." },
+    { icon: "shield", text: "Conselho Tutelar: eleição sem partido, de 4 em 4 anos. A Carreira mostra quando abrem as inscrições (de abril a julho); cada ação na comunidade até a votação ajuda. Quem vence tem 4 anos de mandato, com remuneração." },
+    { icon: "briefcase", text: "Cargo de confiança: quem é filiado e não tem mandato pode trabalhar como assessor(a) da bancada do partido na Câmara Municipal, na Assembleia ou na Câmara dos Deputados. Rende salário e espaço no partido." },
+    { icon: "info", text: "Para disputar uma eleição, é preciso deixar o conselho e o cargo de confiança: a pré-candidatura faz isso sozinha." },
+    { icon: "star", text: "Também chegaram as missões de início, o Criar rápido e o novo Convide amigos em Minha conta." },
   ],
 };
 

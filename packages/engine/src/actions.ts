@@ -2,6 +2,7 @@ import { checkAchievements } from "./achievements";
 import { LIFE_ACTIONS } from "./actions-life";
 import { chamberOf, isImpeachment, PLENARIO_ACTIONS, votableBills } from "./plenario";
 import { CABINET_ACTIONS } from "./secretariado";
+import { BETWEEN_ACTIONS, countConselho, leaveForCandidacy } from "./entre-eleicoes";
 import { missionProgress } from "./missoes";
 import { startBaseline, startProgress } from "./inicio";
 import { bumpApproval } from "./approval";
@@ -737,9 +738,11 @@ export const ACTIONS: ActionDef[] = [
       };
       ctx.save("candidacies", cand);
       p.stage = "PRE_CANDIDATO";
+      // desincompatibilização: deixa o Conselho Tutelar e o cargo de confiança
+      const left = leaveForCandidacy(ctx, p, ctx.pstate(p.id)!);
       return {
         ok: true,
-        message: `Pré-candidatura a ${rule.name} em ${geoName(geo, ctx.s)} registrada no ${party.acronym}. Convenções: ${formatDatePt(e.calendar.conventionStart)} a ${formatDatePt(e.calendar.conventionEnd)}.${elig.ok ? "" : " " + cand.note}`,
+        message: `Pré-candidatura a ${rule.name} em ${geoName(geo, ctx.s)} registrada no ${party.acronym}. Convenções: ${formatDatePt(e.calendar.conventionStart)} a ${formatDatePt(e.calendar.conventionEnd)}.${elig.ok ? "" : " " + cand.note}${left ? " " + left : ""}`,
       };
     },
   },
@@ -2139,6 +2142,7 @@ export const ACTIONS: ActionDef[] = [
   ...LIFE_ACTIONS,
   ...PLENARIO_ACTIONS,
   ...CABINET_ACTIONS,
+  ...BETWEEN_ACTIONS,
   donateToCampaign(),
   socialPost(),
 ];
@@ -2382,6 +2386,8 @@ export function performAction(ctx: Ctx, personId: string, actionId: string, para
   if (def.category !== "VIDA" && def.energy > 0) addFatigue(st, def.energy * 0.12);
   // missões da semana: a ação conta e quem cumpre já recebe (energia, capital político)
   const mission = missionProgress(ctx, p, st, def.category);
+  // Conselho Tutelar: ação na comunidade de quem está inscrito conta para a votação
+  countConselho(st, ctx.date, def.category, def.id);
   st.action_seq += 1;
   st.last_action_tick = ctx.tick;
   for (const k of usedKeys.length ? usedKeys : [actionId]) recordUse(st, k, ctx.tick);

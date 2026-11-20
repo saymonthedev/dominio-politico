@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { addDays, electionNight, genderizeEvent, genderOf, missionsView, pendingOf, roundDue, roundView, stageTitle, startView, type EconomyRow, type NewsRow, type PartyRow, type StartStepId } from "@dp/engine";
+import { addDays, betweenTitle, electionNight, genderize, genderizeEvent, genderOf, missionsView, pendingOf, roundDue, roundView, stageTitle, startView, type EconomyRow, type NewsRow, type PartyRow, type StartStepId } from "@dp/engine";
 import { CareerTrack } from "@/components/game/CareerTrack";
 import { NewsList } from "@/components/game/NewsList";
 import { Empty, GameHeader, Kpi, MeterRow, Panel, Pill } from "@/components/game/Page";
@@ -78,6 +78,8 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
   const pendCount = todo.invites.length + todo.offers.length + todo.investigations + todo.partyRequests.length;
   // com as travas de agora (dinheiro e energia mudam depois que o acontecimento chega)
   const g = genderOf(meNow);
+  // entre eleições: Conselho Tutelar ou cargo de confiança
+  const job = betweenTitle(me.state, myDate);
   const storyPending = pendingOf(state, meNow, me.state).map((ev) => genderizeEvent(ev, g));
   // missões da semana do jogador (no dia dele, nas rodadas do mundo compartilhado)
   const missions = missionsView(meNow, st, myDate);
@@ -192,7 +194,7 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
 
   return (
     <>
-      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${stageTitle(me.person.stage, g)}${me.party ? ` do ${me.party.acronym}` : ""}, ${Number(myDate.slice(0, 4)) - me.person.birth_year} anos. Veja o que fazer agora, passe o tempo e acompanhe o país.`}>
+      <GameHeader kicker="Painel" icon="home" title={`Olá, ${firstName}`} lede={`${stageTitle(me.person.stage, g)}${me.party ? ` do ${me.party.acronym}` : ""}${job ? `, ${genderize(job, g)}` : ""}, ${Number(myDate.slice(0, 4)) - me.person.birth_year} anos. Veja o que fazer agora, passe o tempo e acompanhe o país.`}>
         <a className="ui-btn ui-btn--gold" href={`/jogo/${year}/carreira`}>
           <Icon name="play" size={16} /> <span>Agir na carreira</span>
         </a>

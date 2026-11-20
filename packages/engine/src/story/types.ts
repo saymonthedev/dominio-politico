@@ -170,6 +170,10 @@ export interface StoryState {
   missions?: { week: string; count: Record<string, number>; done: string[] } | null;
   /** missões de início (inicio.ts): os passos já cumpridos (e pagos) */
   start?: { done: string[] } | null;
+  /** Conselho Tutelar (entre-eleicoes.ts): candidatura, resultado e mandato */
+  conselho?: import("../entre-eleicoes").ConselhoState | null;
+  /** cargo de confiança na bancada do partido (entre-eleicoes.ts) */
+  confianca?: import("../entre-eleicoes").ConfiancaState | null;
   /** pedidos de apoio de candidaturas fictícias, à espera de resposta (apoio.ts) */
   apoio_pedidos?: Array<{ id: string; cand: string; from: string; on: ISODate; until: ISODate }>;
   /** candidaturas que já pediram apoio e foram recusadas (não pedem de novo) */

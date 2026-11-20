@@ -9,6 +9,7 @@ import { DeltaChips, useGameAction } from "./game/ActionFx";
 /** Ícone próprio de cada ação; sem entrada, vale o da categoria. */
 const ACTION_ICON: Record<string, string> = {
   trabalhar: "briefcase", evento_local: "home", voluntariado: "users", artigo: "newspaper", reuniao_partidaria: "flag", conversar: "users",
+  candidatar_conselho: "shield", renunciar_conselho: "logout", pedir_cargo_confianca: "briefcase", deixar_cargo_confianca: "logout",
   curso: "book", pedir_filiacao: "flag", responder_convite: "mail", desfiliar: "logout", militancia: "megaphone", aproximar_faccao: "sliders",
   contribuir_partido: "coins", pre_candidatura: "ballot", comicio: "megaphone", lancar_proposta: "file", mobilizacao_regional: "map",
   contratar_equipe: "briefcase", preparar_debate: "users", impulsionar_boato: "alert", votar_projeto: "ballot", apresentar_projeto: "file",
