@@ -46,13 +46,15 @@ export const usesRounds = (w: ClockRow): boolean => typeof w.stats?.round_done =
 export interface Milestone {
   date: ISODate;
   label: string;
+  /** dia de votação: a eleição e o turno (a noite da eleição no Painel) */
+  vote?: { year: number; round: 1 | 2 };
 }
 
 /** Marcos do calendário eleitoral depois de `from`, em ordem. */
 export function nextMilestones(state: WorldState, from: ISODate): Milestone[] {
   const out: Milestone[] = [];
-  const add = (date: ISODate | undefined, label: string) => {
-    if (date && date > from) out.push({ date, label });
+  const add = (date: ISODate | undefined, label: string, vote?: Milestone["vote"]) => {
+    if (date && date > from) out.push(vote ? { date, label, vote } : { date, label });
   };
   for (const e of state.t.elections.values()) {
     if (e.status === "ENCERRADA") continue;
@@ -62,8 +64,8 @@ export function nextMilestones(state: WorldState, from: ISODate): Milestone[] {
     add(c.conventionStart, `início das convenções de ${e.year}`);
     add(c.conventionEnd, `fim das convenções de ${e.year}`);
     add(c.campaignStart, `início da campanha de ${e.year}`);
-    add(e.first_round, `1º turno de ${e.year}`);
-    if (e.status === "SEGUNDO_TURNO") add(e.runoff, `2º turno de ${e.year}`);
+    add(e.first_round, `1º turno de ${e.year}`, { year: e.year, round: 1 });
+    if (e.status === "SEGUNDO_TURNO") add(e.runoff, `2º turno de ${e.year}`, { year: e.year, round: 2 });
   }
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }

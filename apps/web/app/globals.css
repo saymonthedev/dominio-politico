@@ -2514,6 +2514,28 @@ html[data-kbd] .skip:focus-visible { top: 12px; box-shadow: 0 0 0 3px var(--plan
 }
 
 /* resultado da última votação no Painel */
+/* Noite da eleição (mundo compartilhado): contagem até a urna fechar na virada da rodada */
+.enight { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 18px 20px; border-radius: 18px; color: #fff;
+  background: radial-gradient(120% 160% at 100% 0%, rgba(212, 165, 60, .25) 0%, transparent 50%), linear-gradient(135deg, #0b1f3a, #163059); border: 1.5px solid color-mix(in srgb, var(--faixa) 55%, transparent); box-shadow: 0 14px 40px rgba(8, 22, 41, .25); }
+.enight__icon { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: rgba(255, 255, 255, .1); color: var(--faixa); }
+.enight__txt { display: grid; gap: 4px; min-width: 0; }
+.enight__kicker { display: inline-flex; align-items: center; gap: 8px; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faixa); }
+.enight__kicker i { width: 8px; height: 8px; border-radius: 50%; background: #e5484d; box-shadow: 0 0 0 0 rgba(229, 72, 77, .6); animation: enight-pulse 1.6s infinite; }
+.enight h2 { margin: 0; font-size: 1.15rem; line-height: 1.3; color: #fff; }
+.enight p { margin: 0; font-size: .86rem; line-height: 1.5; color: #c3cde0; }
+.enight__clock { display: grid; justify-items: center; padding: 10px 16px; border-radius: 14px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14); }
+.enight__clock b { font-size: 1.6rem; line-height: 1.1; color: var(--faixa-suave); }
+.enight__clock small { font-size: .7rem; color: #9fb0c9; }
+.enight.is-closed { border-color: rgba(229, 72, 77, .55); }
+@keyframes enight-pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 72, 77, .6); } 70% { box-shadow: 0 0 0 8px rgba(229, 72, 77, 0); } 100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); } }
+@media (max-width: 640px) {
+  .enight { grid-template-columns: auto minmax(0, 1fr); padding: 16px; }
+  .enight__clock { grid-column: 1 / -1; grid-template-columns: auto auto; justify-content: center; gap: 8px; align-items: baseline; }
+}
+@media (prefers-reduced-motion: reduce) { .enight__kicker i, .areplay__live i { animation: none; } }
+.areplay__live { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; padding: 1px 8px; border-radius: 999px; background: #e5484d; color: #fff; letter-spacing: .08em; }
+.areplay__live i { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: enight-pulse 1.6s infinite; }
+
 .areplay { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; margin-bottom: 20px; padding: 16px 18px; border-radius: 18px; background: linear-gradient(135deg, #0b1f3a, #163059); color: #fff; border: 1px solid color-mix(in srgb, var(--faixa) 45%, transparent); }
 .areplay.is-good { border-color: #3fae74; box-shadow: 0 0 0 3px rgba(63,174,116,.18); }
 .areplay__icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: rgba(255,255,255,.1); color: var(--faixa); }

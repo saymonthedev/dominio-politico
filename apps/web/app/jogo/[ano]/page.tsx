@@ -7,6 +7,7 @@ import { QuickAction } from "@/components/game/QuickAction";
 import { Onboarding, type OnboardingStep } from "@/components/game/Onboarding";
 import { actionsFor } from "@/lib/actions-view";
 import { ApuracaoReplay } from "@/components/game/ApuracaoReplay";
+import { ElectionNight } from "@/components/game/ElectionNight";
 import { UrnaCard } from "@/components/game/UrnaCard";
 import { TimeMachine, type RoundInfo } from "@/components/game/TimeMachine";
 import { StoryInbox } from "@/components/game/StoryCenter";
@@ -168,6 +169,13 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
     .filter(({ d }) => d <= today && daysSince(d, today) <= 45)
     .sort((a, b) => b.d.localeCompare(a.d))[0];
   const replay = lastVote ? electionNight(state, me.person.id, addDays(lastVote.d, -1), lastVote.d) : [];
+  // noite da eleição: a rodada termina num dia de votação (a urna fecha na virada, para todos ao mesmo tempo)
+  const vote = round ? (rv?.milestone?.vote ?? null) : null;
+  const inRace =
+    !!vote &&
+    [...state.t.candidacies.values()].some((c) => c.person_id === me.person.id && ["PRE", "HOMOLOGADA", "SEGUNDO_TURNO"].includes(c.status) && state.t.elections.get(c.election_id)?.year === vote.year);
+  // logo depois da virada da votação, o resultado é "ao vivo" (a apuração abre sozinha uma vez)
+  const liveVote = !!round && !!lastVote && state.world.game_date <= addDays(lastVote.d, 1);
   // semana da votação: a urna simbólica abre para o voto do jogador (sugestão do Rian Andrade)
   const urna = openUrnaView(state, me.person.id, myDate);
 
@@ -192,8 +200,9 @@ export default async function Painel({ params }: { params: Promise<{ ano: string
 
       {!tutorialOff && <Onboarding year={year} steps={onboarding} />}
 
+      {round && vote && <ElectionNight endsAt={round.endsAt} year={vote.year} round={vote.round} turning={round.turning} candidate={inRace} />}
       {urna && <UrnaCard urna={urna} today={myDate} />}
-      {replay.length > 0 && lastVote && <ApuracaoReplay list={replay} year={lastVote.e.year} />}
+      {replay.length > 0 && lastVote && <ApuracaoReplay list={replay} year={lastVote.e.year} live={liveVote} />}
 
       <div id="tempo" className="mb">
         <TimeMachine year={year} date={myDate} energy={me.state.energy} next={nextMark} today={todayMarks} pending={storyPending} agenda={schedulable} round={round} />
